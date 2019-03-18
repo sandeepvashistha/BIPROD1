@@ -13,85 +13,90 @@
     <DataSet Name="Rank_Purchase">
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
+        <QueryParameters>
+          <QueryParameter Name="@Comm_Month">
+            <Value>=Parameters!Comm_Month.Value</Value>
+          </QueryParameter>
+        </QueryParameters>
         <CommandText>Select 
     b.*
-    , Sum(case when CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, '01-Oct-2018'/*@Comm_Month*/)), 0) AS DATE) = Cast(DATEADD(MONTH, DATEDIFF(MONTH,0,DW.dbo.DST.ENTRY_DATE),0) AS Date) Then 1 Else 0 End ) As Curr_Recruit_Count
-    , Sum(case when CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, '01-Oct-2018'/*@Comm_Month*/))-1, 0) AS DATE) = Cast(DATEADD(MONTH, DATEDIFF(MONTH,0,DW.dbo.DST.ENTRY_DATE),0) AS Date) Then 1 Else 0 End ) As Last_Recruit_Count
-    , Sum(case when CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, '01-Oct-2018'/*@Comm_Month*/))-2, 0) AS DATE) = Cast(DATEADD(MONTH, DATEDIFF(MONTH,0,DW.dbo.DST.ENTRY_DATE),0) AS Date) Then 1 Else 0 End ) As Last_2_Recruit_Count
+    , Sum(Case When CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(Date, @Comm_Month)), 0) AS DATE) = Cast(DATEADD(MONTH, DATEDIFF(MONTH,0,DW.dbo.DST.ENTRY_DATE),0) AS Date) Then 1 Else 0 End ) As Curr_Recruit_Count
+    , Sum(Case When CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(Date, @Comm_Month))-1, 0) AS DATE) = Cast(DATEADD(MONTH, DATEDIFF(MONTH,0,DW.dbo.DST.ENTRY_DATE),0) AS Date) Then 1 Else 0 End ) As Last_Recruit_Count
+    , Sum(Case When CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(Date, @Comm_Month))-2, 0) AS DATE) = Cast(DATEADD(MONTH, DATEDIFF(MONTH,0,DW.dbo.DST.ENTRY_DATE),0) AS Date) Then 1 Else 0 End ) As Last_2_Recruit_Count
     , bwt12.pv_date_date
     --, bwt12.Vol1 As PV
     , bwt12.vol3
     , bwt12.wrk20 As Horizontal_Leg
-from
+From
    (
-     select 
+     Select 
         d.*
-     from
+     From
        (
-         select
-            c.dist_id
-            , c.roman_name_1
-            , c.home_country
-            , c.country_code
-            , c.current_pv_date
-            , c.current_OV
-            , c.last_pv_date
-            , c.last_OV
-            , c.last_2_pv_date
-            , c.last_2_OV
-            , c.Curr_OV_diff
-            , c.Last_OV_diff
-            , (Case When c.last_OV = 0 Then 1 Else Cast((c.Curr_OV_diff/ c.last_OV)*100 As Int) End)  As Cur_Growth_Per
-            , (Case When c.last_2_OV = 0 Then 1 Else Cast((c.Last_OV_diff/ c.last_2_OV)*100 As Int) End)  As Last_Growth_Per  
-            , RANK() OVER(PARTITION BY c.country_code ORDER BY c.Curr_OV_diff desc,c.dist_id) as rnk
-      From
+        Select
+           c.dist_id
+           , c.roman_name_1
+           , c.home_country
+           , c.country_code
+           , c.current_pv_date
+           , c.current_OV
+           , c.last_pv_date
+           , c.last_OV
+           , c.last_2_pv_date
+           , c.last_2_OV
+           , c.Curr_OV_diff
+           , c.Last_OV_diff
+           , (Case When c.last_OV = 0 Then 1 Else Cast((c.Curr_OV_diff/ c.last_OV)*100 As Int) End)  As Cur_Growth_Per
+           , (Case When c.last_2_OV = 0 Then 1 Else Cast((c.Last_OV_diff/ c.last_2_OV)*100 As Int) End)  As Last_Growth_Per  
+           , RANK() OVER(PARTITION BY c.country_code ORDER BY c.Curr_OV_diff Desc,c.dist_id) as rnk
+        From
          (
-           select 
-              bwt.dist_id
-              , dst.roman_name_1
-              , dst.home_country
-              , dst.country_code
-              , CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, '01-Oct-2018'/*@Comm_Month*/)), 0) AS DATE) current_pv_date
-              , Sum(case when CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, '01-Oct-2018'/*@Comm_Month*/)), 0) AS DATE)=bwt.pv_date_date then (bwt.Vol3) else 0 end) current_OV
-              , CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, '01-Oct-2018'/*@Comm_Month*/))-1, 0) AS DATE) last_pv_date
-              , Sum(case when CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, '01-Oct-2018'/*@Comm_Month*/))-1, 0) AS DATE)=bwt.pv_date_date then (bwt.Vol3) else 0 end) last_OV
-              , CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, '01-Oct-2018'/*@Comm_Month*/))-2, 0) AS DATE) last_2_pv_date
-              , Sum(case when CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, '01-Oct-2018'/*@Comm_Month*/))-2, 0) AS DATE)=bwt.pv_date_date then (bwt.Vol3) else 0 end) last_2_OV
-              , (Sum(case when CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, '01-Oct-2018'/*@Comm_Month*/)), 0) AS DATE)=bwt.pv_date_date then (bwt.Vol3) else 0 end)-
-sum(case when CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, '01-Oct-2018'/*@Comm_Month*/))-1, 0) AS DATE)=bwt.pv_date_date then (bwt.Vol3) else 0 end)) Curr_OV_diff
-               , (Sum(case when CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, '01-Oct-2018'/*@Comm_Month*/))-1, 0) AS DATE)=bwt.pv_date_date then (bwt.Vol3) else 0 end)-
-sum(case when CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, '01-Oct-2018'/*@Comm_Month*/))-2, 0) AS DATE)=bwt.pv_date_date then (bwt.Vol3) else 0 end)) Last_OV_diff
-           from 
-              dw.dbo.bwt inner join dw.dbo.dst on bwt.dist_id=dst.dist_id
-           where 
-              dst.uni_mkting_unit='91' 
-              and 
-              dst.country_code in ('IND')--(@CountryCode)
-              and 
-              cast(bwt.pv_date_date as date) between CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, '01-Oct-2018'/*@Comm_Month*/))-2, 0) AS DATE) and
-CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, '01-Oct-2018'/*@Comm_Month*/)), 0) AS DATE)
-              --and
-              --bwt.Vol1 &gt;= '50' 
-              --and
-              --dst.Dist_id = '205402601'
-          group by 
-              bwt.dist_id
-              , dst.roman_name_1
-              , dst.home_country
-              , dst.country_code--,a.current_pv_date,a.last_pv_date
+          Select 
+             bwt.dist_id
+             , dst.roman_name_1
+             , dst.home_country
+             , dst.country_code
+             , CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(Date, @Comm_Month)), 0) As DATE) current_pv_date
+             , Sum(Case When CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(Date, @Comm_Month)), 0) As DATE) = bwt.pv_date_date Then (bwt.Vol3) Else 0 End) current_OV
+             , CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(Date, @Comm_Month))-1, 0) AS DATE) last_pv_date
+             , Sum(Case When CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(Date, @Comm_Month))-1, 0) As DATE) = bwt.pv_date_date Then (bwt.Vol3) Else 0 End) last_OV
+             , CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(Date, @Comm_Month))-2, 0) As DATE) last_2_pv_date
+             , Sum(Case When CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(Date, @Comm_Month))-2, 0) As DATE) = bwt.pv_date_date Then (bwt.Vol3) Else 0 End) last_2_OV
+             , (Sum(Case When CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(Date, @Comm_Month)), 0) As DATE) = bwt.pv_date_date Then (bwt.Vol3) Else 0 End)-
+Sum(Case When CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(Date, @Comm_Month))-1, 0) As DATE) = bwt.pv_date_date Then (bwt.Vol3) Else 0 End)) Curr_OV_diff
+             , (Sum(Case When CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(Date, @Comm_Month))-1, 0) As DATE) = bwt.pv_date_date Then (bwt.Vol3) Else 0 End)-
+Sum(Case When CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(Date, @Comm_Month))-2, 0) As DATE) = bwt.pv_date_date Then (bwt.Vol3) Else 0 End)) Last_OV_diff
+           From 
+             dw.dbo.bwt inner join dw.dbo.dst on bwt.dist_id=dst.dist_id
+           Where 
+             dst.uni_mkting_unit='91' 
+             And 
+             dst.country_code in ('IND')--(@CountryCode)
+             And 
+             Cast(bwt.pv_date_date As Date) between CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(Date, @Comm_Month))-2, 0) As DATE) and
+CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, @Comm_Month)), 0) As DATE)
+             --and
+             --bwt.Vol1 &gt;= '50' 
+             --and
+             --dst.Dist_id = '205402601'
+           Group by 
+             bwt.dist_id
+             , dst.roman_name_1
+             , dst.home_country
+             , dst.country_code--,a.current_pv_date,a.last_pv_date
          ) c
            --Where c.OV_diff &gt;= '25000'
       ) d
         --where d.rnk&lt;=10
   ) b
-   Left Outer Join DW.dbo.DST On ( b.Dist_ID = DW.dbo.DST.Enroller_ID and DATEADD(MONTH, DATEDIFF(MONTH,0,DW.dbo.DST.ENTRY_DATE),0) between CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, '01-Oct-2018'/*@Comm_Month*/))-2, 0) AS DATE) and
-CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, '01-Oct-2018'/*@Comm_Month*/)), 0) AS DATE))
-   Left Outer Join dw.dbo.bwt bwt12 on (bwt12.dist_id=b.dist_id 
-and CAST(bwt12.pv_date_date AS DATE) between CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, b.current_pv_date)-11, 0) AS DATE) and CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, b.current_pv_date), 0) AS DATE) /*and bwt12.Vol1 &gt;= '50'*/)
+   Left Outer Join DW.dbo.DST On ( b.Dist_ID = DW.dbo.DST.Enroller_ID and DATEADD(MONTH, DATEDIFF(MONTH,0,DW.dbo.DST.ENTRY_DATE),0) between CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(Date, @Comm_Month))-2, 0) AS DATE) And
+CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(Date, @Comm_Month)), 0) AS DATE))
+   Left Outer Join dw.dbo.bwt bwt12 on (bwt12.dist_id = b.dist_id 
+And CAST(bwt12.pv_date_date AS DATE) between CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, b.current_pv_date)-11, 0) AS DATE) And CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, b.current_pv_date), 0) AS DATE) /*and bwt12.Vol1 &gt;= '50'*/)
 Where
-   b.Cur_Growth_Per &gt;= 30
+   b.Cur_Growth_Per &gt;= 30 --@Prompt
    and 
-   b.Last_Growth_Per &gt;= 30
+   b.Last_Growth_Per &gt;= 30  --@prompt
 Group by
    b.Dist_id,
    b.Roman_Name_1,
@@ -113,7 +118,7 @@ Group by
    --, bwt12.Vol1 As PV
    bwt12.vol3,
    bwt12.wrk20
-order by 
+Order by 
    b.country_code
    , b.rnk
    , b.dist_id
@@ -603,7 +608,6 @@ order by
                           <PaddingBottom>2pt</PaddingBottom>
                         </Style>
                       </Textbox>
-                      <rd:Selected>true</rd:Selected>
                     </CellContents>
                   </TablixCornerCell>
                   <TablixCornerCell>
@@ -1424,7 +1428,6 @@ order by
                           <PaddingBottom>2pt</PaddingBottom>
                         </Style>
                       </Textbox>
-                      <rd:Selected>true</rd:Selected>
                     </CellContents>
                   </TablixCornerCell>
                   <TablixCornerCell>
@@ -2553,7 +2556,6 @@ order by
                                                                           <PaddingBottom>2pt</PaddingBottom>
                                                                         </Style>
                                                                       </Textbox>
-                                                                      <rd:Selected>true</rd:Selected>
                                                                     </CellContents>
                                                                   </TablixHeader>
                                                                   <TablixMembers>
@@ -2576,7 +2578,7 @@ order by
                                                                                     <Style>
                                                                                       <FontFamily>Arial</FontFamily>
                                                                                       <FontSize>9pt</FontSize>
-                                                                                      <Format>0.00%</Format>
+                                                                                      <Format>0.0%</Format>
                                                                                     </Style>
                                                                                   </TextRun>
                                                                                 </TextRuns>
@@ -2660,7 +2662,7 @@ order by
                                                                                             <Style>
                                                                                               <FontFamily>Arial</FontFamily>
                                                                                               <FontSize>9pt</FontSize>
-                                                                                              <Format>0.00%</Format>
+                                                                                              <Format>0.0%</Format>
                                                                                             </Style>
                                                                                           </TextRun>
                                                                                         </TextRuns>
@@ -3252,7 +3254,6 @@ order by
                                                                           <PaddingBottom>2pt</PaddingBottom>
                                                                         </Style>
                                                                       </Textbox>
-                                                                      <rd:Selected>true</rd:Selected>
                                                                     </CellContents>
                                                                   </TablixHeader>
                                                                   <TablixMembers>
@@ -3447,7 +3448,7 @@ order by
               </SortExpression>
             </SortExpressions>
             <Height>1in</Height>
-            <Width>16.21875in</Width>
+            <Width>16.21874in</Width>
             <Style>
               <Border>
                 <Style>None</Style>
@@ -3468,10 +3469,23 @@ order by
       </Page>
     </ReportSection>
   </ReportSections>
+  <ReportParameters>
+    <ReportParameter Name="Comm_Month">
+      <DataType>DateTime</DataType>
+      <Prompt>Comm Month</Prompt>
+    </ReportParameter>
+  </ReportParameters>
   <ReportParametersLayout>
     <GridLayoutDefinition>
       <NumberOfColumns>4</NumberOfColumns>
       <NumberOfRows>1</NumberOfRows>
+      <CellDefinitions>
+        <CellDefinition>
+          <ColumnIndex>0</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>Comm_Month</ParameterName>
+        </CellDefinition>
+      </CellDefinitions>
     </GridLayoutDefinition>
   </ReportParametersLayout>
   <rd:ReportUnitType>Inch</rd:ReportUnitType>
