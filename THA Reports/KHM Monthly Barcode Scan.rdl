@@ -25,10 +25,10 @@ select odl.order_number, odh.warehouse, odh.post_date, sum(odl.qty_shipped) as u
 from dw.dbo.odl odl
 join dw.dbo.odh odh
 on odl.morder = odh.morder
-where item_code in('22375')
-and odh.post_date between DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) and EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1))
+where item_code in('22375') and 
+odh.post_date between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date)
 and odh.uni_mkting_unit = 66
-and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+and odh.WAREHOUSE in (300,305,306,307,308)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE not in ('C','R')
 --and odh.order_number=422207813
@@ -38,10 +38,10 @@ select odl.order_number, odh.warehouse, odh.post_date, sum(odl.qty_shipped*es.qu
 from dw.dbo.odl odl
 join dw.dbo.odh odh
 on odl.morder = odh.morder
-join barcode.dbo.easyship_th es on es.item_parent=odl.item_code and es.item_child='22375'
-where odh.post_date between DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) and EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1))
+join barcode.dbo.easyship_kh es on es.item_parent=odl.item_code and es.item_child='22375'
+where odh.post_date between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date)
 and odh.uni_mkting_unit = 66
-and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+and odh.WAREHOUSE in (300,305,306,307,308)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE not in ('C','R')
 --and odh.order_number=422207813
@@ -49,15 +49,17 @@ group by odl.order_number, odh.warehouse, odh.post_date
 ) c
 left outer join
 (
-select a.[order_id] as orderID,count(a.barcode_id) as scan_count
-from barcode.dbo.th_scan1_barcode a
+select a.[order] as orderID, count(b.scan_id) as scan_count
+from barcode.dbo.kh_scan a
+join barcode.dbo.kh_scan_line b
+on a.scan_id = b.scan_id
 where 1=1
-and a.stamp_created &gt;= '2017-12-01'
-and a.item_code ='22375'
-group by a.[order_id]
+and a.scan_date &gt;= DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-4, 0)
+and b.item_code ='22375'
+group by a.[order]
 ) d
 on convert(varchar,c.ORDER_NUMBER) = d.orderID
-where c.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+where c.WAREHOUSE in (300,305,306,307,308)
 group by c.POST_DATE,c.WAREHOUSE,(case when c.WAREHOUSE=106 then 2 else c.WAREHOUSE end);</CommandText>
       </Query>
       <Fields>
@@ -94,10 +96,10 @@ select odl.order_number, odh.warehouse, odh.post_date, sum(odl.qty_shipped) as u
 from dw.dbo.odl odl
 join dw.dbo.odh odh
 on odl.morder = odh.morder
-where item_code in(select item_no from barcode.[dbo].[th_required_items])
-and odh.post_date between DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) and EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1))
+where item_code in(select item_no from barcode.[dbo].[kh_required_items])
+and odh.post_date between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date)
 and odh.uni_mkting_unit = 66
-and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+and odh.WAREHOUSE in (300,305,306,307,308)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE not in ('C','R')
 group by odl.order_number, odh.warehouse, odh.post_date
@@ -106,26 +108,28 @@ select odl.order_number, odh.warehouse, odh.post_date, sum(odl.qty_shipped*es.qu
 from dw.dbo.odl odl
 join dw.dbo.odh odh
 on odl.morder = odh.morder
-join barcode.dbo.easyship_th es on es.item_parent=odl.item_code and es.item_child in (select item_no from barcode.[dbo].[th_required_items])
+join barcode.dbo.easyship_kh es on es.item_parent=odl.item_code and es.item_child in (select item_no from barcode.[dbo].[kh_required_items])
 where --item_code in('19236','22375','23256','23408','24288','24978','25735','29990') and 
-odh.post_date between DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) and EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1))
+odh.post_date between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date)
 and odh.uni_mkting_unit = 66
-and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+and odh.WAREHOUSE in (300,305,306,307,308)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE not in ('C','R')
 group by odl.order_number, odh.warehouse, odh.post_date
 ) c
 left outer join
 (
-select a.[order_id] as orderID,count(a.barcode_id) as scan_count
-from barcode.dbo.th_scan1_barcode a
+select a.[order] as orderID, count(b.scan_id) as scan_count
+from barcode.dbo.kh_scan a
+join barcode.dbo.kh_scan_line b
+on a.scan_id = b.scan_id
 where 1=1
-and a.stamp_created &gt;= '2017-12-01' and a.is_deleted=0
-and a.item_code in (select item_no from barcode.[dbo].[th_required_items]) 
-group by a.[order_id]
+and a.scan_date &gt;= getdate()-180
+and b.item_code in (select item_no from barcode.[dbo].[kh_required_items]) 
+group by a.[order]
 ) d
 on convert(varchar,c.ORDER_NUMBER) = d.orderID
-where c.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+where c.WAREHOUSE in (300,305,306,307,308)
 group by
 c.POST_DATE,c.WAREHOUSE,(case when c.WAREHOUSE=106 then 2 else c.WAREHOUSE end)</CommandText>
       </Query>
@@ -159,43 +163,45 @@ c.POST_DATE,c.WAREHOUSE,(case when c.WAREHOUSE=106 then 2 else c.WAREHOUSE end)<
 c.ScanReportBegin,c.ScanReportEnd,sum(c.unit_count) unit_count, sum(isnull(d.scan_count,0)) as scan_count
 from
 (
-select odl.order_number, odh.warehouse,whs.wh_name,odl.item_code, odh.post_date, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) ScanReportBegin,EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1)) ScanReportEnd,
+select odl.order_number, odh.warehouse,whs.wh_name,odl.item_code, odh.post_date, cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) ScanReportBegin,cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date) ScanReportEnd,
 sum(odl.qty_shipped) as unit_count
 from dw.dbo.odl odl
 join dw.dbo.odh odh on odl.morder = odh.morder
 left outer join dw.dbo.whs on (odh.uni_mkting_unit=whs.mkting_unit and odh.warehouse=whs.wh_number)
-where item_code in (select item_no from barcode.[dbo].[th_required_items])
-and cast(odh.post_date as date) between DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) and EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1))
+where item_code in (select item_no from barcode.[dbo].[kh_required_items])
+and cast(odh.post_date as date) between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date)
 and odh.uni_mkting_unit = 66
-and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+and odh.WAREHOUSE in (300,305,306,307,308)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE not in ('C','R')
 group by odl.order_number, odl.item_code,odh.warehouse,whs.wh_name, odh.post_date
 union
-select odl.order_number, odh.warehouse,whs.wh_name,es.item_child as item_code, odh.post_date,DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) ScanReportBegin,EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1)) ScanReportEnd,
+select odl.order_number, odh.warehouse,whs.wh_name,es.item_child as item_code, odh.post_date,cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) ScanReportBegin,cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date) ScanReportEnd,
 sum(odl.qty_shipped*es.quantity_per) as unit_count
 from dw.dbo.odl odl
 join dw.dbo.odh odh on odl.morder = odh.morder
-join barcode.dbo.easyship_th es on es.item_parent=odl.item_code and es.item_child in (select item_no from barcode.[dbo].[th_required_items])
+join barcode.dbo.easyship_kh es on es.item_parent=odl.item_code and es.item_child in (select item_no from barcode.[dbo].[kh_required_items])
 left outer join dw.dbo.whs on (odh.uni_mkting_unit=whs.mkting_unit and odh.warehouse=whs.wh_number)
-where cast(odh.post_date as date) between DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) and EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1))
+where cast(odh.post_date as date) between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date)
 and odh.uni_mkting_unit = 66
-and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+and odh.WAREHOUSE in (300,305,306,307,308)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE not in ('C','R')
 group by odl.order_number, es.item_child,odh.warehouse,whs.wh_name, odh.post_date
 ) c
 left outer join
 (
-select a.[order_id] as orderID,a.item_code as Item_code,count(a.barcode_id) as scan_count
-from barcode.dbo.th_scan1_barcode a
+select a.[order] as orderID,b.item_code as Item_code, count(b.scan_id) as scan_count
+from barcode.dbo.kh_scan a
+join barcode.dbo.kh_scan_line b
+on a.scan_id = b.scan_id
 where 1=1
-and a.stamp_created &gt;='2017-12-01' and a.is_deleted=0
-and a.item_code in (select item_no from barcode.[dbo].[th_required_items])
-group by a.[order_id],a.item_code
+and a.scan_date &gt;= getdate()-180
+and b.item_code in (select item_no from barcode.[dbo].[kh_required_items]) 
+group by a.[order],b.item_code
 ) d
 on convert(varchar,c.ORDER_NUMBER) = d.orderID and c.Item_code=d.Item_code
-where c.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+where c.WAREHOUSE in (300,305,306,307,308)
 group by c.POST_DATE,c.WAREHOUSE,(case when c.WAREHOUSE=106 then 2 else c.WAREHOUSE end),c.wh_name,c.item_code,c.ScanReportBegin,c.ScanReportEnd</CommandText>
       </Query>
       <Fields>
@@ -247,10 +253,10 @@ select odl.order_number, odh.warehouse,whs.wh_name,odl.item_code, odh.post_date,
 from dw.dbo.odl odl
 join dw.dbo.odh odh on odl.morder = odh.morder
 left outer join dw.dbo.whs on (odh.uni_mkting_unit=whs.mkting_unit and odh.warehouse=whs.wh_number)
-where item_code in (select item_no from barcode.[dbo].[th_required_items])
-and cast(odh.post_date as date) between DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) and EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1))
+where item_code in (select item_no from barcode.[dbo].[kh_required_items])
+and cast(odh.post_date as date) between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date)
 and odh.uni_mkting_unit = 66
-and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+and odh.WAREHOUSE in (300,305,306,307,308)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE not in ('C','R')
 group by odl.order_number, odl.item_code,odh.warehouse,whs.wh_name, odh.post_date
@@ -258,23 +264,25 @@ union
 select odl.order_number, odh.warehouse,whs.wh_name,es.item_child as item_code, odh.post_date,sum(odl.qty_shipped*es.quantity_per) as unit_count
 from dw.dbo.odl odl
 join dw.dbo.odh odh on odl.morder = odh.morder
-join barcode.dbo.easyship_th es on es.item_parent=odl.item_code and es.item_child in (select item_no from barcode.[dbo].[th_required_items])
+join barcode.dbo.easyship_kh es on es.item_parent=odl.item_code and es.item_child in (select item_no from barcode.[dbo].[kh_required_items])
 left outer join dw.dbo.whs on (odh.uni_mkting_unit=whs.mkting_unit and odh.warehouse=whs.wh_number)
-where cast(odh.post_date as date) between DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) and EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1))
+where cast(odh.post_date as date) between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date)
 and odh.uni_mkting_unit = 66
-and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+and odh.WAREHOUSE in (300,305,306,307,308)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE not in ('C','R')
 group by odl.order_number, es.item_child,odh.warehouse,whs.wh_name, odh.post_date
 ) it
 left outer join
 (
-select a.[order_id] as orderID,a.item_code as Item_code,count(a.barcode_id) as scan_count
-from barcode.dbo.th_scan1_barcode a
+select a.[order] as orderID,b.item_code as Item_code, count(b.scan_id) as scan_count
+from barcode.dbo.kh_scan a
+join barcode.dbo.kh_scan_line b
+on a.scan_id = b.scan_id
 where 1=1
-and a.stamp_created &gt;='2017-12-01' and a.is_deleted=0
-and a.item_code in (select item_no from barcode.[dbo].[th_required_items])
-group by a.[order_id],a.item_code
+and a.scan_date &gt;= getdate()-180
+and b.item_code in (select item_no from barcode.[dbo].[kh_required_items]) 
+group by a.[order],b.item_code
 ) bc on convert(varchar,it.ORDER_NUMBER) = bc.orderID and it.Item_code=bc.Item_code
 group by it.order_number, it.warehouse,it.wh_name,it.item_code, it.post_date,it.unit_count</CommandText>
       </Query>
@@ -315,13 +323,15 @@ group by it.order_number, it.warehouse,it.wh_name,it.item_code, it.post_date,it.
         <CommandText>select d.orderID,d.productid,d.[date] as scan_date,odh.WAREHOUSE,c.wh_name,d.Item_code barcode_Item_code,sum(isnull(d.scan_count,0)) as scan_count
 from
 (
-select a.[order_id] as orderID,a.barcode_id as productid,a.item_code as Item_code,
-cast(a.stamp_created as date) as [date],count(a.barcode_id) as scan_count
-from barcode.dbo.th_scan1_barcode a
+select a.[order] as orderID,b.barcode_id as productid,b.item_code as Item_code, 
+cast(a.scan_date as date) as [date],count(b.scan_id) as scan_count
+from barcode.dbo.kh_scan a
+join barcode.dbo.kh_scan_line b
+on a.scan_id = b.scan_id
 where 1=1
-and cast(a.stamp_created as date) between DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) and EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1)) 
-and a.is_deleted=0 and a.item_code in (select item_no from barcode.[dbo].[th_required_items])
-group by a.[order_id],a.barcode_id,a.item_code,cast(a.stamp_created as date)
+and a.scan_date between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date)
+and b.item_code in (select item_no from barcode.[dbo].[kh_required_items]) 
+group by a.[order],b.barcode_id,b.item_code,cast(a.scan_date as date)
 ) d
 left outer join dw.dbo.odh odh on (convert(varchar,odh.ORDER_NUMBER) = d.orderID and odh.uni_mkting_unit = 66)
 left outer join dw.dbo.whs c on (odh.uni_mkting_unit=c.mkting_unit and odh.warehouse=c.wh_number)
@@ -369,43 +379,45 @@ select c.WAREHOUSE,(case when c.WAREHOUSE in (1,106) then 'A' else 'B' end) as W
 c.ScanReportBegin,c.ScanReportEnd,sum(c.unit_count) unit_count, sum(isnull(d.scan_count,0)) as scan_count
 from
 (
-select odl.order_number, odh.warehouse,whs.wh_name,odl.item_code, odh.post_date,DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) ScanReportBegin,EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1)) ScanReportEnd,
+select odl.order_number, odh.warehouse,whs.wh_name,odl.item_code, odh.post_date,cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) ScanReportBegin,cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date) ScanReportEnd,
 sum(odl.qty_shipped) as unit_count
 from dw.dbo.odl odl
 join dw.dbo.odh odh on odl.morder = odh.morder
 left outer join dw.dbo.whs on (odh.uni_mkting_unit=whs.mkting_unit and odh.warehouse=whs.wh_number)
-where item_code in (select item_no from barcode.[dbo].[th_required_items])
-and cast(odh.post_date as date) between DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) and EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1))
+where item_code in (select item_no from barcode.[dbo].[kh_required_items])
+and cast(odh.post_date as date) between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date)
 and odh.uni_mkting_unit = 66
-and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+and odh.WAREHOUSE in (300,305,306,307,308)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE not in ('C','R')
 group by odl.order_number, odl.item_code,odh.warehouse,whs.wh_name, odh.post_date
 union
-select odl.order_number, odh.warehouse,whs.wh_name,es.item_child as item_code, odh.post_date,DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) ScanReportBegin,EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1)) ScanReportEnd,
+select odl.order_number, odh.warehouse,whs.wh_name,es.item_child as item_code, odh.post_date,cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) ScanReportBegin,cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date) ScanReportEnd,
 sum(odl.qty_shipped*es.quantity_per) as unit_count
 from dw.dbo.odl odl
 join dw.dbo.odh odh on odl.morder = odh.morder
-join barcode.dbo.easyship_th es on es.item_parent=odl.item_code and es.item_child in (select item_no from barcode.[dbo].[th_required_items])
+join barcode.dbo.easyship_kh es on es.item_parent=odl.item_code and es.item_child in (select item_no from barcode.[dbo].[kh_required_items])
 left outer join dw.dbo.whs on (odh.uni_mkting_unit=whs.mkting_unit and odh.warehouse=whs.wh_number)
-where cast(odh.post_date as date) between DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) and EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1))
+where cast(odh.post_date as date) between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date)
 and odh.uni_mkting_unit = 66
-and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+and odh.WAREHOUSE in (300,305,306,307,308)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE not in ('C','R')
 group by odl.order_number, es.item_child,odh.warehouse,whs.wh_name, odh.post_date
 ) c
 left outer join
 (
-select a.[order_id] as orderID,a.item_code as Item_code,count(a.barcode_id) as scan_count
-from barcode.dbo.th_scan1_barcode a
+select a.[order] as orderID,b.item_code as Item_code,count(b.scan_id) as scan_count
+from barcode.dbo.kh_scan a
+join barcode.dbo.kh_scan_line b
+on a.scan_id = b.scan_id
 where 1=1
-and a.stamp_created &gt;='2017-12-01' and a.is_deleted=0
-and a.item_code in (select item_no from barcode.[dbo].[th_required_items])
-group by a.[order_id],a.item_code
+and a.scan_date &gt;= getdate()-180
+and b.item_code in (select item_no from barcode.[dbo].[kh_required_items]) 
+group by a.[order],b.item_code
 ) d
 on convert(varchar,c.ORDER_NUMBER) = d.orderID and c.Item_code=d.Item_code
-where c.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+where c.WAREHOUSE in (300,305,306,307,308)
 group by c.WAREHOUSE,(case when c.WAREHOUSE in (1,106) then 'A' else 'B' end),c.wh_name,c.ScanReportBegin,c.ScanReportEnd
 ) a</CommandText>
       </Query>
@@ -457,43 +469,45 @@ select c.WAREHOUSE,(case when c.WAREHOUSE in (1,106) then 'A' else 'B' end) as W
 c.ScanReportBegin,c.ScanReportEnd,sum(c.unit_count) unit_count, sum(isnull(d.scan_count,0)) as scan_count
 from
 (
-select odl.order_number, odh.warehouse,whs.wh_name,odl.item_code, odh.post_date,DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) ScanReportBegin,EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1)) ScanReportEnd,
+select odl.order_number, odh.warehouse,whs.wh_name,odl.item_code, odh.post_date,cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) ScanReportBegin,cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date) ScanReportEnd,
 sum(odl.qty_shipped) as unit_count
 from dw.dbo.odl odl
 join dw.dbo.odh odh on odl.morder = odh.morder
 left outer join dw.dbo.whs on (odh.uni_mkting_unit=whs.mkting_unit and odh.warehouse=whs.wh_number)
-where item_code in (select item_no from barcode.[dbo].[th_required_items])
-and cast(odh.post_date as date) between DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) and EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1))
+where item_code in (select item_no from barcode.[dbo].[kh_required_items])
+and cast(odh.post_date as date) between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date)
 and odh.uni_mkting_unit = 66
-and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+and odh.WAREHOUSE in (300,305,306,307,308)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE not in ('C','R')
 group by odl.order_number, odl.item_code,odh.warehouse,whs.wh_name, odh.post_date
 union
-select odl.order_number, odh.warehouse,whs.wh_name,es.item_child as item_code, odh.post_date,DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) ScanReportBegin,EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1)) ScanReportEnd,
+select odl.order_number, odh.warehouse,whs.wh_name,es.item_child as item_code, odh.post_date,cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) ScanReportBegin,cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date) ScanReportEnd,
 sum(odl.qty_shipped*es.quantity_per) as unit_count
 from dw.dbo.odl odl
 join dw.dbo.odh odh on odl.morder = odh.morder
-join barcode.dbo.easyship_th es on es.item_parent=odl.item_code and es.item_child in (select item_no from barcode.[dbo].[th_required_items])
+join barcode.dbo.easyship_kh es on es.item_parent=odl.item_code and es.item_child in (select item_no from barcode.[dbo].[kh_required_items])
 left outer join dw.dbo.whs on (odh.uni_mkting_unit=whs.mkting_unit and odh.warehouse=whs.wh_number)
-where cast(odh.post_date as date) between DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) and EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1))
+where cast(odh.post_date as date) between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date)
 and odh.uni_mkting_unit = 66
-and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+and odh.WAREHOUSE in (300,305,306,307,308)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE not in ('C','R')
 group by odl.order_number, es.item_child,odh.warehouse,whs.wh_name, odh.post_date
 ) c
 left outer join
 (
-select a.[order_id] as orderID,a.item_code as Item_code,count(a.barcode_id) as scan_count
-from barcode.dbo.th_scan1_barcode a
+select a.[order] as orderID,b.item_code as Item_code,count(b.scan_id) as scan_count
+from barcode.dbo.kh_scan a
+join barcode.dbo.kh_scan_line b
+on a.scan_id = b.scan_id
 where 1=1
-and a.stamp_created &gt;='2017-12-01' and a.is_deleted=0
-and a.item_code in (select item_no from barcode.[dbo].[th_required_items])
-group by a.[order_id],a.item_code
+and a.scan_date &gt;= getdate()-180
+and b.item_code in (select item_no from barcode.[dbo].[kh_required_items]) 
+group by a.[order],b.item_code
 ) d
 on convert(varchar,c.ORDER_NUMBER) = d.orderID and c.Item_code=d.Item_code
-where c.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+where c.WAREHOUSE in (300,305,306,307,308)
 group by c.WAREHOUSE,(case when c.WAREHOUSE in (1,106) then 'A' else 'B' end),c.wh_name,c.ScanReportBegin,c.ScanReportEnd
 ) a
 left outer join
@@ -505,10 +519,10 @@ select odh.warehouse,whs.wh_name,sum(odl.qty_shipped) as unit_count
 from dw.dbo.odl odl
 join dw.dbo.odh odh on odl.morder = odh.morder
 left outer join dw.dbo.whs on (odh.uni_mkting_unit=whs.mkting_unit and odh.warehouse=whs.wh_number)
-where item_code in (select item_no from barcode.[dbo].[th_required_items])
-and cast(odh.post_date as date) between DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) and EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1))
+where item_code in (select item_no from barcode.[dbo].[kh_required_items])
+and cast(odh.post_date as date) between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date)
 and odh.uni_mkting_unit = 66
-and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+and odh.WAREHOUSE in (300,305,306,307,308)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE = 'C'
 group by odh.warehouse,whs.wh_name
@@ -516,11 +530,11 @@ union
 select odh.warehouse,whs.wh_name,sum(odl.qty_shipped*es.quantity_per) as unit_count
 from dw.dbo.odl odl
 join dw.dbo.odh odh on odl.morder = odh.morder
-join barcode.dbo.easyship_th es on es.item_parent=odl.item_code and es.item_child in (select item_no from barcode.[dbo].[th_required_items])
+join barcode.dbo.easyship_kh es on es.item_parent=odl.item_code and es.item_child in (select item_no from barcode.[dbo].[kh_required_items])
 left outer join dw.dbo.whs on (odh.uni_mkting_unit=whs.mkting_unit and odh.warehouse=whs.wh_number)
-where cast(odh.post_date as date) between DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) and EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1))
+where cast(odh.post_date as date) between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date)
 and odh.uni_mkting_unit = 66
-and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+and odh.WAREHOUSE in (300,305,306,307,308)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE = 'C'
 group by odh.warehouse,whs.wh_name
@@ -586,22 +600,22 @@ from dw.dbo.odl odl
 join dw.dbo.odh odh on odl.morder = odh.morder
 left outer join dw.dbo.whs on (odh.uni_mkting_unit=whs.mkting_unit and odh.warehouse=whs.wh_number)
 left outer join dw.dbo.itd on itd.mitem=odl.mitem
-where odl.item_code in (select item_no from barcode.[dbo].[th_required_items])
-and cast(odh.post_date as date) between DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) and EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1))
+where odl.item_code in (select item_no from barcode.[dbo].[kh_required_items])
+and cast(odh.post_date as date) between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date)
 and odh.uni_mkting_unit = 66
-and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+and odh.WAREHOUSE in (300,305,306,307,308)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE = 'C'
 union
 select odh.warehouse,whs.wh_name,odh.order_number,odh.post_date,odh.pv_date_date,odl.item_code,itd.item_name_1,odh.odh_type,odl.qty_shipped*es.quantity_per as unit_count
 from dw.dbo.odl odl
 join dw.dbo.odh odh on odl.morder = odh.morder
-join barcode.dbo.easyship_th es on es.item_parent=odl.item_code and es.item_child in (select item_no from barcode.[dbo].[th_required_items])
+join barcode.dbo.easyship_kh es on es.item_parent=odl.item_code and es.item_child in (select item_no from barcode.[dbo].[kh_required_items])
 left outer join dw.dbo.whs on (odh.uni_mkting_unit=whs.mkting_unit and odh.warehouse=whs.wh_number)
 left outer join dw.dbo.itd on itd.mitem=odl.mitem
-where cast(odh.post_date as date) between DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) and EOMONTH(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), -1))
+where cast(odh.post_date as date) between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0)+9 as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)+8 as date)
 and odh.uni_mkting_unit = 66
-and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+and odh.WAREHOUSE in (300,305,306,307,308)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE = 'C'
 ) RMA
