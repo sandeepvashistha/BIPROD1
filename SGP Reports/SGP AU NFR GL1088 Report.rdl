@@ -16,7 +16,9 @@
         <CommandText>select o.post_date as [Posting date],o.order_number as [Order no],odp.pre_auth_transit as [App code],o.odh_type,o.status,o.tot_invce_amount as [Amount_USD],
 g.[Global Dimension 1 Code] as [Division code],g.[Description],e.exchange_rate_amount as [Exchange Rate],o.order_source,ods.description source_desc,
 cast(o.order_source as varchar)+' - '+ods.description src_desc,sum(cast(g.Amount as numeric(20,4))) as [Amount(SGD)-GL1091],
-cast(sum(g.Amount)*(case when e.exchange_rate_amount is null then 1 else e.exchange_rate_amount end) as numeric(20,2)) as [Amount(AUD)-GL1088]
+cast(sum(g.Amount)*(case when e.exchange_rate_amount is null then 1 else e.exchange_rate_amount end) as numeric(20,2)) as [Amount(AUD)-GL1088],
+cast(sum(o.tot_invce_amount)/(case when e1.exchange_rate_amount is null then 1 else e1.exchange_rate_amount end) as numeric(20,2)) tot_invce_amt_AUD,
+e1.exchange_rate_amount as [Exchange Rate1]
 from dw.dbo.odh o
 left outer join dw.dbo.odp on odp.order_number=o.order_number and odp.mkting_unit=o.uni_mkting_unit
 left outer join dw.dbo.ods on ods.ods_number=o.order_source and ods.mkting_unit=o.uni_mkting_unit
@@ -24,13 +26,17 @@ left outer join UNINAV.Prod_Navision.dbo.g_l_entry_nc_vw g on
 (g.[Document No_]=cast(o.order_number as varchar(15)) and g.uni_company_name='Singapore' and g.[g_l Account no_]=1088 and g.[Journal Batch Name]='PAYMENT')
        LEFT OUTER JOIN dw.dbo.VW_NAV_CURRENCY_ALL_DSR e 
         ON ((g.[Posting Date] between e.STARTING_DATE and e.END_DATE)
-         and e.from_currency='SGD' AND e.to_currency='USD')
+         and e.from_currency='SGD' AND e.to_currency='AUD')
+LEFT OUTER JOIN dw.dbo.VW_NAV_CURRENCY_ALL_DSR e1 
+        ON ((o.[Post_Date] between e1.STARTING_DATE and e1.END_DATE)
+         and e1.from_currency='SGD' AND e1.to_currency='AUD')
 where o.uni_mkting_unit=65 
 and o.status in (2,3,4,5) and o.odh_type&lt;&gt;'C'
 and o.order_source in (915) and o.post_date &gt;= DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-11, 0)
 group by 
 o.post_date,o.order_number,odp.pre_auth_transit,o.odh_type,o.status,o.tot_invce_amount,o.order_source,ods.description,
-g.[Global Dimension 1 Code],g.[Description],e.exchange_rate_amount,cast(o.order_source as varchar)+' - '+ods.description</CommandText>
+g.[Global Dimension 1 Code],g.[Description],e.exchange_rate_amount,cast(o.order_source as varchar)+' - '+ods.description,e1.exchange_rate_amount
+order by o.post_date desc</CommandText>
       </Query>
       <Fields>
         <Field Name="Posting_date">
@@ -89,6 +95,14 @@ g.[Global Dimension 1 Code],g.[Description],e.exchange_rate_amount,cast(o.order_
           <DataField>Amount(AUD)-GL1088</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
+        <Field Name="tot_invce_amt_AUD">
+          <DataField>tot_invce_amt_AUD</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="Exchange_Rate1">
+          <DataField>Exchange Rate1</DataField>
+          <rd:TypeName>System.Double</rd:TypeName>
+        </Field>
       </Fields>
     </DataSet>
   </DataSets>
@@ -119,6 +133,9 @@ g.[Global Dimension 1 Code],g.[Description],e.exchange_rate_amount,cast(o.order_
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1.5in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1in</Width>
@@ -198,9 +215,10 @@ g.[Global Dimension 1 Code],g.[Description],e.exchange_rate_amount,cast(o.order_
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
-                        <ColSpan>10</ColSpan>
+                        <ColSpan>11</ColSpan>
                       </CellContents>
                     </TablixCell>
+                    <TablixCell />
                     <TablixCell />
                     <TablixCell />
                     <TablixCell />
@@ -726,6 +744,60 @@ g.[Global Dimension 1 Code],g.[Description],e.exchange_rate_amount,cast(o.order_
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox3</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox5">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Amount(SGD)</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox5</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -1416,13 +1488,42 @@ g.[Global Dimension 1 Code],g.[Description],e.exchange_rate_amount,cast(o.order_
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="Amount_USD5">
+                        <Textbox Name="Amount_USD">
+                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
                                   <Value>=Fields!Amount_USD.Value</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Amount_USD</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Amount_USD5">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!tot_invce_amt_AUD.Value</Value>
                                   <Style />
                                 </TextRun>
                               </TextRuns>
@@ -1614,8 +1715,10 @@ g.[Global Dimension 1 Code],g.[Description],e.exchange_rate_amount,cast(o.order_
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!Amount_AUD__GL1088.Value</Value>
-                                  <Style />
+                                  <Value>=Fields!Amount_SGD__GL1091.Value</Value>
+                                  <Style>
+                                    <Format>0.00;(0.00)</Format>
+                                  </Style>
                                 </TextRun>
                               </TextRuns>
                               <Style />
@@ -1626,26 +1729,6 @@ g.[Global Dimension 1 Code],g.[Description],e.exchange_rate_amount,cast(o.order_
                             <Border>
                               <Style>Solid</Style>
                             </Border>
-                            <TopBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </TopBorder>
-                            <BottomBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </BottomBorder>
-                            <LeftBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </LeftBorder>
-                            <RightBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </RightBorder>
                             <PaddingLeft>2pt</PaddingLeft>
                             <PaddingRight>2pt</PaddingRight>
                             <PaddingTop>2pt</PaddingTop>
@@ -1660,6 +1743,7 @@ g.[Global Dimension 1 Code],g.[Description],e.exchange_rate_amount,cast(o.order_
             </TablixBody>
             <TablixColumnHierarchy>
               <TablixMembers>
+                <TablixMember />
                 <TablixMember />
                 <TablixMember />
                 <TablixMember />
@@ -1710,7 +1794,7 @@ g.[Global Dimension 1 Code],g.[Description],e.exchange_rate_amount,cast(o.order_
               </Filter>
             </Filters>
             <Height>0.78876in</Height>
-            <Width>16.5in</Width>
+            <Width>17.5in</Width>
             <Style>
               <Border>
                 <Style>None</Style>
@@ -1721,7 +1805,7 @@ g.[Global Dimension 1 Code],g.[Description],e.exchange_rate_amount,cast(o.order_
         <Height>0.78876in</Height>
         <Style />
       </Body>
-      <Width>16.5in</Width>
+      <Width>17.5in</Width>
       <Page>
         <LeftMargin>1in</LeftMargin>
         <RightMargin>1in</RightMargin>
