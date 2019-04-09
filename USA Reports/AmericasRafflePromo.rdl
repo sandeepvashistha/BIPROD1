@@ -13,6 +13,20 @@
     <DataSet Name="Query1">
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
+        <QueryParameters>
+          <QueryParameter Name="@pStartPvDate">
+            <Value>=Parameters!pStartPvDate.Value</Value>
+          </QueryParameter>
+          <QueryParameter Name="@pEndPvDate">
+            <Value>=Parameters!pEndPvDate.Value</Value>
+          </QueryParameter>
+          <QueryParameter Name="@pStartEntryDate">
+            <Value>=Parameters!pStartEntryDate.Value</Value>
+          </QueryParameter>
+          <QueryParameter Name="@pEndEntryDate">
+            <Value>=Parameters!pEndEntryDate.Value</Value>
+          </QueryParameter>
+        </QueryParameters>
         <CommandText>SELECT d.ENROLLER_ID 
 , de.ROMAN_NAME_1
 , de.REAL_ROMAN_NAME_2
@@ -31,7 +45,8 @@ INNER JOIN DW.dbo.DST de ON de.DIST_ID = d.ENROLLER_ID
 LEFT OUTER JOIN 
 	(SELECT DIST_ID, PV_DATE, SUM(PRICE_2) as PRICE_2 
 	 FROM DW.dbo.DM_DSR 
-	 WHERE POST_DATE &gt;= '2019-01-01' 
+	 WHERE POST_DATE &gt;= @pStartPvDate
+		AND POST_DATE &lt;= @pEndPvDate
 	 GROUP BY DIST_ID, 
 	 PV_DATE 
 	 HAVING SUM(PRICE_2) &gt; 99 
@@ -40,7 +55,8 @@ LEFT OUTER JOIN
 LEFT OUTER JOIN 
 	(SELECT DIST_ID, PV_DATE, SUM(PRICE_2) as PRICE_2 
 	 FROM DW.dbo.DM_DSR 
-	 WHERE POST_DATE &gt;= '2019-01-01' 
+	  WHERE POST_DATE &gt;= @pStartPvDate
+		AND POST_DATE &lt;= @pEndPvDate 
 	 GROUP BY DIST_ID, 
 	 PV_DATE 
 	 ) sd ON sd.DIST_ID = d.dist_id AND sd.PV_DATE = DATEADD(m,DATEDIFF(m,0,d.ENTRY_DATE),0)
@@ -51,7 +67,8 @@ LEFT OUTER JOIN
 	  AND PV_DATE_DATE = '2019-03-01' 
 	  GROUP BY DIST_ID 
 	  ) t ON t.DIST_ID = d.enroller_id 
-WHERE d.ENTRY_DATE &gt;= '2019-01-01' 
+WHERE d.ENTRY_DATE &gt;= @pStartEntryDate 
+	AND d.ENTRY_DATE &lt;= @pEndEntryDate 
 --AND d.UNI_MKTING_UNIT IN (1,2,58) 
 AND de.UNI_MKTING_UNIT IN (1,2,58) 
 AND d.ENROLLER_ID NOT IN (2,3,4,5) 
@@ -126,6 +143,14 @@ GROUP BY d.ENROLLER_ID
     <DataSet Name="Query2">
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
+        <QueryParameters>
+          <QueryParameter Name="@pStartPvDate">
+            <Value>=Parameters!pStartPvDate.Value</Value>
+          </QueryParameter>
+          <QueryParameter Name="@pEndPvDate">
+            <Value>=Parameters!pEndPvDate.Value</Value>
+          </QueryParameter>
+        </QueryParameters>
         <CommandText>SELECT ENROLLER 
 , PV_DATE_DATE
 , ROMAN_NAME_1
@@ -162,13 +187,14 @@ INNER JOIN DW.dbo.DST d ON d.DIST_ID = t.DIST_ID
 LEFT OUTER JOIN 
 	 (SELECT DIST_ID, PV_DATE,UNI_MKTING_UNIT, SUM(PRICE_2) as PRICE_2 
 	 FROM DW.dbo.DM_DSR 
-	 WHERE POST_DATE &gt;= '2019-01-01' 
+	 --WHERE POST_DATE &gt;= '2019-01-01' 
 	 GROUP BY DIST_ID, 
 	 PV_DATE, 
 	 UNI_MKTING_UNIT
 	 ) s ON s.DIST_ID = t.DIST_ID AND s.PV_DATE = t.PV_DATE_DATE AND s.UNI_MKTING_UNIT = t.MKTING_UNIT
 WHERE 1=1 
-AND t.PV_DATE_DATE &gt;= '2019-01-01' 
+AND t.PV_DATE_DATE &gt;= @pStartPvDate 
+	AND t.PV_DATE_DATE &lt;= @pEndPvDate
 AND t.MKTING_UNIT IN (1,2,58) 
 AND t.DIST_ID NOT IN (1,2,3,4)
 AND d.DIST_STATUS NOT IN ( 'S','T') 
@@ -2178,10 +2204,50 @@ GROUP BY ENROLLER
       </Page>
     </ReportSection>
   </ReportSections>
+  <ReportParameters>
+    <ReportParameter Name="pStartPvDate">
+      <DataType>DateTime</DataType>
+      <Prompt>Start Pv Date</Prompt>
+    </ReportParameter>
+    <ReportParameter Name="pEndPvDate">
+      <DataType>DateTime</DataType>
+      <Prompt>End Pv Date</Prompt>
+    </ReportParameter>
+    <ReportParameter Name="pStartEntryDate">
+      <DataType>DateTime</DataType>
+      <Prompt>Start Entry Date</Prompt>
+    </ReportParameter>
+    <ReportParameter Name="pEndEntryDate">
+      <DataType>DateTime</DataType>
+      <Prompt>End Entry Date</Prompt>
+    </ReportParameter>
+  </ReportParameters>
   <ReportParametersLayout>
     <GridLayoutDefinition>
       <NumberOfColumns>4</NumberOfColumns>
       <NumberOfRows>2</NumberOfRows>
+      <CellDefinitions>
+        <CellDefinition>
+          <ColumnIndex>0</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>pStartPvDate</ParameterName>
+        </CellDefinition>
+        <CellDefinition>
+          <ColumnIndex>1</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>pEndPvDate</ParameterName>
+        </CellDefinition>
+        <CellDefinition>
+          <ColumnIndex>0</ColumnIndex>
+          <RowIndex>1</RowIndex>
+          <ParameterName>pStartEntryDate</ParameterName>
+        </CellDefinition>
+        <CellDefinition>
+          <ColumnIndex>1</ColumnIndex>
+          <RowIndex>1</RowIndex>
+          <ParameterName>pEndEntryDate</ParameterName>
+        </CellDefinition>
+      </CellDefinitions>
     </GridLayoutDefinition>
   </ReportParametersLayout>
   <rd:ReportUnitType>Inch</rd:ReportUnitType>
