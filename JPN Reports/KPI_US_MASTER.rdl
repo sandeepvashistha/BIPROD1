@@ -23,9 +23,12 @@
         </QueryParameters>
         <CommandText>SELECT
   (CONVERT(DATETIME,'1/'+DW.dbo.ODH.PV_DATE,103)) As PV_Month,
-  (CASE WHEN (DW.dbo.ODH.UNI_MKTING_UNIT=84 AND   DW.dbo.ODH.PRICE_1=DW.dbo.ODH.TOT_INVCE_AMOUNT) THEN (DW.dbo.ODH.PRICE_1-DW.dbo.ODH.SALES_TAX) ELSE DW.dbo.ODH.PRICE_1 END) As Amount_Local,
+  --(CASE WHEN (DW.dbo.ODH.UNI_MKTING_UNIT=84 AND   DW.dbo.ODH.PRICE_1=DW.dbo.ODH.TOT_INVCE_AMOUNT) THEN (DW.dbo.ODH.PRICE_1-DW.dbo.ODH.SALES_TAX) ELSE DW.dbo.ODH.PRICE_1 END) As Amount_Local,
+  CASE WHEN DW.dbo.ODH.UNI_MKTING_UNIT=84 AND   DW.dbo.ODH.PRICE_1=DW.dbo.ODH.TOT_INVCE_AMOUNT 
+	THEN CASE WHEN DW.dbo.ODH.ODH_TYPE = 'C' THEN (DW.dbo.ODH.PRICE_1-DW.dbo.ODH.SALES_TAX)*-1 ELSE DW.dbo.ODH.PRICE_1-DW.dbo.ODH.SALES_TAX END  
+	ELSE CASE WHEN DW.dbo.ODH.ODH_TYPE = 'C' THEN DW.dbo.ODH.PRICE_1*-1 ELSE DW.dbo.ODH.PRICE_1 END  END As Amount_Local,
   count (distinct(DW.dbo.ODH.MORDER)) As Order_Count,
-  sum(DW.dbo.ODH.PRICE_2) As Total_PV,
+  sum(CASE WHEN DW.dbo.ODH.ODH_TYPE = 'C' THEN DW.dbo.ODH.PRICE_2*-1 ELSE DW.dbo.ODH.PRICE_2 END) As Total_PV,
   DW.dbo.ODH.MORDER,
   DW.dbo.ODH.ENTRY_DATE,
   DW.dbo.ODH.RELEASED_DATE,
@@ -41,7 +44,7 @@ WHERE
   (
    DW.dbo.ODH.UNI_MKTING_UNIT  =  81
    AND
-   DW.dbo.ODH.ODH_TYPE  IN  ( 'R','D','I','E'  )
+   DW.dbo.ODH.ODH_TYPE  IN  ( 'R','D','I','E','C'  )
    AND
    DW.dbo.ODH.STATUS In ( 2,3,4,5)
    AND
@@ -51,7 +54,7 @@ WHERE
   )
 GROUP BY
   (CONVERT(DATETIME,'1/'+DW.dbo.ODH.PV_DATE,103)),
-  (CASE WHEN (DW.dbo.ODH.UNI_MKTING_UNIT=84 AND   DW.dbo.ODH.PRICE_1=DW.dbo.ODH.TOT_INVCE_AMOUNT) THEN (DW.dbo.ODH.PRICE_1-DW.dbo.ODH.SALES_TAX) ELSE DW.dbo.ODH.PRICE_1 END), 
+ -- (CASE WHEN (DW.dbo.ODH.UNI_MKTING_UNIT=84 AND   DW.dbo.ODH.PRICE_1=DW.dbo.ODH.TOT_INVCE_AMOUNT) THEN (DW.dbo.ODH.PRICE_1-DW.dbo.ODH.SALES_TAX) ELSE DW.dbo.ODH.PRICE_1 END), 
   DW.dbo.ODH.MORDER, 
   DW.dbo.ODH.ENTRY_DATE, 
   DW.dbo.ODH.RELEASED_DATE, 
@@ -60,9 +63,15 @@ GROUP BY
   DW.dbo.ODH.POST_DATE, 
   DW.dbo.ODH.VERIFY_DATE, 
   --MONTH(DW.dbo.ODH.POST_DATE)
-  DATEADD(mm, DATEDIFF(mm,0,DW.dbo.ODH.POST_DATE),0)</CommandText>
+  DATEADD(mm, DATEDIFF(mm,0,DW.dbo.ODH.POST_DATE),0),
+  CASE WHEN DW.dbo.ODH.UNI_MKTING_UNIT=84 AND   DW.dbo.ODH.PRICE_1=DW.dbo.ODH.TOT_INVCE_AMOUNT 
+	THEN CASE WHEN DW.dbo.ODH.ODH_TYPE = 'C' THEN (DW.dbo.ODH.PRICE_1-DW.dbo.ODH.SALES_TAX)*-1 ELSE DW.dbo.ODH.PRICE_1-DW.dbo.ODH.SALES_TAX END  
+	ELSE CASE WHEN DW.dbo.ODH.ODH_TYPE = 'C' THEN DW.dbo.ODH.PRICE_1*-1 ELSE DW.dbo.ODH.PRICE_1 END  END</CommandText>
       </Query>
       <Fields>
+        <Field Name="Post_Day">
+          <Value>=Day(Fields!POST_DATE.Value)</Value>
+        </Field>
         <Field Name="PV_Month">
           <DataField>PV_Month</DataField>
           <rd:TypeName>System.DateTime</rd:TypeName>
@@ -110,9 +119,6 @@ GROUP BY
         <Field Name="Post_Month">
           <DataField>Post_Month</DataField>
           <rd:TypeName>System.DateTime</rd:TypeName>
-        </Field>
-        <Field Name="Post_Day">
-          <Value>=Day(Fields!POST_DATE.Value)</Value>
         </Field>
       </Fields>
     </DataSet>
