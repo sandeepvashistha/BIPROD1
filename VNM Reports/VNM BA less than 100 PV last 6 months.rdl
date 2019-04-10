@@ -13,7 +13,7 @@
     <DataSet Name="Query_1">
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
-        <CommandText>select BA_ID,BA_NAME,BA_STATUS,BA_ENTRY_DATE,ORDER_NUMBER,PV,ORDER_ENTRY_DATE,PV_DATE_DATE,ORDER_COUNTRY_CODE,a.rnk TOTAL_BY_BA
+        <CommandText>select a.BA_ID,BA_NAME,BA_STATUS,BA_ENTRY_DATE,ORDER_NUMBER,PV,ORDER_ENTRY_DATE,PV_DATE_DATE,ORDER_COUNTRY_CODE,a.rnk TOTAL_BY_BA
 from
 (
 select dst.dist_id BA_ID,dst.roman_name_1 BA_NAME,dst.dist_status BA_STATUS,dst.entry_date BA_ENTRY_DATE,odh.ORDER_NUMBER,odh.PRICE_2 PV,
@@ -28,8 +28,28 @@ and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, odh.pv_date_date), 0) as date) betwee
 and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, dst.entry_date), 0) as date) &lt;= cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, getdate())-6, 0) as date)
 --and dst.dist_status in ('A','B','S') 
 and dst.roman_name_1 not like '%Placeholder%' and dst.roman_name_1 not like '%Training%'
-) a where a.rnk &lt;100
-order by BA_ID,ORDER_NUMBER</CommandText>
+) a 
+inner join
+(
+select a.BA_ID,count(a.PV) cnt
+from
+(
+select dst.dist_id BA_ID,odh.pv_date_date,sum(case when odh.odh_type='C' then -1*odh.price_2 else price_2 end) PV
+from dw.dbo.dst
+inner join dw.dbo.odh on dst.dist_id=odh.dist_id
+where
+dst.uni_mkting_unit=84 and dst.country_code='VNM'
+and odh.status in (2,3,4,5) --and odh.odh_type&lt;&gt;'C'
+and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, odh.pv_date_date), 0) as date) between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, getdate())-6, 0) as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, getdate())-1, 0) as date)
+and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, dst.entry_date), 0) as date) &lt;= cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, getdate())-6, 0) as date)
+--and dst.dist_status in ('A','B','S') 
+and dst.roman_name_1 not like '%Placeholder%' and dst.roman_name_1 not like '%Training%'
+group by
+dst.dist_id,odh.pv_date_date
+having sum(case when odh.odh_type='C' then -1*odh.price_2 else price_2 end)&lt;100
+) a group by a.BA_ID having count(a.PV) &gt;=6
+) b on a.ba_id=b.ba_id
+order by a.BA_ID,a.ORDER_NUMBER</CommandText>
       </Query>
       <Fields>
         <Field Name="BA_ID">
