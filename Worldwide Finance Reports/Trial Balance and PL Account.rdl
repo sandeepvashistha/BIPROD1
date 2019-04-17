@@ -24,26 +24,41 @@
             <Value>=Parameters!EndPostingDate.Value</Value>
           </QueryParameter>
         </QueryParameters>
-        <CommandText>select a.[g_l account no_],a.[Name],a.[Posting Date],
+        <CommandText>select glacc.[No_] [g_l account no_],glacc.[Name],b.[g_l account no_] [AccountNo_GL_Entry],b.[Name] [AccountName_GL_Entry],b.[Posting Date],b.[Amount]
+from
+prod_navision.dbo.g_l_account_nc_vw glacc
+left outer join
+(
+select a.uni_company_name,a.[g_l account no_],a.[Name],a.[Posting Date],
 cast(a.gl_amount+sum(a.te) over(partition by a.[g_l account no_] order by a.[Posting Date]) as numeric(24,4)) [Amount]
 from
 (
-select glh.[g_l account no_],glh.[Name],cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, gle.[Posting Date]), 0) as date) [Posting Date],glh.gl_amount,
-sum(gle.[Amount]) te
+select glh.uni_company_name,glh.[g_l account no_],glh.[Name],cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, a.first_day_of_month), 0) as date) [Posting Date],glh.gl_amount,
+sum(isnull(gle.[Amount],0)) te
 from
 (
 select gla.uni_company_name,gl.[g_l account no_],gla.[Name],sum(gl.[Amount]) gl_amount
 from  prod_navision.dbo.g_l_account_nc_vw gla 
 inner join prod_navision.dbo.g_l_entry_nc_vw gl 
-on gl.uni_company_name=gla.uni_company_name and gl.[g_l account no_]=gla.[No_] and gl.[Posting Date] &lt; @StartPostingDate
+on gl.uni_company_name=gla.uni_company_name and gl.[g_l account no_]=gla.[No_] and gl.[Posting Date] &lt; @StartPostingDate --'2019-03-01'
 where gla.uni_company_name=@CompanyName
 group by
 gla.uni_company_name,gl.[g_l account no_],gla.[Name]
-) glh
+) glh 
+inner join 
+(
+select distinct first_date_of_month first_day_of_month
+from prod_navision.dbo.dm_calendar
+where first_date_of_month between @StartPostingDate and @EndPostingDate --'2019-03-01' and '2019-03-31'
+) a on 1=1
 left outer join prod_navision.dbo.g_l_entry_nc_vw gle on glh.uni_company_name=gle.uni_company_name 
-and glh.[g_l account no_]=gle.[g_l account no_] and gle.[Posting Date] between @StartPostingDate and @EndPostingDate
-group by glh.[g_l account no_],glh.[Name],cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, gle.[Posting Date]), 0) as date),glh.gl_amount
-)a;</CommandText>
+and glh.[g_l account no_]=gle.[g_l account no_] and gle.[Posting Date] between @StartPostingDate and @EndPostingDate --'2019-03-01' and '2019-03-31'
+and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, gle.[Posting Date]), 0) as date)=a.first_day_of_month
+group by glh.uni_company_name,glh.[g_l account no_],glh.[Name],cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, a.first_day_of_month), 0) as date),glh.gl_amount
+)a
+) b on glacc.uni_company_name=b.uni_company_name and glacc.[No_]=b.[g_l account no_] 
+where  glacc.uni_company_name=@CompanyName and glacc.[Account Type] = 0
+order by glacc.[No_];</CommandText>
       </Query>
       <Fields>
         <Field Name="g_l_account_no_">
@@ -54,9 +69,17 @@ group by glh.[g_l account no_],glh.[Name],cast(DATEADD(MONTH, DATEDIFF(MONTH, 0,
           <DataField>Name</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
+        <Field Name="AccountNo_GL_Entry">
+          <DataField>AccountNo_GL_Entry</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
         <Field Name="Posting_Date">
           <DataField>Posting Date</DataField>
           <rd:TypeName>System.DateTime</rd:TypeName>
+        </Field>
+        <Field Name="AccountName_GL_Entry">
+          <DataField>AccountName_GL_Entry</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
         </Field>
         <Field Name="Amount">
           <DataField>Amount</DataField>
@@ -78,9 +101,14 @@ group by glh.[g_l account no_],glh.[Name],cast(DATEADD(MONTH, DATEDIFF(MONTH, 0,
             <Value>=Parameters!CompanyName.Value</Value>
           </QueryParameter>
         </QueryParameters>
-        <CommandText>select gla.uni_company_name,gl.[g_l account no_],gla.[Name],
+        <CommandText>select glacc.uni_company_name,glacc.[No_] [g_l account no_],glacc.[Name],b.[Posting Date],b.gl_amount
+from
+prod_navision.dbo.g_l_account_nc_vw glacc
+left outer join
+(
+select gla.uni_company_name,gl.[g_l account no_],gla.[Name],
 cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, gl.[Posting Date]), 0) as date) [Posting Date],
-cast(sum(gl.[Amount]) as numeric(24,4)) gl_amount
+cast(sum(isnull(gl.[Amount],0)) as numeric(24,4)) gl_amount
 from  prod_navision.dbo.g_l_account_nc_vw gla 
 inner join prod_navision.dbo.g_l_entry_nc_vw gl 
 on gl.uni_company_name=gla.uni_company_name and gl.[g_l account no_]=gla.[No_] 
@@ -88,7 +116,9 @@ and gl.[Posting Date] between @StartPostingDate and @EndPostingDate
 where gla.uni_company_name=@CompanyName
 group by
 gla.uni_company_name,gl.[g_l account no_],gla.[Name],cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, gl.[Posting Date]), 0) as date)
-order by gl.[g_l account no_],[Posting Date]</CommandText>
+)b on glacc.uni_company_name=b.uni_company_name and glacc.[No_]=b.[g_l account no_] 
+where  glacc.uni_company_name=@CompanyName and glacc.[Account Type] = 0
+order by glacc.[No_],b.[Posting Date]</CommandText>
       </Query>
       <Fields>
         <Field Name="uni_company_name">
@@ -1058,7 +1088,6 @@ order by uni_company_name;</CommandText>
                               <PaddingBottom>2pt</PaddingBottom>
                             </Style>
                           </Textbox>
-                          <rd:Selected>true</rd:Selected>
                         </CellContents>
                       </TablixHeader>
                       <Visibility>
