@@ -13,43 +13,49 @@
     <DataSet Name="Query_1">
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
-        <CommandText>select a.BA_ID,BA_NAME,BA_STATUS,BA_ENTRY_DATE,ORDER_NUMBER,PV,ORDER_ENTRY_DATE,PV_DATE_DATE,ORDER_COUNTRY_CODE,a.rnk TOTAL_BY_BA
+        <CommandText>select M.BA_ID,BA_NAME,M.BA_STATUS,M.BA_ENTRY_DATE,odh.ORDER_NUMBER,odh.PRICE_2 PV,odh.ENTRY_DATE ORDER_ENTRY_DATE,
+odh.PV_DATE_DATE,odh.COUNTRY_CODE ORDER_COUNTRY_CODE
 from
 (
-select dst.dist_id BA_ID,dst.roman_name_1 BA_NAME,dst.dist_status BA_STATUS,dst.entry_date BA_ENTRY_DATE,odh.ORDER_NUMBER,odh.PRICE_2 PV,
-odh.ENTRY_DATE ORDER_ENTRY_DATE,odh.pv_date_date,odh.COUNTRY_CODE ORDER_COUNTRY_CODE,
-sum(isnull(odh.price_2,0)) over(partition by dst.dist_id) rnk
-from dw.dbo.dst
-inner join dw.dbo.odh on dst.dist_id=odh.dist_id
-where
-dst.uni_mkting_unit=84 and dst.country_code='VNM' and dst.dist_status &lt;&gt;'E'
-and odh.status in (2,3,4,5) and odh.odh_type&lt;&gt;'C'
-and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, odh.pv_date_date), 0) as date) between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, getdate())-6, 0) as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, getdate())-1, 0) as date)
-and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, dst.entry_date), 0) as date) &lt;= cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, getdate())-6, 0) as date)
---and dst.dist_status in ('A','B','S') 
-and dst.roman_name_1 not like '%Placeholder%' and dst.roman_name_1 not like '%Training%'
-) a 
-inner join
-(
-select a.BA_ID,count(a.PV) cnt
+select distinct --z.first_day_of_month,z.BA_ID,z.BA_NAME,z.BA_STATUS,z.BA_ENTRY_DATE,z.pv_date_date,z.pv
+z.BA_ID,z.BA_NAME,z.BA_STATUS,z.BA_ENTRY_DATE
+--a.BA_ID,BA_NAME,BA_STATUS,BA_ENTRY_DATE,ORDER_NUMBER,PV,ORDER_ENTRY_DATE,PV_DATE_DATE,ORDER_COUNTRY_CODE,a.rnk TOTAL_BY_BA
 from
 (
-select dst.dist_id BA_ID,odh.pv_date_date,sum(case when odh.odh_type='C' then -1*odh.price_2 else price_2 end) PV
+select dm_cal.first_day_of_month,a.BA_ID,a.BA_NAME,a.BA_STATUS,a.BA_ENTRY_DATE,a.pv_date_date,a.pv,
+count(dm_cal.first_day_of_month) over(partition by a.BA_ID) te
+from
+(
+select distinct first_date_of_month first_day_of_month
+from dw.dbo.dm_calendar
+where first_date_of_month between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, getdate())-6, 0) as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, getdate()), 0) as date)
+) dm_cal
+left outer join
+(
+select dst.dist_id BA_ID,dst.roman_name_1 BA_NAME,dst.dist_status BA_STATUS,dst.entry_date BA_ENTRY_DATE,odh.pv_date_date,isnull(sum(case when odh.odh_type='C' then -1*odh.price_2 else price_2 end),0) PV
 from dw.dbo.dst
-inner join dw.dbo.odh on dst.dist_id=odh.dist_id
+left outer join dw.dbo.odh on (dst.dist_id=odh.dist_id and odh.status in (2,3,4,5) --and odh.odh_type&lt;&gt;'C'
+and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, odh.pv_date_date), 0) as date) between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, getdate())-6, 0) as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, getdate())-1, 0) as date))
 where
-dst.uni_mkting_unit=84 and dst.country_code='VNM' and dst.dist_status &lt;&gt;'E'
-and odh.status in (2,3,4,5) --and odh.odh_type&lt;&gt;'C'
-and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, odh.pv_date_date), 0) as date) between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, getdate())-6, 0) as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, getdate())-1, 0) as date)
+dst.uni_mkting_unit=84 and dst.country_code='VNM' and dst.dist_status not in ('E','T')
 and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, dst.entry_date), 0) as date) &lt;= cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, getdate())-6, 0) as date)
 --and dst.dist_status in ('A','B','S') 
-and dst.roman_name_1 not like '%Placeholder%' and dst.roman_name_1 not like '%Training%'
+and dst.roman_name_1 not like '%Placeholder%' and dst.roman_name_1 not like '%Training%' and dst.roman_name_1 not like '%test%'
+--and dst.dist_id=431694384
 group by
-dst.dist_id,odh.pv_date_date
-having sum(case when odh.odh_type='C' then -1*odh.price_2 else price_2 end)&lt;100
-) a group by a.BA_ID having count(a.PV) &gt;=6
-) b on a.ba_id=b.ba_id
-order by a.BA_ID,a.ORDER_NUMBER</CommandText>
+dst.dist_id,dst.roman_name_1,dst.dist_status,dst.entry_date,odh.pv_date_date
+having isnull(sum(case when odh.odh_type='C' then -1*odh.price_2 else price_2 end),0)&lt;100
+) a on 1=1 
+where dm_cal.first_day_of_month=isnull(a.pv_date_date,dm_cal.first_day_of_month)
+--and ba_id=421169784
+)z
+where z.te&gt;=6
+) M
+left outer join
+dw.dbo.odh on (odh.dist_id=M.ba_id and odh.status in (2,3,4,5) --and odh.odh_type&lt;&gt;'C'
+and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, odh.pv_date_date), 0) as date) between cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, getdate())-6, 0) as date) and cast(DATEADD(MONTH, DATEDIFF(MONTH, 0, getdate())-1, 0) as date))
+order by 
+M.BA_ID,odh.PV_DATE_DATE desc,odh.ENTRY_DATE desc</CommandText>
       </Query>
       <Fields>
         <Field Name="BA_ID">
@@ -87,10 +93,6 @@ order by a.BA_ID,a.ORDER_NUMBER</CommandText>
         <Field Name="ORDER_COUNTRY_CODE">
           <DataField>ORDER_COUNTRY_CODE</DataField>
           <rd:TypeName>System.String</rd:TypeName>
-        </Field>
-        <Field Name="TOTAL_BY_BA">
-          <DataField>TOTAL_BY_BA</DataField>
-          <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
       </Fields>
     </DataSet>
@@ -335,7 +337,6 @@ order by a.BA_ID,a.ORDER_NUMBER</CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="Textbox9">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -423,7 +424,6 @@ order by a.BA_ID,a.ORDER_NUMBER</CommandText>
                     <Size>1in</Size>
                     <CellContents>
                       <Textbox Name="BA_ID">
-                        <CanGrow>true</CanGrow>
                         <KeepTogether>true</KeepTogether>
                         <Paragraphs>
                           <Paragraph>
@@ -475,7 +475,6 @@ order by a.BA_ID,a.ORDER_NUMBER</CommandText>
                         <Size>2in</Size>
                         <CellContents>
                           <Textbox Name="BA_NAME">
-                            <CanGrow>true</CanGrow>
                             <KeepTogether>true</KeepTogether>
                             <Paragraphs>
                               <Paragraph>
@@ -527,7 +526,6 @@ order by a.BA_ID,a.ORDER_NUMBER</CommandText>
                             <Size>1in</Size>
                             <CellContents>
                               <Textbox Name="BA_STATUS">
-                                <CanGrow>true</CanGrow>
                                 <KeepTogether>true</KeepTogether>
                                 <Paragraphs>
                                   <Paragraph>
@@ -579,7 +577,6 @@ order by a.BA_ID,a.ORDER_NUMBER</CommandText>
                                 <Size>1in</Size>
                                 <CellContents>
                                   <Textbox Name="BA_ENTRY_DATE">
-                                    <CanGrow>true</CanGrow>
                                     <KeepTogether>true</KeepTogether>
                                     <Paragraphs>
                                       <Paragraph>
