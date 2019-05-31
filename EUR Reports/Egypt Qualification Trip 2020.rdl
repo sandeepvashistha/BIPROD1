@@ -13,6 +13,11 @@
     <DataSet Name="Query_Summary">
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
+        <QueryParameters>
+          <QueryParameter Name="@EndPVDate">
+            <Value>=Parameters!EndPVDate.Value</Value>
+          </QueryParameter>
+        </QueryParameters>
         <CommandText>select z.BA,dst.roman_name_1 BA_NAME,z.COUNTRY_CODE,dst.addr,dst.addr_2,dst.addr_3,dst.city,dst.state,
 dst.postal_code,dst.email_addr,dst.home_phone,dst.work_phone,dst.cell_phone,dst.entry_date,
 sum(z.ENROLL_PV) ENROLL_PV,sum(z.ENROLL_POINT) ENROLL_POINT,sum(z.OWN_PV) OWN_PV,
@@ -38,7 +43,7 @@ DATEADD(MONTH, DATEDIFF(MONTH, 0, DST.ENTRY_DATE)+1, 0) ENTRY_DATE_NEXT
 from dw.dbo.dst inner join dw.dbo.odh on dst.mdist=odh.mdist and odh.status in (2,3,4,5) --and odh.odh_type&lt;&gt;'C' and odh.price_2&gt;0
 inner join dw.dbo.dst enroller on enroller.dist_id=dst.enroller_id and enroller.uni_mkting_unit=dst.uni_mkting_unit
 where enroller.uni_mkting_unit=49 and enroller.dist_status='A' and dst.dist_status in ('A','S','D') --and odh.distributor_status='A'
-and ODH.PV_DATE_DATE between '2019-04-01' and '2019-09-30' and odh.price_2&lt;&gt;0
+and ODH.PV_DATE_DATE between cast('2019-04-01' as date) and @EndPVDate and odh.price_2&lt;&gt;0
 and DST.ENTRY_DATE&gt;='2019-04-01'
 --and enroller.dist_id in (97182949)
 Group by
@@ -64,7 +69,7 @@ select dst.enroller_id BA,enroller.COUNTRY_CODE,dst.dist_id ENROLLED_BA,dst.dist
 from dw.dbo.dst inner join dw.dbo.odh on dst.mdist=odh.mdist and odh.status in (2,3,4,5) --and odh.odh_type&lt;&gt;'C' and odh.price_2&gt;0
 inner join dw.dbo.dst enroller on enroller.dist_id=dst.enroller_id and enroller.uni_mkting_unit=dst.uni_mkting_unit
 where enroller.uni_mkting_unit=49 and enroller.dist_status='A' and dst.dist_status in ('C','P')
-and ODH.PV_DATE_DATE between '2019-04-01' and '2019-09-30' and odh.price_2&lt;&gt;0
+and ODH.PV_DATE_DATE between cast('2019-04-01' as date) and @EndPVDate and odh.price_2&lt;&gt;0
 --and enroller.dist_id in (97182949)
 Group by
 dst.enroller_id,enroller.COUNTRY_CODE,dst.dist_id,dst.dist_status,ODH.PV_DATE_DATE
@@ -77,7 +82,7 @@ select dst.dist_id BA,dst.COUNTRY_CODE,dst.dist_id ENROLLED_BA,dst.dist_status E
 ,round(sum(case when odh.odh_type='C' then -1*odh.price_2 else odh.price_2 end)/1000,1,1) PV_POINT
 from dw.dbo.dst inner join dw.dbo.odh on dst.mdist=odh.mdist and odh.status in (2,3,4,5) and odh.uni_mkting_unit=49 --and odh.odh_type&lt;&gt;'C' and odh.price_2&gt;0
 where dst.uni_mkting_unit=49 and dst.dist_status='A'
-and ODH.PV_DATE_DATE between '2019-04-01' and '2019-09-30' and odh.price_2&lt;&gt;0
+and ODH.PV_DATE_DATE between cast('2019-04-01' as date) and @EndPVDate and odh.price_2&lt;&gt;0
 --and dst.dist_id in (97182949)
 Group by
 dst.dist_id,dst.COUNTRY_CODE,dst.dist_id,dst.dist_status,ODH.PV_DATE_DATE
@@ -185,6 +190,11 @@ dst.postal_code,dst.email_addr,dst.home_phone,dst.work_phone,dst.cell_phone,dst.
     <DataSet Name="Query_OwnPV">
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
+        <QueryParameters>
+          <QueryParameter Name="@EndPVDate">
+            <Value>=Parameters!EndPVDate.Value</Value>
+          </QueryParameter>
+        </QueryParameters>
         <CommandText>select A.BA,A.BA_NAME,A.COUNTRY_CODE,A.dist_status,A.PV_DATE_DATE
 ,A.PV, A.PV_03,sum(case when A.PV&gt;=100 then 1 else 0 end) over(partition by A.BA) pv100_cnt,
 DateDiff (MM,Min(A.PV_DATE_DATE) over(),Max(A.PV_DATE_DATE) over())+1 AS MONTHS_BETWEEN
@@ -198,7 +208,7 @@ select dst.dist_id BA,dst.roman_name_1 BA_NAME,dst.COUNTRY_CODE,dst.dist_status,
 ,sum(case when odh.odh_type='C' then -1*odh.price_2 else odh.price_2 end) PV, 0 PV_03
 from dw.dbo.dst inner join dw.dbo.odh on dst.mdist=odh.mdist and odh.status in (2,3,4,5) --and odh.odh_type&lt;&gt;'C' and odh.price_2&gt;0
 where dst.uni_mkting_unit=49 and dst.dist_status='A'
-and ODH.PV_DATE_DATE between '2019-04-01' and '2019-09-30' and odh.price_2&lt;&gt;0
+and ODH.PV_DATE_DATE between cast('2019-04-01' as date) and @EndPVDate and odh.price_2&lt;&gt;0
 --and dst.dist_id in (97182949)
 Group by
 dst.dist_id,dst.roman_name_1,dst.COUNTRY_CODE,dst.dist_id,dst.dist_status,ODH.PV_DATE_DATE
@@ -207,7 +217,7 @@ select dst.dist_id BA,dst.roman_name_1 BA_NAME,dst.COUNTRY_CODE,dst.dist_status,
 ,0 PV,sum(case when odh.odh_type='C' then -1*odh.price_2 else odh.price_2 end) PV_03
 from dw.dbo.dst inner join dw.dbo.odh on dst.dist_id=odh.dist_id and odh.status in (2,3,4,5) --and odh.odh_type&lt;&gt;'C' and odh.price_2&gt;0
 where dst.uni_mkting_unit=49 and dst.dist_status='A'
-and ODH.PV_DATE_DATE between '2019-04-01' and '2019-09-30' and odh.uni_mkting_unit=03 and odh.price_2&lt;&gt;0
+and ODH.PV_DATE_DATE between cast('2019-04-01' as date) and @EndPVDate and odh.uni_mkting_unit=03 and odh.price_2&lt;&gt;0
 --and dst.dist_id in (97182949)
 Group by
 dst.dist_id,dst.roman_name_1,dst.COUNTRY_CODE,dst.dist_id,dst.dist_status,ODH.PV_DATE_DATE
@@ -258,6 +268,11 @@ OPV.BA,OPV.BA_NAME,OPV.COUNTRY_CODE,OPV.dist_status,OPV.PV_DATE_DATE
     <DataSet Name="Query_StatusA">
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
+        <QueryParameters>
+          <QueryParameter Name="@EndPVDate">
+            <Value>=Parameters!EndPVDate.Value</Value>
+          </QueryParameter>
+        </QueryParameters>
         <CommandText>select a.BA,a.COUNTRY_CODE,a.ENROLLED_BA,a.ENROLLED_STATUS,a.pv_min
 ,sum(case when odh.odh_type='C' then -1*odh.price_2 else odh.price_2 end) ENROLL_PV
 from
@@ -270,7 +285,7 @@ DATEADD(MONTH, DATEDIFF(MONTH, 0, DST.ENTRY_DATE)+1, 0) ENTRY_DATE_NEXT
 from dw.dbo.dst inner join dw.dbo.odh on dst.mdist=odh.mdist and odh.status in (2,3,4,5) --and odh.odh_type&lt;&gt;'C' and odh.price_2&gt;0
 inner join dw.dbo.dst enroller on enroller.dist_id=dst.enroller_id and enroller.uni_mkting_unit=dst.uni_mkting_unit
 where enroller.uni_mkting_unit=49 and enroller.dist_status='A' and dst.dist_status in ('A','S','D')
-and ODH.PV_DATE_DATE between '2019-04-01' and '2019-09-30' and ODH.PRICE_2&lt;&gt;0
+and ODH.PV_DATE_DATE between cast('2019-04-01' as date) and @EndPVDate and ODH.PRICE_2&lt;&gt;0
 and DST.ENTRY_DATE&gt;='2019-04-01'
 --and enroller.dist_id in (97182949)
 Group by
@@ -318,12 +333,17 @@ group by a.BA,a.COUNTRY_CODE,a.ENROLLED_BA,a.ENROLLED_STATUS,a.pv_min</CommandTe
     <DataSet Name="Query_StatusPC">
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
+        <QueryParameters>
+          <QueryParameter Name="@EndPVDate">
+            <Value>=Parameters!EndPVDate.Value</Value>
+          </QueryParameter>
+        </QueryParameters>
         <CommandText>select dst.enroller_id BA,enroller.COUNTRY_CODE,dst.dist_id ENROLLED_BA,dst.dist_status ENROLLED_STATUS,ODH.PV_DATE_DATE
 ,sum(case when odh.odh_type='C' then -1*odh.price_2 else odh.price_2 end) ENROLL_PV
 from dw.dbo.dst inner join dw.dbo.odh on dst.mdist=odh.mdist and odh.status in (2,3,4,5) --and odh.odh_type&lt;&gt;'C' and odh.price_2&gt;0
 inner join dw.dbo.dst enroller on enroller.dist_id=dst.enroller_id and enroller.uni_mkting_unit=dst.uni_mkting_unit
 where enroller.uni_mkting_unit=49 and enroller.dist_status='A' and dst.dist_status in ('C','P')
-and ODH.PV_DATE_DATE between '2019-04-01' and '2019-09-30' and odh.price_2&lt;&gt;0
+and ODH.PV_DATE_DATE between cast('2019-04-01' as date) and @EndPVDate and odh.price_2&lt;&gt;0
 --and enroller.dist_id in (97182949)
 Group by
 dst.enroller_id,enroller.COUNTRY_CODE,dst.dist_id,dst.dist_status,ODH.PV_DATE_DATE</CommandText>
@@ -3817,7 +3837,7 @@ MSIB.MAX_OV_APR_SEP
                 <Direction>Descending</Direction>
               </SortExpression>
             </SortExpressions>
-            <Top>0.5in</Top>
+            <Top>0.74875in</Top>
             <Left>0.00125in</Left>
             <Height>0.5in</Height>
             <Width>26.5in</Width>
@@ -5431,7 +5451,7 @@ MSIB.MAX_OV_APR_SEP
               <BreakLocation>End</BreakLocation>
             </PageBreak>
             <PageName>Own PV Details</PageName>
-            <Top>1in</Top>
+            <Top>1.24875in</Top>
             <Left>0.00125in</Left>
             <Height>1in</Height>
             <Width>10in</Width>
@@ -6516,7 +6536,7 @@ MSIB.MAX_OV_APR_SEP
               <BreakLocation>End</BreakLocation>
             </PageBreak>
             <PageName>Status A S and D</PageName>
-            <Top>2in</Top>
+            <Top>2.24875in</Top>
             <Left>0.00125in</Left>
             <Height>1in</Height>
             <Width>6in</Width>
@@ -7601,7 +7621,7 @@ MSIB.MAX_OV_APR_SEP
               <BreakLocation>End</BreakLocation>
             </PageBreak>
             <PageName>Status C and P Details</PageName>
-            <Top>3in</Top>
+            <Top>3.24875in</Top>
             <Left>0.00125in</Left>
             <Height>1in</Height>
             <Width>6in</Width>
@@ -11979,7 +11999,7 @@ MSIB.MAX_OV_APR_SEP
             </TablixRowHierarchy>
             <DataSetName>Rank_Advance_Maintain</DataSetName>
             <PageName>Rank Advance and Maint</PageName>
-            <Top>3.99875in</Top>
+            <Top>4.2475in</Top>
             <Height>0.5in</Height>
             <Width>54in</Width>
             <ZIndex>6</ZIndex>
@@ -11989,11 +12009,66 @@ MSIB.MAX_OV_APR_SEP
               </Border>
             </Style>
           </Tablix>
+          <Textbox Name="Textbox8">
+            <CanGrow>true</CanGrow>
+            <KeepTogether>true</KeepTogether>
+            <Paragraphs>
+              <Paragraph>
+                <TextRuns>
+                  <TextRun>
+                    <Value>="Selected End PV Period: "+format(Parameters!EndPVDate.Value,"MMM yyyy")</Value>
+                    <Style>
+                      <FontStyle>Italic</FontStyle>
+                      <FontWeight>Bold</FontWeight>
+                    </Style>
+                  </TextRun>
+                </TextRuns>
+                <Style>
+                  <TextAlign>Center</TextAlign>
+                </Style>
+              </Paragraph>
+            </Paragraphs>
+            <rd:DefaultName>Textbox8</rd:DefaultName>
+            <Top>0.49875in</Top>
+            <Left>1.00125in</Left>
+            <Height>0.25in</Height>
+            <Width>5in</Width>
+            <ZIndex>7</ZIndex>
+            <Style>
+              <Border>
+                <Style>Solid</Style>
+              </Border>
+              <TopBorder>
+                <Color>Black</Color>
+                <Style>Solid</Style>
+                <Width>1pt</Width>
+              </TopBorder>
+              <BottomBorder>
+                <Color>Black</Color>
+                <Style>Solid</Style>
+                <Width>1pt</Width>
+              </BottomBorder>
+              <LeftBorder>
+                <Color>Black</Color>
+                <Style>Solid</Style>
+                <Width>1pt</Width>
+              </LeftBorder>
+              <RightBorder>
+                <Color>Black</Color>
+                <Style>Solid</Style>
+                <Width>1pt</Width>
+              </RightBorder>
+              <PaddingLeft>2pt</PaddingLeft>
+              <PaddingRight>2pt</PaddingRight>
+              <PaddingTop>2pt</PaddingTop>
+              <PaddingBottom>2pt</PaddingBottom>
+            </Style>
+          </Textbox>
         </ReportItems>
-        <Height>4.49875in</Height>
+        <Height>5.11333in</Height>
         <Style />
       </Body>
-      <Width>54in</Width>
+      <Width>54.00125in</Width>
       <Page>
         <LeftMargin>1in</LeftMargin>
         <RightMargin>1in</RightMargin>
@@ -12003,10 +12078,23 @@ MSIB.MAX_OV_APR_SEP
       </Page>
     </ReportSection>
   </ReportSections>
+  <ReportParameters>
+    <ReportParameter Name="EndPVDate">
+      <DataType>DateTime</DataType>
+      <Prompt>End PV Date</Prompt>
+    </ReportParameter>
+  </ReportParameters>
   <ReportParametersLayout>
     <GridLayoutDefinition>
       <NumberOfColumns>4</NumberOfColumns>
       <NumberOfRows>1</NumberOfRows>
+      <CellDefinitions>
+        <CellDefinition>
+          <ColumnIndex>0</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>EndPVDate</ParameterName>
+        </CellDefinition>
+      </CellDefinitions>
     </GridLayoutDefinition>
   </ReportParametersLayout>
   <rd:ReportUnitType>Inch</rd:ReportUnitType>
