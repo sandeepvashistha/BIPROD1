@@ -22,17 +22,17 @@
           </QueryParameter>
         </QueryParameters>
         <CommandText>select a.WAREHOUSE,a.WarehouseOrder,a.wh_name,
-sum(case when a.post_date=cast(getdate() as date) then a.unit_count else 0 end) Yesterday_unit_count,
-sum(case when a.post_date=cast(getdate() as date) then a.scan_count else 0 end) Yesterday_scan_count,
-cast(round((case when sum(case when a.post_date=cast(getdate() as date) then a.unit_count else 0 end)=0 then 0
-when sum(case when a.post_date=cast(getdate() as date) then a.scan_count else 0 end)&gt;sum(case when a.post_date=cast(getdate() as date) then a.unit_count else 0 end) then 1
-else sum(case when a.post_date=cast(getdate() as date) then a.scan_count else 0 end)/sum(case when a.post_date=cast(getdate() as date) then a.unit_count else 0 end) 
+sum(case when a.entry_date=cast(getdate() as date) then a.unit_count else 0 end) Yesterday_unit_count,
+sum(case when a.entry_date=cast(getdate() as date) then a.scan_count else 0 end) Yesterday_scan_count,
+cast(round((case when sum(case when a.entry_date=cast(getdate() as date) then a.unit_count else 0 end)=0 then 0
+when sum(case when a.entry_date=cast(getdate() as date) then a.scan_count else 0 end)&gt;sum(case when a.entry_date=cast(getdate() as date) then a.unit_count else 0 end) then 1
+else sum(case when a.entry_date=cast(getdate() as date) then a.scan_count else 0 end)/sum(case when a.entry_date=cast(getdate() as date) then a.unit_count else 0 end) 
  end),2,2) as numeric(3,2)) Yesterday_percent,
-sum(case when a.post_date&gt;=cast(getdate()-7 as date) then a.unit_count else 0 end) Week_1_unit_count,
-sum(case when a.post_date&gt;=cast(getdate()-7 as date) then a.scan_count else 0 end) Week_1_scan_count,
-cast(round((case when sum(case when a.post_date&gt;=cast(getdate()-7 as date) then a.unit_count else 0 end)=0 then 0 
-when sum(case when a.post_date&gt;=cast(getdate()-7 as date) then a.scan_count else 0 end)&gt;sum(case when a.post_date&gt;=cast(getdate()-7 as date) then a.unit_count else 0 end) then 1
-else sum(case when a.post_date&gt;=cast(getdate()-7 as date) then a.scan_count else 0 end)/sum(case when a.post_date&gt;=cast(getdate()-7 as date) then a.unit_count else 0 end) 
+sum(case when a.entry_date&gt;=cast(getdate()-7 as date) then a.unit_count else 0 end) Week_1_unit_count,
+sum(case when a.entry_date&gt;=cast(getdate()-7 as date) then a.scan_count else 0 end) Week_1_scan_count,
+cast(round((case when sum(case when a.entry_date&gt;=cast(getdate()-7 as date) then a.unit_count else 0 end)=0 then 0 
+when sum(case when a.entry_date&gt;=cast(getdate()-7 as date) then a.scan_count else 0 end)&gt;sum(case when a.entry_date&gt;=cast(getdate()-7 as date) then a.unit_count else 0 end) then 1
+else sum(case when a.entry_date&gt;=cast(getdate()-7 as date) then a.scan_count else 0 end)/sum(case when a.entry_date&gt;=cast(getdate()-7 as date) then a.unit_count else 0 end) 
  end),2,2) as numeric(3,2)) Week_1_percent,
 sum(a.unit_count) Month_1_unit_count,
 sum(a.scan_count) Month_1_scan_count,
@@ -43,34 +43,34 @@ else sum(a.scan_count)/sum(a.unit_count)
 from
 (
 select c.WAREHOUSE,(case when c.WAREHOUSE in (1,106) then 'A' else 'B' end) as WarehouseOrder,c.wh_name,
-c.post_date,sum(c.unit_count) unit_count, sum(isnull(d.scan_count,0)) as scan_count
+c.entry_date,sum(c.unit_count) unit_count, sum(isnull(d.scan_count,0)) as scan_count
 from
 (
-select odl.order_number, odh.warehouse,whs.wh_name,odl.item_code, odh.post_date,
+select odl.order_number, odh.warehouse,whs.wh_name,odl.item_code, odh.entry_date,
 sum(odl.qty_shipped) as unit_count
 from dw.dbo.odl odl
 join dw.dbo.odh odh on odl.morder = odh.morder
 left outer join dw.dbo.whs on (odh.uni_mkting_unit=whs.mkting_unit and odh.warehouse=whs.wh_number)
 where item_code in (select distinct item_no from barcode.dbo.th_required_items)
-and cast(odh.post_date as date) between @PostDateStart and @PostDateEnd--'2018-03-01' and '2018-03-31'
+and cast(odh.entry_date as date) between @PostDateStart and @PostDateEnd--'2018-03-01' and '2018-03-31'
 and odh.uni_mkting_unit = 66
 and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE not in ('C','R')
-group by odl.order_number, odl.item_code,odh.warehouse,whs.wh_name, odh.post_date
+group by odl.order_number, odl.item_code,odh.warehouse,whs.wh_name, odh.entry_date
 union
-select odl.order_number, odh.warehouse,whs.wh_name,es.item_child as item_code, odh.post_date,
+select odl.order_number, odh.warehouse,whs.wh_name,es.item_child as item_code, odh.entry_date,
 sum(odl.qty_shipped*es.quantity_per) as unit_count
 from dw.dbo.odl odl
 join dw.dbo.odh odh on odl.morder = odh.morder
 join barcode.dbo.easyship_th es on es.item_parent=odl.item_code and es.item_child in (select distinct item_no from barcode.dbo.th_required_items)
 left outer join dw.dbo.whs on (odh.uni_mkting_unit=whs.mkting_unit and odh.warehouse=whs.wh_number)
-where cast(odh.post_date as date) between @PostDateStart and @PostDateEnd
+where cast(odh.entry_date as date) between @PostDateStart and @PostDateEnd
 and odh.uni_mkting_unit = 66
 and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE not in ('C','R')
-group by odl.order_number, es.item_child,odh.warehouse,whs.wh_name, odh.post_date
+group by odl.order_number, es.item_child,odh.warehouse,whs.wh_name, odh.entry_date
 ) c
 left outer join
 (
@@ -82,8 +82,8 @@ and a.item_code in (select item_no from barcode.[dbo].[th_required_items])
 group by a.[order_id],a.item_code
 ) d
 on convert(varchar,c.ORDER_NUMBER) = d.orderID and c.Item_code=d.Item_code
-where c.order_number not in (select distinct isnull(RMA_ORIGINAL_ORDER,0) RMA_ORIGINAL_ORDER from dw.dbo.DM_RMA_ORIGINAL_ORDER where uni_mkting_unit=66 and order_status in (2,3,4,5) and cast(post_date as date)&gt;=@PostDateStart)
-group by c.WAREHOUSE,(case when c.WAREHOUSE in (1,106) then 'A' else 'B' end),c.wh_name,c.post_date
+where c.order_number not in (select distinct isnull(RMA_ORIGINAL_ORDER,0) RMA_ORIGINAL_ORDER from dw.dbo.DM_RMA_ORIGINAL_ORDER where uni_mkting_unit=66 and order_status in (2,3,4,5) and cast(entry_date as date)&gt;=@PostDateStart)
+group by c.WAREHOUSE,(case when c.WAREHOUSE in (1,106) then 'A' else 'B' end),c.wh_name,c.entry_date
 ) a
 group by a.WAREHOUSE,a.WarehouseOrder,a.wh_name</CommandText>
       </Query>
@@ -149,36 +149,36 @@ group by a.WAREHOUSE,a.WarehouseOrder,a.wh_name</CommandText>
             <Value>=Parameters!PostDateEnd.Value</Value>
           </QueryParameter>
         </QueryParameters>
-        <CommandText>select (case when it.WAREHOUSE in (1,106) then 'A' else 'B' end) as WarehouseOrder,it.order_number, it.warehouse,it.wh_name,it.item_code, it.post_date,it.unit_count,sum(isnull(bc.scan_count,0)) as scan_count
+        <CommandText>select (case when it.WAREHOUSE in (1,106) then 'A' else 'B' end) as WarehouseOrder,it.order_number, it.warehouse,it.wh_name,it.item_code, it.entry_date post_date,it.unit_count,sum(isnull(bc.scan_count,0)) as scan_count
 from
 (
-select a.order_number, a.warehouse,a.wh_name,a.item_code, a.post_date,sum(a.unit_count) unit_count
+select a.order_number, a.warehouse,a.wh_name,a.item_code, a.entry_date,sum(a.unit_count) unit_count
 from
 (
-select odl.order_number, odh.warehouse,whs.wh_name,odl.item_code, odh.post_date,sum(odl.qty_shipped) as unit_count
+select odl.order_number, odh.warehouse,whs.wh_name,odl.item_code, odh.entry_date,sum(odl.qty_shipped) as unit_count
 from dw.dbo.odl odl
 join dw.dbo.odh odh on odl.morder = odh.morder
 left outer join dw.dbo.whs on (odh.uni_mkting_unit=whs.mkting_unit and odh.warehouse=whs.wh_number)
 where item_code in (select distinct item_no from barcode.dbo.th_required_items)
-and cast(odh.post_date as date) between @PostDateStart and @PostDateEnd
+and cast(odh.entry_date as date) between @PostDateStart and @PostDateEnd
 and odh.uni_mkting_unit = 66
 and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE not in ('C','R')
-group by odl.order_number, odl.item_code,odh.warehouse,whs.wh_name, odh.post_date
+group by odl.order_number, odl.item_code,odh.warehouse,whs.wh_name, odh.entry_date
 union
-select odl.order_number, odh.warehouse,whs.wh_name,es.item_child as item_code, odh.post_date,sum(odl.qty_shipped*es.quantity_per) as unit_count
+select odl.order_number, odh.warehouse,whs.wh_name,es.item_child as item_code, odh.entry_date,sum(odl.qty_shipped*es.quantity_per) as unit_count
 from dw.dbo.odl odl
 join dw.dbo.odh odh on odl.morder = odh.morder
 join barcode.dbo.easyship_th es on es.item_parent=odl.item_code and es.item_child in (select distinct item_no from barcode.dbo.th_required_items)
 left outer join dw.dbo.whs on (odh.uni_mkting_unit=whs.mkting_unit and odh.warehouse=whs.wh_number)
-where cast(odh.post_date as date) between @PostDateStart and @PostDateEnd
+where cast(odh.entry_date as date) between @PostDateStart and @PostDateEnd
 and odh.uni_mkting_unit = 66
 and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE not in ('C','R')
-group by odl.order_number, es.item_child,odh.warehouse,whs.wh_name, odh.post_date
-) a group by a.order_number, a.warehouse,a.wh_name,a.item_code, a.post_date
+group by odl.order_number, es.item_child,odh.warehouse,whs.wh_name, odh.entry_date
+) a group by a.order_number, a.warehouse,a.wh_name,a.item_code, a.entry_date
 ) it
 left outer join
 (
@@ -190,9 +190,9 @@ and a.item_code in (select item_no from barcode.[dbo].[th_required_items])
 group by a.[order_id],a.item_code
 ) bc on convert(varchar,it.ORDER_NUMBER) = bc.orderID and it.Item_code=bc.Item_code
 WHERE
-it.order_number not in (select distinct isnull(RMA_ORIGINAL_ORDER,0) RMA_ORIGINAL_ORDER from dw.dbo.DM_RMA_ORIGINAL_ORDER where uni_mkting_unit=66 and order_status in (2,3,4,5) and cast(post_date as date)&gt;=@PostDateStart)
+it.order_number not in (select distinct isnull(RMA_ORIGINAL_ORDER,0) RMA_ORIGINAL_ORDER from dw.dbo.DM_RMA_ORIGINAL_ORDER where uni_mkting_unit=66 and order_status in (2,3,4,5) and cast(entry_date as date)&gt;=@PostDateStart)
 --(select distinct rma_original_ord from dw.dbo.RMA_ORIGINAL_ORDER)
-group by (case when it.WAREHOUSE in (1,106) then 'A' else 'B' end),it.order_number, it.warehouse,it.wh_name,it.item_code, it.post_date,it.unit_count</CommandText>
+group by (case when it.WAREHOUSE in (1,106) then 'A' else 'B' end),it.order_number, it.warehouse,it.wh_name,it.item_code, it.entry_date,it.unit_count</CommandText>
       </Query>
       <Fields>
         <Field Name="WarehouseOrder">
@@ -241,37 +241,37 @@ group by (case when it.WAREHOUSE in (1,106) then 'A' else 'B' end),it.order_numb
           </QueryParameter>
         </QueryParameters>
         <CommandText>select w.warehouse,(case when w.warehouse in (1,106) then 'A' else 'B' end) as WarehouseOrder,
-w.wh_name,w.odh_type,w.order_number,w.item_code,w.item_name_1,w.post_date,w.pv_date_date,w.org_order,odh.entry_date org_entry_date,odh.post_date org_post_date,-1*sum(w.unit_count) rma_unit_count
+w.wh_name,w.odh_type,w.order_number,w.item_code,w.item_name_1,w.entry_date post_date,w.pv_date_date,w.org_order,odh.entry_date org_entry_date,odh.post_date org_post_date,-1*sum(w.unit_count) rma_unit_count
 from
 (
-select odh.warehouse,whs.wh_name,odh.odh_type,odh.order_number,odl.item_code,itd.item_name_1,odh.post_date,odh.pv_date_date,dw.dbo.[udf_GetNumeric](ODH.comment_1) org_order,sum(odl.qty_shipped) as unit_count
+select odh.warehouse,whs.wh_name,odh.odh_type,odh.order_number,odl.item_code,itd.item_name_1,odh.entry_date,odh.pv_date_date,dw.dbo.[udf_GetNumeric](ODH.comment_1) org_order,sum(odl.qty_shipped) as unit_count
 from dw.dbo.odl odl
 join dw.dbo.odh odh on odl.morder = odh.morder
 left outer join dw.dbo.whs on (odh.uni_mkting_unit=whs.mkting_unit and odh.warehouse=whs.wh_number)
 left outer join dw.dbo.itd on (itd.uni_mkting_unit=odl.mkting_unit and itd.item_code=odl.item_code)
 where odl.item_code in (select distinct item_no from barcode.dbo.th_required_items)
-and cast(odh.post_date as date) between @PostDateStart and @PostDateEnd--'2018-04-01' and '2018-04-03'
+and cast(odh.entry_date as date) between @PostDateStart and @PostDateEnd--'2018-04-01' and '2018-04-03'
 and odh.uni_mkting_unit = 66
 and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE = 'C'
-group by odh.warehouse,whs.wh_name,odh.odh_type,odh.order_number,odl.item_code,itd.item_name_1,odh.post_date,odh.pv_date_date,dw.dbo.[udf_GetNumeric](ODH.comment_1)
+group by odh.warehouse,whs.wh_name,odh.odh_type,odh.order_number,odl.item_code,itd.item_name_1,odh.entry_date,odh.pv_date_date,dw.dbo.[udf_GetNumeric](ODH.comment_1)
 union
-select odh.warehouse,whs.wh_name,odh.odh_type,odh.order_number,odl.item_code,itd.item_name_1,odh.post_date,odh.pv_date_date,dw.dbo.[udf_GetNumeric](ODH.comment_1) org_order,sum(odl.qty_shipped*es.quantity_per) as unit_count
+select odh.warehouse,whs.wh_name,odh.odh_type,odh.order_number,odl.item_code,itd.item_name_1,odh.entry_date,odh.pv_date_date,dw.dbo.[udf_GetNumeric](ODH.comment_1) org_order,sum(odl.qty_shipped*es.quantity_per) as unit_count
 from dw.dbo.odl odl
 join dw.dbo.odh odh on odl.morder = odh.morder
 join barcode.dbo.easyship_th es on es.item_parent=odl.item_code and es.item_child in (select distinct item_no from barcode.dbo.th_required_items)
 left outer join dw.dbo.whs on (odh.uni_mkting_unit=whs.mkting_unit and odh.warehouse=whs.wh_number)
 left outer join dw.dbo.itd on (itd.uni_mkting_unit=odl.mkting_unit and itd.item_code=odl.item_code)
-where cast(odh.post_date as date) between @PostDateStart and @PostDateEnd--'2018-04-01' and '2018-04-03'
+where cast(odh.entry_date as date) between @PostDateStart and @PostDateEnd--'2018-04-01' and '2018-04-03'
 and odh.uni_mkting_unit = 66
 and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE = 'C'
-group by odh.warehouse,whs.wh_name,odh.odh_type,odh.order_number,odl.item_code,itd.item_name_1,odh.post_date,odh.pv_date_date,dw.dbo.[udf_GetNumeric](ODH.comment_1)
+group by odh.warehouse,whs.wh_name,odh.odh_type,odh.order_number,odl.item_code,itd.item_name_1,odh.entry_date,odh.pv_date_date,dw.dbo.[udf_GetNumeric](ODH.comment_1)
 ) w
 left outer join dw.dbo.odh on (odh.order_number=w.org_order and odh.uni_mkting_unit=66)
-group by w.warehouse,w.wh_name,w.odh_type,w.order_number,w.item_code,w.item_name_1,w.post_date,w.pv_date_date,w.org_order,odh.entry_date,odh.post_date</CommandText>
+group by w.warehouse,w.wh_name,w.odh_type,w.order_number,w.item_code,w.item_name_1,w.entry_date,w.pv_date_date,w.org_order,odh.entry_date,odh.post_date</CommandText>
       </Query>
       <Fields>
         <Field Name="warehouse">
@@ -1286,7 +1286,7 @@ order by stamp_created,order_id,item_code</CommandText>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Post Date</Value>
+                                  <Value>Entry Date</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -2376,7 +2376,7 @@ order by stamp_created,order_id,item_code</CommandText>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Post Date</Value>
+                                  <Value>Entry Date</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -3261,7 +3261,7 @@ order by stamp_created,order_id,item_code</CommandText>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Post Date</Value>
+                                  <Value>Entry Date</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -4881,11 +4881,11 @@ order by stamp_created,order_id,item_code</CommandText>
   <ReportParameters>
     <ReportParameter Name="PostDateStart">
       <DataType>DateTime</DataType>
-      <Prompt>Post Date Start</Prompt>
+      <Prompt>Entry Date Start</Prompt>
     </ReportParameter>
     <ReportParameter Name="PostDateEnd">
       <DataType>DateTime</DataType>
-      <Prompt>Post Date End</Prompt>
+      <Prompt>Entry Date End</Prompt>
     </ReportParameter>
   </ReportParameters>
   <ReportParametersLayout>
