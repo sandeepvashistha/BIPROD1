@@ -6,7 +6,7 @@
     <DataSource Name="SQLPRODA">
       <DataSourceReference>SQLPRODA</DataSourceReference>
       <rd:SecurityType>None</rd:SecurityType>
-      <rd:DataSourceID>bd378374-b08a-4402-ac84-f3840028c0e3</rd:DataSourceID>
+      <rd:DataSourceID>7417c408-aaad-41e1-bcb6-3398b10be369</rd:DataSourceID>
     </DataSource>
   </DataSources>
   <DataSets>
@@ -14,95 +14,98 @@
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
         <QueryParameters>
-          <QueryParameter Name="@DateSelect">
-            <Value>=Parameters!DateSelect.Value</Value>
+          <QueryParameter Name="@ReportDate">
+            <Value>=Parameters!ReportDate.Value</Value>
           </QueryParameter>
-          <QueryParameter Name="@StartDate">
-            <Value>=Parameters!StartDate.Value</Value>
+          <QueryParameter Name="@BeginEntryPVDate">
+            <Value>=Parameters!BeginEntryPVDate.Value</Value>
           </QueryParameter>
-          <QueryParameter Name="@EndDate">
-            <Value>=Parameters!EndDate.Value</Value>
+          <QueryParameter Name="@EndEntryPVDate">
+            <Value>=Parameters!EndEntryPVDate.Value</Value>
           </QueryParameter>
         </QueryParameters>
-        <CommandText>SELECT
-  ODH.INVOICE_NUMBER
-  ,ODH.ORDER_NUMBER
-  ,ODH.ODH_TYPE
-  ,OTY.DESCRIPTION ORDER_DESC
-  ,ODH.INVOICE_PRINT_DATE
-  ,ODH.ENTRY_DATE
-  ,ODH.POST_DATE
-  ,ODH.DIST_ID
-  ,(CASE WHEN ODH.ODH_TYPE='C' THEN -1*ODH.SALES_TAX ELSE ODH.SALES_TAX END) SALES_TAX
-  ,(CASE WHEN ODH.ODH_TYPE='C' THEN -1*(ODH.TOT_INVCE_AMOUNT-ODH.SALES_TAX) ELSE (ODH.TOT_INVCE_AMOUNT-ODH.SALES_TAX) END) TAXABLE_AMOUNT
-  ,(CASE WHEN ODH.ODH_TYPE='C' THEN -1*ODH.TOT_INVCE_AMOUNT ELSE ODH.TOT_INVCE_AMOUNT END) TOT_INVCE_AMOUNT
-  ,DST.ROMAN_NAME_1
-  ,DST.GOVERNMENT_ID
+        <CommandText>select dst.dist_id ID,dst.roman_name_1 Name,dst.dist_status [Dist Status],dst.entry_date [Dist Entry Date]
+,dst.entry_pv_date_date [Dist Entry PV Date],fi.ENTRY_DATE [First Order Entry Date],fi.order_number [First Order Number]
+,fi.price_2 [First Order PV],fi.ODH_TYPE [First Order Type],cast(@ReportDate as date) [Report Date], datediff(day,dst.entry_date,isnull(fi.ENTRY_DATE,cast(@ReportDate as date))) [# Days]
+from dw.dbo.dst 
+left outer join dw.dbo.dm_first_order_data fod on fod.dist_id=dst.dist_id
+left outer join 
+(
+SELECT ODH.MORDER,DST.MDIST,ODH.UNI_MKTING_UNIT,DST.DIST_ID,ODH.ORDER_NUMBER,ODH.ENTRY_DATE,
+ODH.PRICE_2,ODH.ODH_TYPE
 FROM
-  dw.dbo.ODH
-  INNER JOIN dw.dbo.DST ON ODH.DIST_ID = DST.DIST_ID
-  LEFT OUTER JOIN dw.dbo.OTY ON (ODH.UNI_MKTING_UNIT=OTY.MKTING_UNIT AND OTY.ORDER_TYPE=ODH.ODH_TYPE)
-WHERE
-   ODH.UNI_MKTING_UNIT=66 and ODH.Status in (2,3,4,5) and ODH.COUNTRY_CODE = 'THA'
-   and
-   (
-   ('ENTRY DATE'=@DateSelect AND ODH.ENTRY_DATE between @StartDate and @EndDate)--'2018-04-01' and '2018-04-10'
-   or
-   ('POST DATE'=@DateSelect AND ODH.POST_DATE between @StartDate and @EndDate)--'2018-04-01' and '2018-04-10'@StartDate and @EndDate
-   )</CommandText>
+(select A.DIST_ID,A.R_DATE,MIN(ODH.ORDER_NUMBER) AS O_NUMBER
+from DW.DBO.ODH ODH INNER JOIN DW.DBO.DST ON DST.DIST_ID=ODH.DIST_ID
+INNER JOIN
+(select ODH.DIST_ID,cast(MIN(ODH.ENTRY_DATE) as date) R_DATE
+FROM DW.DBO.ODH ODH INNER JOIN DW.DBO.DST ON DST.DIST_ID=ODH.DIST_ID
+LEFT OUTER JOIN (select ODH.UNI_MKTING_UNIT,(case when isnumeric(substring(DW.dbo.udf_GetNumeric(ODH.COMMENT_1),1,15))=1 then cast(substring(DW.dbo.udf_GetNumeric(ODH.COMMENT_1),1,15) as numeric) else 0 end) C_ORDER
+     from DW.DBO.ODH ODH INNER JOIN DW.DBO.DST ON DST.DIST_ID=ODH.DIST_ID
+     where ODH.ODH_TYPE='C' and ODH.STATUS IN (2,3,4,5) AND DST.UNI_MKTING_UNIT=62 AND ODH.PV_DATE_DATE&gt;=@BeginEntryPVDate
+    ) ODH_CANCELLED ON (ODH.UNI_MKTING_UNIT=ODH_CANCELLED.UNI_MKTING_UNIT AND ODH.ORDER_NUMBER=ODH_CANCELLED.C_ORDER)
+WHERE ODH.STATUS IN (2,3,4,5) AND ODH.ODH_TYPE &lt;&gt; 'C' AND DST.UNI_MKTING_UNIT=62 AND ODH.PV_DATE_DATE&gt;=@BeginEntryPVDate
+AND ODH.PRICE_2&gt;0 AND ODH.DIST_ID IS NOT NULL AND ODH_CANCELLED.C_ORDER IS NULL
+GROUP BY
+ ODH.DIST_ID
+) AS A ON A.DIST_ID=ODH.DIST_ID AND ODH.ENTRY_DATE=A.R_DATE
+--LEFT OUTER JOIN (select ODH.UNI_MKTING_UNIT,substring(DW.dbo.udf_GetNumeric(ODH.COMMENT_1),1,15) C_ORDER
+--     from DW.DBO.ODH ODH INNER JOIN DW.DBO.DST ON DST.DIST_ID=ODH.DIST_ID
+--     where ODH.ODH_TYPE='C' and ODH.STATUS IN (2,3,4,5) AND DST.UNI_MKTING_UNIT=62 AND ODH.PV_DATE_DATE&gt;='2019-04-01'
+--    ) ODH_CANCELLED ON (ODH.UNI_MKTING_UNIT=ODH_CANCELLED.UNI_MKTING_UNIT AND cast(ODH.ORDER_NUMBER as varchar)=ODH_CANCELLED.C_ORDER)
+WHERE ODH.STATUS IN (2,3,4,5) AND ODH.ODH_TYPE &lt;&gt; 'C' AND DST.UNI_MKTING_UNIT=62 AND ODH.PV_DATE_DATE&gt;=@BeginEntryPVDate
+AND ODH.PRICE_2&gt;0 AND ODH.DIST_ID IS NOT NULL --AND ODH_CANCELLED.C_ORDER IS NULL
+GROUP BY
+ A.DIST_ID,A.R_DATE
+) Query
+inner join DW.DBO.DST DST ON (DST.DIST_ID=Query.DIST_ID)
+inner join DW.DBO.ODH ODH ON (ODH.ORDER_NUMBER=Query.O_NUMBER AND ODH.DIST_ID=Query.DIST_ID AND ODH.STATUS IN (2,3,4,5))
+) fi on fi.dist_id=dst.dist_id
+where dst.uni_mkting_unit=62 and dst.entry_pv_date_date between @BeginEntryPVDate and @EndEntryPVDate;</CommandText>
       </Query>
       <Fields>
-        <Field Name="INVOICE_NUMBER">
-          <DataField>INVOICE_NUMBER</DataField>
+        <Field Name="ID">
+          <DataField>ID</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
-        <Field Name="ORDER_NUMBER">
-          <DataField>ORDER_NUMBER</DataField>
-          <rd:TypeName>System.Decimal</rd:TypeName>
-        </Field>
-        <Field Name="ODH_TYPE">
-          <DataField>ODH_TYPE</DataField>
+        <Field Name="Name">
+          <DataField>Name</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
-        <Field Name="ORDER_DESC">
-          <DataField>ORDER_DESC</DataField>
+        <Field Name="Dist_Status">
+          <DataField>Dist Status</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
-        <Field Name="INVOICE_PRINT_DATE">
-          <DataField>INVOICE_PRINT_DATE</DataField>
+        <Field Name="Dist_Entry_Date">
+          <DataField>Dist Entry Date</DataField>
           <rd:TypeName>System.DateTime</rd:TypeName>
         </Field>
-        <Field Name="ENTRY_DATE">
-          <DataField>ENTRY_DATE</DataField>
+        <Field Name="Dist_Entry_PV_Date">
+          <DataField>Dist Entry PV Date</DataField>
           <rd:TypeName>System.DateTime</rd:TypeName>
         </Field>
-        <Field Name="POST_DATE">
-          <DataField>POST_DATE</DataField>
+        <Field Name="First_Order_Entry_Date">
+          <DataField>First Order Entry Date</DataField>
           <rd:TypeName>System.DateTime</rd:TypeName>
         </Field>
-        <Field Name="DIST_ID">
-          <DataField>DIST_ID</DataField>
+        <Field Name="First_Order_Number">
+          <DataField>First Order Number</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
-        <Field Name="SALES_TAX">
-          <DataField>SALES_TAX</DataField>
+        <Field Name="First_Order_PV">
+          <DataField>First Order PV</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
-        <Field Name="TAXABLE_AMOUNT">
-          <DataField>TAXABLE_AMOUNT</DataField>
-          <rd:TypeName>System.Decimal</rd:TypeName>
-        </Field>
-        <Field Name="TOT_INVCE_AMOUNT">
-          <DataField>TOT_INVCE_AMOUNT</DataField>
-          <rd:TypeName>System.Decimal</rd:TypeName>
-        </Field>
-        <Field Name="ROMAN_NAME_1">
-          <DataField>ROMAN_NAME_1</DataField>
+        <Field Name="First_Order_Type">
+          <DataField>First Order Type</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
-        <Field Name="GOVERNMENT_ID">
-          <DataField>GOVERNMENT_ID</DataField>
-          <rd:TypeName>System.String</rd:TypeName>
+        <Field Name="Report_Date">
+          <DataField>Report Date</DataField>
+          <rd:TypeName>System.DateTime</rd:TypeName>
+        </Field>
+        <Field Name="ID__Days">
+          <DataField># Days</DataField>
+          <rd:TypeName>System.Int32</rd:TypeName>
         </Field>
       </Fields>
     </DataSet>
@@ -111,113 +114,6 @@ WHERE
     <ReportSection>
       <Body>
         <ReportItems>
-          <Textbox Name="Textbox1">
-            <CanGrow>true</CanGrow>
-            <KeepTogether>true</KeepTogether>
-            <Paragraphs>
-              <Paragraph>
-                <TextRuns>
-                  <TextRun>
-                    <Value>="Thiland Sales Output Vat Report"</Value>
-                    <Style>
-                      <FontWeight>Bold</FontWeight>
-                    </Style>
-                  </TextRun>
-                </TextRuns>
-                <Style>
-                  <TextAlign>Center</TextAlign>
-                </Style>
-              </Paragraph>
-            </Paragraphs>
-            <rd:DefaultName>Textbox1</rd:DefaultName>
-            <Left>2in</Left>
-            <Height>0.25in</Height>
-            <Width>4.5in</Width>
-            <Style>
-              <Border>
-                <Style>Solid</Style>
-              </Border>
-              <TopBorder>
-                <Color>Black</Color>
-                <Style>Solid</Style>
-                <Width>1pt</Width>
-              </TopBorder>
-              <BottomBorder>
-                <Color>Black</Color>
-                <Style>Solid</Style>
-                <Width>1pt</Width>
-              </BottomBorder>
-              <LeftBorder>
-                <Color>Black</Color>
-                <Style>Solid</Style>
-                <Width>1pt</Width>
-              </LeftBorder>
-              <RightBorder>
-                <Color>Black</Color>
-                <Style>Solid</Style>
-                <Width>1pt</Width>
-              </RightBorder>
-              <PaddingLeft>2pt</PaddingLeft>
-              <PaddingRight>2pt</PaddingRight>
-              <PaddingTop>2pt</PaddingTop>
-              <PaddingBottom>2pt</PaddingBottom>
-            </Style>
-          </Textbox>
-          <Textbox Name="Textbox2">
-            <CanGrow>true</CanGrow>
-            <KeepTogether>true</KeepTogether>
-            <Paragraphs>
-              <Paragraph>
-                <TextRuns>
-                  <TextRun>
-                    <Value>="Selected "+Parameters!DateSelect.Value+" between "+format(Parameters!StartDate.Value,"yyyy-MM-dd")+" and "+format(Parameters!EndDate.Value,"yyyy-MM-dd")</Value>
-                    <Style>
-                      <FontStyle>Italic</FontStyle>
-                      <FontWeight>Bold</FontWeight>
-                    </Style>
-                  </TextRun>
-                </TextRuns>
-                <Style>
-                  <TextAlign>Center</TextAlign>
-                </Style>
-              </Paragraph>
-            </Paragraphs>
-            <rd:DefaultName>Textbox2</rd:DefaultName>
-            <Top>0.25in</Top>
-            <Left>2in</Left>
-            <Height>0.25in</Height>
-            <Width>4.5in</Width>
-            <ZIndex>1</ZIndex>
-            <Style>
-              <Border>
-                <Style>Solid</Style>
-              </Border>
-              <TopBorder>
-                <Color>Black</Color>
-                <Style>Solid</Style>
-                <Width>1pt</Width>
-              </TopBorder>
-              <BottomBorder>
-                <Color>Black</Color>
-                <Style>Solid</Style>
-                <Width>1pt</Width>
-              </BottomBorder>
-              <LeftBorder>
-                <Color>Black</Color>
-                <Style>Solid</Style>
-                <Width>1pt</Width>
-              </LeftBorder>
-              <RightBorder>
-                <Color>Black</Color>
-                <Style>Solid</Style>
-                <Width>1pt</Width>
-              </RightBorder>
-              <PaddingLeft>2pt</PaddingLeft>
-              <PaddingRight>2pt</PaddingRight>
-              <PaddingTop>2pt</PaddingTop>
-              <PaddingBottom>2pt</PaddingBottom>
-            </Style>
-          </Textbox>
           <Tablix Name="Tablix1">
             <TablixBody>
               <TablixColumns>
@@ -225,28 +121,22 @@ WHERE
                   <Width>1in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1in</Width>
-                </TablixColumn>
-                <TablixColumn>
-                  <Width>1in</Width>
-                </TablixColumn>
-                <TablixColumn>
-                  <Width>1.5in</Width>
-                </TablixColumn>
-                <TablixColumn>
-                  <Width>1in</Width>
-                </TablixColumn>
-                <TablixColumn>
-                  <Width>1in</Width>
-                </TablixColumn>
-                <TablixColumn>
-                  <Width>1in</Width>
-                </TablixColumn>
-                <TablixColumn>
-                  <Width>1in</Width>
-                </TablixColumn>
-                <TablixColumn>
                   <Width>2in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1in</Width>
@@ -267,6 +157,60 @@ WHERE
                   <TablixCells>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="Textbox1">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>ID</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox1</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="Textbox3">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
@@ -274,7 +218,7 @@ WHERE
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Invoice Number</Value>
+                                  <Value>Name</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -328,7 +272,7 @@ WHERE
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Order Number</Value>
+                                  <Value>Dist Status</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -382,7 +326,7 @@ WHERE
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Order Type</Value>
+                                  <Value>Dist Entry Date</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -436,7 +380,7 @@ WHERE
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Order Type Description</Value>
+                                  <Value>Dist Entry PV Date</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -490,7 +434,7 @@ WHERE
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Invoice Date</Value>
+                                  <Value>First Order Entry Date</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -544,7 +488,7 @@ WHERE
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Entry Date</Value>
+                                  <Value>First Order Number</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -598,7 +542,7 @@ WHERE
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Post Date</Value>
+                                  <Value>First Order PV</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -652,7 +596,7 @@ WHERE
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Dist ID</Value>
+                                  <Value>First Order Type</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -699,114 +643,6 @@ WHERE
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="Textbox29">
-                          <CanGrow>true</CanGrow>
-                          <KeepTogether>true</KeepTogether>
-                          <Paragraphs>
-                            <Paragraph>
-                              <TextRuns>
-                                <TextRun>
-                                  <Value>Dist Name</Value>
-                                  <Style>
-                                    <FontWeight>Bold</FontWeight>
-                                  </Style>
-                                </TextRun>
-                              </TextRuns>
-                              <Style>
-                                <TextAlign>Center</TextAlign>
-                              </Style>
-                            </Paragraph>
-                          </Paragraphs>
-                          <rd:DefaultName>Textbox29</rd:DefaultName>
-                          <Style>
-                            <Border>
-                              <Style>Solid</Style>
-                            </Border>
-                            <TopBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </TopBorder>
-                            <BottomBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </BottomBorder>
-                            <LeftBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </LeftBorder>
-                            <RightBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </RightBorder>
-                            <BackgroundColor>LightBlue</BackgroundColor>
-                            <PaddingLeft>2pt</PaddingLeft>
-                            <PaddingRight>2pt</PaddingRight>
-                            <PaddingTop>2pt</PaddingTop>
-                            <PaddingBottom>2pt</PaddingBottom>
-                          </Style>
-                        </Textbox>
-                      </CellContents>
-                    </TablixCell>
-                    <TablixCell>
-                      <CellContents>
-                        <Textbox Name="Textbox27">
-                          <CanGrow>true</CanGrow>
-                          <KeepTogether>true</KeepTogether>
-                          <Paragraphs>
-                            <Paragraph>
-                              <TextRuns>
-                                <TextRun>
-                                  <Value>Government ID</Value>
-                                  <Style>
-                                    <FontWeight>Bold</FontWeight>
-                                  </Style>
-                                </TextRun>
-                              </TextRuns>
-                              <Style>
-                                <TextAlign>Center</TextAlign>
-                              </Style>
-                            </Paragraph>
-                          </Paragraphs>
-                          <rd:DefaultName>Textbox27</rd:DefaultName>
-                          <Style>
-                            <Border>
-                              <Style>Solid</Style>
-                            </Border>
-                            <TopBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </TopBorder>
-                            <BottomBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </BottomBorder>
-                            <LeftBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </LeftBorder>
-                            <RightBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </RightBorder>
-                            <BackgroundColor>LightBlue</BackgroundColor>
-                            <PaddingLeft>2pt</PaddingLeft>
-                            <PaddingRight>2pt</PaddingRight>
-                            <PaddingTop>2pt</PaddingTop>
-                            <PaddingBottom>2pt</PaddingBottom>
-                          </Style>
-                        </Textbox>
-                      </CellContents>
-                    </TablixCell>
-                    <TablixCell>
-                      <CellContents>
                         <Textbox Name="Textbox19">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
@@ -814,7 +650,7 @@ WHERE
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Sales Tax</Value>
+                                  <Value>Report Date</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -868,7 +704,7 @@ WHERE
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Taxable Amount</Value>
+                                  <Value># Days</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -913,60 +749,6 @@ WHERE
                         </Textbox>
                       </CellContents>
                     </TablixCell>
-                    <TablixCell>
-                      <CellContents>
-                        <Textbox Name="Textbox23">
-                          <CanGrow>true</CanGrow>
-                          <KeepTogether>true</KeepTogether>
-                          <Paragraphs>
-                            <Paragraph>
-                              <TextRuns>
-                                <TextRun>
-                                  <Value>Total Invoice Amount</Value>
-                                  <Style>
-                                    <FontWeight>Bold</FontWeight>
-                                  </Style>
-                                </TextRun>
-                              </TextRuns>
-                              <Style>
-                                <TextAlign>Center</TextAlign>
-                              </Style>
-                            </Paragraph>
-                          </Paragraphs>
-                          <rd:DefaultName>Textbox23</rd:DefaultName>
-                          <Style>
-                            <Border>
-                              <Style>Solid</Style>
-                            </Border>
-                            <TopBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </TopBorder>
-                            <BottomBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </BottomBorder>
-                            <LeftBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </LeftBorder>
-                            <RightBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </RightBorder>
-                            <BackgroundColor>LightBlue</BackgroundColor>
-                            <PaddingLeft>2pt</PaddingLeft>
-                            <PaddingRight>2pt</PaddingRight>
-                            <PaddingTop>2pt</PaddingTop>
-                            <PaddingBottom>2pt</PaddingBottom>
-                          </Style>
-                        </Textbox>
-                      </CellContents>
-                    </TablixCell>
                   </TablixCells>
                 </TablixRow>
                 <TablixRow>
@@ -974,20 +756,20 @@ WHERE
                   <TablixCells>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="INVOICE_NUMBER">
+                        <Textbox Name="ID">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!INVOICE_NUMBER.Value</Value>
+                                  <Value>=Fields!ID.Value</Value>
                                   <Style />
                                 </TextRun>
                               </TextRuns>
                               <Style />
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>INVOICE_NUMBER</rd:DefaultName>
+                          <rd:DefaultName>ID</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -1022,20 +804,20 @@ WHERE
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="ORDER_NUMBER">
+                        <Textbox Name="Name">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!ORDER_NUMBER.Value</Value>
+                                  <Value>=Fields!Name.Value</Value>
                                   <Style />
                                 </TextRun>
                               </TextRuns>
                               <Style />
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>ORDER_NUMBER</rd:DefaultName>
+                          <rd:DefaultName>Name</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -1070,20 +852,20 @@ WHERE
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="ODH_TYPE">
+                        <Textbox Name="Dist_Status">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!ODH_TYPE.Value</Value>
+                                  <Value>=Fields!Dist_Status.Value</Value>
                                   <Style />
                                 </TextRun>
                               </TextRuns>
                               <Style />
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>ODH_TYPE</rd:DefaultName>
+                          <rd:DefaultName>Dist_Status</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -1118,61 +900,13 @@ WHERE
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="ORDER_DESC">
+                        <Textbox Name="Dist_Entry_Date">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!ORDER_DESC.Value</Value>
-                                  <Style />
-                                </TextRun>
-                              </TextRuns>
-                              <Style />
-                            </Paragraph>
-                          </Paragraphs>
-                          <rd:DefaultName>ORDER_DESC</rd:DefaultName>
-                          <Style>
-                            <Border>
-                              <Style>Solid</Style>
-                            </Border>
-                            <TopBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </TopBorder>
-                            <BottomBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </BottomBorder>
-                            <LeftBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </LeftBorder>
-                            <RightBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </RightBorder>
-                            <PaddingLeft>2pt</PaddingLeft>
-                            <PaddingRight>2pt</PaddingRight>
-                            <PaddingTop>2pt</PaddingTop>
-                            <PaddingBottom>2pt</PaddingBottom>
-                          </Style>
-                        </Textbox>
-                      </CellContents>
-                    </TablixCell>
-                    <TablixCell>
-                      <CellContents>
-                        <Textbox Name="INVOICE_PRINT_DATE">
-                          <KeepTogether>true</KeepTogether>
-                          <Paragraphs>
-                            <Paragraph>
-                              <TextRuns>
-                                <TextRun>
-                                  <Value>=Fields!INVOICE_PRINT_DATE.Value</Value>
+                                  <Value>=Fields!Dist_Entry_Date.Value</Value>
                                   <Style>
                                     <Format>yyyy-MM-dd</Format>
                                   </Style>
@@ -1181,7 +915,7 @@ WHERE
                               <Style />
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>INVOICE_PRINT_DATE</rd:DefaultName>
+                          <rd:DefaultName>Dist_Entry_Date</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -1196,13 +930,13 @@ WHERE
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="ENTRY_DATE">
+                        <Textbox Name="Dist_Entry_PV_Date">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!ENTRY_DATE.Value</Value>
+                                  <Value>=Fields!Dist_Entry_PV_Date.Value</Value>
                                   <Style>
                                     <Format>yyyy-MM-dd</Format>
                                   </Style>
@@ -1211,7 +945,7 @@ WHERE
                               <Style />
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>ENTRY_DATE</rd:DefaultName>
+                          <rd:DefaultName>Dist_Entry_PV_Date</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -1226,13 +960,13 @@ WHERE
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="POST_DATE">
+                        <Textbox Name="First_Order_Entry_Date">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!POST_DATE.Value</Value>
+                                  <Value>=Fields!First_Order_Entry_Date.Value</Value>
                                   <Style>
                                     <Format>yyyy-MM-dd</Format>
                                   </Style>
@@ -1241,7 +975,7 @@ WHERE
                               <Style />
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>POST_DATE</rd:DefaultName>
+                          <rd:DefaultName>First_Order_Entry_Date</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -1256,68 +990,20 @@ WHERE
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="DIST_ID">
+                        <Textbox Name="First_Order_Number">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!DIST_ID.Value</Value>
+                                  <Value>=Fields!First_Order_Number.Value</Value>
                                   <Style />
                                 </TextRun>
                               </TextRuns>
                               <Style />
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>DIST_ID</rd:DefaultName>
-                          <Style>
-                            <Border>
-                              <Style>Solid</Style>
-                            </Border>
-                            <TopBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </TopBorder>
-                            <BottomBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </BottomBorder>
-                            <LeftBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </LeftBorder>
-                            <RightBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </RightBorder>
-                            <PaddingLeft>2pt</PaddingLeft>
-                            <PaddingRight>2pt</PaddingRight>
-                            <PaddingTop>2pt</PaddingTop>
-                            <PaddingBottom>2pt</PaddingBottom>
-                          </Style>
-                        </Textbox>
-                      </CellContents>
-                    </TablixCell>
-                    <TablixCell>
-                      <CellContents>
-                        <Textbox Name="ROMAN_NAME_1">
-                          <KeepTogether>true</KeepTogether>
-                          <Paragraphs>
-                            <Paragraph>
-                              <TextRuns>
-                                <TextRun>
-                                  <Value>=Fields!ROMAN_NAME_1.Value</Value>
-                                  <Style />
-                                </TextRun>
-                              </TextRuns>
-                              <Style />
-                            </Paragraph>
-                          </Paragraphs>
-                          <rd:DefaultName>ROMAN_NAME_1</rd:DefaultName>
+                          <rd:DefaultName>First_Order_Number</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -1352,20 +1038,20 @@ WHERE
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="GOVERNMENT_ID">
+                        <Textbox Name="First_Order_PV">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!GOVERNMENT_ID.Value</Value>
+                                  <Value>=Fields!First_Order_PV.Value</Value>
                                   <Style />
                                 </TextRun>
                               </TextRuns>
                               <Style />
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>GOVERNMENT_ID</rd:DefaultName>
+                          <rd:DefaultName>First_Order_PV</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -1400,20 +1086,20 @@ WHERE
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="SALES_TAX">
+                        <Textbox Name="First_Order_Type">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!SALES_TAX.Value</Value>
+                                  <Value>=Fields!First_Order_Type.Value</Value>
                                   <Style />
                                 </TextRun>
                               </TextRuns>
                               <Style />
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>SALES_TAX</rd:DefaultName>
+                          <rd:DefaultName>First_Order_Type</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -1448,44 +1134,26 @@ WHERE
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="TAXABLE_AMOUNT">
+                        <Textbox Name="Report_Date">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!TAXABLE_AMOUNT.Value</Value>
-                                  <Style />
+                                  <Value>=Fields!Report_Date.Value</Value>
+                                  <Style>
+                                    <Format>yyyy-MM-dd</Format>
+                                  </Style>
                                 </TextRun>
                               </TextRuns>
                               <Style />
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>TAXABLE_AMOUNT</rd:DefaultName>
+                          <rd:DefaultName>Report_Date</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
                             </Border>
-                            <TopBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </TopBorder>
-                            <BottomBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </BottomBorder>
-                            <LeftBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </LeftBorder>
-                            <RightBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </RightBorder>
                             <PaddingLeft>2pt</PaddingLeft>
                             <PaddingRight>2pt</PaddingRight>
                             <PaddingTop>2pt</PaddingTop>
@@ -1496,20 +1164,20 @@ WHERE
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="TOT_INVCE_AMOUNT">
+                        <Textbox Name="ID__Days">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!TOT_INVCE_AMOUNT.Value</Value>
+                                  <Value>=Fields!ID__Days.Value</Value>
                                   <Style />
                                 </TextRun>
                               </TextRuns>
                               <Style />
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>TOT_INVCE_AMOUNT</rd:DefaultName>
+                          <rd:DefaultName>ID__Days</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -1559,8 +1227,6 @@ WHERE
                 <TablixMember />
                 <TablixMember />
                 <TablixMember />
-                <TablixMember />
-                <TablixMember />
               </TablixMembers>
             </TablixColumnHierarchy>
             <TablixRowHierarchy>
@@ -1572,7 +1238,11 @@ WHERE
                   <Group Name="Details" />
                   <SortExpressions>
                     <SortExpression>
-                      <Value>=Fields!ORDER_NUMBER.Value</Value>
+                      <Value>=Fields!Dist_Entry_PV_Date.Value</Value>
+                    </SortExpression>
+                    <SortExpression>
+                      <Value>=Fields!ID__Days.Value</Value>
+                      <Direction>Descending</Direction>
                     </SortExpression>
                   </SortExpressions>
                 </TablixMember>
@@ -1581,19 +1251,127 @@ WHERE
             <DataSetName>Query_1</DataSetName>
             <Top>0.5in</Top>
             <Height>0.5in</Height>
-            <Width>14.5in</Width>
-            <ZIndex>2</ZIndex>
+            <Width>12in</Width>
             <Style>
               <Border>
                 <Style>None</Style>
               </Border>
             </Style>
           </Tablix>
+          <Textbox Name="Textbox23">
+            <CanGrow>true</CanGrow>
+            <KeepTogether>true</KeepTogether>
+            <Paragraphs>
+              <Paragraph>
+                <TextRuns>
+                  <TextRun>
+                    <Value>="Selected Report Date: "+format(Parameters!ReportDate.Value,"yyyy-MM-dd")</Value>
+                    <Style>
+                      <FontStyle>Italic</FontStyle>
+                      <FontWeight>Bold</FontWeight>
+                    </Style>
+                  </TextRun>
+                </TextRuns>
+                <Style>
+                  <TextAlign>Center</TextAlign>
+                </Style>
+              </Paragraph>
+            </Paragraphs>
+            <rd:DefaultName>Textbox23</rd:DefaultName>
+            <Left>1in</Left>
+            <Height>0.25in</Height>
+            <Width>5in</Width>
+            <ZIndex>1</ZIndex>
+            <Style>
+              <Border>
+                <Style>Solid</Style>
+              </Border>
+              <TopBorder>
+                <Color>Black</Color>
+                <Style>Solid</Style>
+                <Width>1pt</Width>
+              </TopBorder>
+              <BottomBorder>
+                <Color>Black</Color>
+                <Style>Solid</Style>
+                <Width>1pt</Width>
+              </BottomBorder>
+              <LeftBorder>
+                <Color>Black</Color>
+                <Style>Solid</Style>
+                <Width>1pt</Width>
+              </LeftBorder>
+              <RightBorder>
+                <Color>Black</Color>
+                <Style>Solid</Style>
+                <Width>1pt</Width>
+              </RightBorder>
+              <PaddingLeft>2pt</PaddingLeft>
+              <PaddingRight>2pt</PaddingRight>
+              <PaddingTop>2pt</PaddingTop>
+              <PaddingBottom>2pt</PaddingBottom>
+            </Style>
+          </Textbox>
+          <Textbox Name="Textbox24">
+            <CanGrow>true</CanGrow>
+            <KeepTogether>true</KeepTogether>
+            <Paragraphs>
+              <Paragraph>
+                <TextRuns>
+                  <TextRun>
+                    <Value>="Selected Entry PV Date between "+format(Parameters!BeginEntryPVDate.Value,"MMM yyyy")+" and "+format(Parameters!EndEntryPVDate.Value,"MMM yyyy")</Value>
+                    <Style>
+                      <FontStyle>Italic</FontStyle>
+                      <FontWeight>Bold</FontWeight>
+                    </Style>
+                  </TextRun>
+                </TextRuns>
+                <Style>
+                  <TextAlign>Center</TextAlign>
+                </Style>
+              </Paragraph>
+            </Paragraphs>
+            <rd:DefaultName>Textbox24</rd:DefaultName>
+            <Top>0.25in</Top>
+            <Left>1in</Left>
+            <Height>0.25in</Height>
+            <Width>5in</Width>
+            <ZIndex>2</ZIndex>
+            <Style>
+              <Border>
+                <Style>Solid</Style>
+              </Border>
+              <TopBorder>
+                <Color>Black</Color>
+                <Style>Solid</Style>
+                <Width>1pt</Width>
+              </TopBorder>
+              <BottomBorder>
+                <Color>Black</Color>
+                <Style>Solid</Style>
+                <Width>1pt</Width>
+              </BottomBorder>
+              <LeftBorder>
+                <Color>Black</Color>
+                <Style>Solid</Style>
+                <Width>1pt</Width>
+              </LeftBorder>
+              <RightBorder>
+                <Color>Black</Color>
+                <Style>Solid</Style>
+                <Width>1pt</Width>
+              </RightBorder>
+              <PaddingLeft>2pt</PaddingLeft>
+              <PaddingRight>2pt</PaddingRight>
+              <PaddingTop>2pt</PaddingTop>
+              <PaddingBottom>2pt</PaddingBottom>
+            </Style>
+          </Textbox>
         </ReportItems>
         <Height>1in</Height>
         <Style />
       </Body>
-      <Width>14.5in</Width>
+      <Width>12in</Width>
       <Page>
         <LeftMargin>1in</LeftMargin>
         <RightMargin>1in</RightMargin>
@@ -1604,54 +1382,42 @@ WHERE
     </ReportSection>
   </ReportSections>
   <ReportParameters>
-    <ReportParameter Name="DateSelect">
-      <DataType>String</DataType>
-      <Prompt>Date Type Selection</Prompt>
-      <ValidValues>
-        <ParameterValues>
-          <ParameterValue>
-            <Value>POST DATE</Value>
-            <Label>POST DATE</Label>
-          </ParameterValue>
-          <ParameterValue>
-            <Value>ENTRY DATE</Value>
-            <Label>ENTRY DATE</Label>
-          </ParameterValue>
-        </ParameterValues>
-      </ValidValues>
-    </ReportParameter>
-    <ReportParameter Name="StartDate">
+    <ReportParameter Name="ReportDate">
       <DataType>DateTime</DataType>
-      <Prompt>Start Date</Prompt>
+      <Prompt>Report Date</Prompt>
     </ReportParameter>
-    <ReportParameter Name="EndDate">
+    <ReportParameter Name="BeginEntryPVDate">
       <DataType>DateTime</DataType>
-      <Prompt>End Date</Prompt>
+      <Prompt>Begin Entry PV Date</Prompt>
+    </ReportParameter>
+    <ReportParameter Name="EndEntryPVDate">
+      <DataType>DateTime</DataType>
+      <Prompt>End Entry PV Date</Prompt>
     </ReportParameter>
   </ReportParameters>
   <ReportParametersLayout>
     <GridLayoutDefinition>
-      <NumberOfColumns>3</NumberOfColumns>
-      <NumberOfRows>1</NumberOfRows>
+      <NumberOfColumns>4</NumberOfColumns>
+      <NumberOfRows>2</NumberOfRows>
       <CellDefinitions>
+        <CellDefinition>
+          <ColumnIndex>0</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>ReportDate</ParameterName>
+        </CellDefinition>
         <CellDefinition>
           <ColumnIndex>1</ColumnIndex>
           <RowIndex>0</RowIndex>
-          <ParameterName>StartDate</ParameterName>
+          <ParameterName>BeginEntryPVDate</ParameterName>
         </CellDefinition>
         <CellDefinition>
           <ColumnIndex>2</ColumnIndex>
           <RowIndex>0</RowIndex>
-          <ParameterName>EndDate</ParameterName>
-        </CellDefinition>
-        <CellDefinition>
-          <ColumnIndex>0</ColumnIndex>
-          <RowIndex>0</RowIndex>
-          <ParameterName>DateSelect</ParameterName>
+          <ParameterName>EndEntryPVDate</ParameterName>
         </CellDefinition>
       </CellDefinitions>
     </GridLayoutDefinition>
   </ReportParametersLayout>
   <rd:ReportUnitType>Inch</rd:ReportUnitType>
-  <rd:ReportID>40cf2a60-5444-41ad-8060-5985959c4cfd</rd:ReportID>
+  <rd:ReportID>87104fa6-d527-446e-9fd2-a1aac4065f0c</rd:ReportID>
 </Report>

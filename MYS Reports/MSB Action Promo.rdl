@@ -6,81 +6,108 @@
     <DataSource Name="SQLPRODA">
       <DataSourceReference>SQLPRODA</DataSourceReference>
       <rd:SecurityType>None</rd:SecurityType>
-      <rd:DataSourceID>c81f5c56-7f5d-4da2-bb1e-47733a5bc255</rd:DataSourceID>
+      <rd:DataSourceID>2aac365b-b5f2-44e5-aa1d-6862d0dcedc3</rd:DataSourceID>
     </DataSource>
   </DataSources>
   <DataSets>
     <DataSet Name="Query_1">
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
-        <CommandText>SELECT 
-  DST.DIST_ID,
-  DST.ROMAN_NAME_1,
-  DST.UNI_MKTING_UNIT,
+        <CommandText>SELECT
+A.DISTRIBUTOR_NAME,
+A.DISTRIBUTOR_ID,
+A.COUNTRY_CODE,
+A.ENTRY_DATE,
+A.JOIN_MONTH,
+A.PV_DATE_DATE,
+A.SGP_LOCAL_VOLUME,
+A.BRN_LOCAL_VOLUME,
+A.MYS_LOCAL_VOLUME,
+A.TOTAL_PV,
+B.SPONSORED_NAME,
+B.SPONSORED_ID,
+B.SPONSORED_COUNTRY_CODE,
+B.SPONSORED_ENTRY_DATE,
+B.SPONSORED_JOIN_MONTH,
+B.SPONSORED_PV_DATE_DATE,
+B.SPONSORED_SGP_LOCAL_VOLUME,
+B.SPONSORED_BRN_LOCAL_VOLUME,
+B.SPONSORED_MYS_LOCAL_VOLUME,
+B.SPONSORED_TOTAL_PV,
+SUM(CASE WHEN A.PV_DATE_DATE=B.SPONSORED_PV_DATE_DATE then B.SPONSORED_TOTAL_PV else 0 end) over(partition by A.DISTRIBUTOR_ID,A.PV_DATE_DATE,B.SPONSORED_PV_DATE_DATE ORDER BY B.SPONSORED_PV_DATE_DATE) PARTI_SPONSORED_PV
+FROM
+(
+SELECT
+  DST.ROMAN_NAME_1 DISTRIBUTOR_NAME,
+  DST.DIST_ID DISTRIBUTOR_ID,
   DST.COUNTRY_CODE,
   DST.ENTRY_DATE,
-  DST.ENTRY_PV_DATE_DATE,
-  DST.DIST_STATUS,
-  DST.HOME_PHONE,
-  --DST.WORK_PHONE,
-  --DST.CELL_PHONE,
-  DST.EMAIL_ADDR,
-  DST.ADDR,
-  DST.ADDR_2,
-  DST.ADDR_3,
-  DST.CITY,
-  DST.STATE,
-  DST.POSTAL_CODE,  
-  ODH.COUNTRY_CODE ORDER_COUNTRY_CODE,
-  ODH.UNI_MKTING_UNIT ORDER_MARKET,
-  ODH.PV_DATE_DATE as PV_Date,
-  ODH.ENTRY_DATE ORDER_ENTRY_DATE,
-  ODH.ORDER_NUMBER,
-  ODH.ODH_TYPE,
-  ODH.PRICE_1,
-  (CASE WHEN ODH.ODH_TYPE='C' THEN -1*ODH.PRICE_2 ELSE ODH.PRICE_2 END) PV
+  DATEADD(MONTH, DATEDIFF(MONTH, 0, DST.ENTRY_DATE), 0) JOIN_MONTH,
+  ODH.PV_DATE_DATE,
+  SUM(CASE WHEN ODH.COUNTRY_CODE='SGP' and ODH.UNI_MKTING_UNIT=65 THEN (CASE WHEN ODH.ODH_TYPE='C' THEN -1*ODH.PRICE_2 ELSE ODH.PRICE_2 END) ELSE 0 END) SGP_LOCAL_VOLUME,
+  SUM(CASE WHEN ODH.COUNTRY_CODE='BRN' and ODH.UNI_MKTING_UNIT=65 THEN (CASE WHEN ODH.ODH_TYPE='C' THEN -1*ODH.PRICE_2 ELSE ODH.PRICE_2 END) ELSE 0 END) BRN_LOCAL_VOLUME,
+  SUM(CASE WHEN ODH.COUNTRY_CODE='MYS' and ODH.UNI_MKTING_UNIT=60 THEN (CASE WHEN ODH.ODH_TYPE='C' THEN -1*ODH.PRICE_2 ELSE ODH.PRICE_2 END) ELSE 0 END) MYS_LOCAL_VOLUME,
+  SUM(CASE WHEN ODH.ODH_TYPE='C' THEN -1*ODH.PRICE_2 ELSE ODH.PRICE_2 END) TOTAL_PV
 FROM
-DW.DBO.DST INNER JOIN DW.DBO.ODH ON (DST.DIST_ID=ODH.DIST_ID)
-inner join (select x.dist_id,count(x.pv) pv1
-from
+  DW.dbo.DST DST
+  INNER JOIN DW.dbo.ODH ODH ON ( DST.DIST_ID = ODH.DIST_ID )
+WHERE
+  (
+   DST.UNI_MKTING_UNIT  IN ( 60, 65  )
+   AND
+   ODH.PV_DATE_DATE  BETWEEN  '2019-04-01' and '2019-06-01' --@StartPVDate and @EndPVDate
+   AND
+   ODH.STATUS in (2,3,4,5)
+  )
+GROUP BY
+  DST.ROMAN_NAME_1,
+  DST.DIST_ID,
+  DST.COUNTRY_CODE,
+  DST.ENTRY_DATE,
+  DATEADD(MONTH, DATEDIFF(MONTH, 0, DST.ENTRY_DATE), 0),
+  ODH.PV_DATE_DATE
+) A
+LEFT OUTER JOIN
 (
-select country_code,dist_id,pv_date_date,sum(case when odh_type='C' then -1*price_2 else price_2 end) PV
-from dw.dbo.odh where pv_date_date between '2019-04-01' and '2019-06-01'
-and status in (2,3,4,5) and uni_mkting_unit=62 --and dist_id=758298562--757528562
-group by country_code,dist_id,pv_date_date
-having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
-) x group by x.dist_id having count(x.pv)&gt;=3
-) a on a.dist_id=dst.dist_id
-where odh.pv_date_date between '2019-04-01' and '2019-06-01' AND odh.status in (2,3,4,5) and odh.uni_mkting_unit=62
-and odh.price_2&gt;0
-and dst.dist_id not in
-(
-select distinct z.dist_id
-from
-(
-select x.dist_id,count(x.pv) pv1
-from
-(
-select country_code,dist_id,pv_date_date,sum(case when odh_type='C' then -1*price_2 else price_2 end) PV
-from dw.dbo.odh where pv_date_date between '2019-03-01' and '2019-06-01'
-and status in (2,3,4,5) and uni_mkting_unit=62 --and dist_id=758298562--757528562
-group by country_code,dist_id,pv_date_date
-having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
-) x group by x.dist_id having count(x.pv)&gt;3
-) z
-)</CommandText>
+SELECT
+  DST.ROMAN_NAME_1 SPONSORED_NAME,
+  DST.DIST_ID SPONSORED_ID,
+  SPONSOR.DIST_ID SPONSOR_ID,
+  DST.COUNTRY_CODE SPONSORED_COUNTRY_CODE,
+  DST.ENTRY_DATE SPONSORED_ENTRY_DATE,
+  DATEADD(MONTH, DATEDIFF(MONTH, 0, DST.ENTRY_DATE), 0) SPONSORED_JOIN_MONTH,
+  ODH.PV_DATE_DATE SPONSORED_PV_DATE_DATE,
+  SUM(CASE WHEN ODH.COUNTRY_CODE='SGP' and ODH.UNI_MKTING_UNIT=65 THEN (CASE WHEN ODH.ODH_TYPE='C' THEN -1*ODH.PRICE_2 ELSE ODH.PRICE_2 END) ELSE 0 END) SPONSORED_SGP_LOCAL_VOLUME,
+  SUM(CASE WHEN ODH.COUNTRY_CODE='BRN' and ODH.UNI_MKTING_UNIT=65 THEN (CASE WHEN ODH.ODH_TYPE='C' THEN -1*ODH.PRICE_2 ELSE ODH.PRICE_2 END) ELSE 0 END) SPONSORED_BRN_LOCAL_VOLUME,
+  SUM(CASE WHEN ODH.COUNTRY_CODE='MYS' and ODH.UNI_MKTING_UNIT=60 THEN (CASE WHEN ODH.ODH_TYPE='C' THEN -1*ODH.PRICE_2 ELSE ODH.PRICE_2 END) ELSE 0 END) SPONSORED_MYS_LOCAL_VOLUME,
+  SUM(CASE WHEN ODH.ODH_TYPE='C' THEN -1*ODH.PRICE_2 ELSE ODH.PRICE_2 END) SPONSORED_TOTAL_PV
+FROM
+  DW.dbo.DST
+  INNER JOIN DW.dbo.DST SPONSOR ON ( SPONSOR.DIST_ID = DST.SPONSOR_DIST_ID )
+  LEFT OUTER JOIN DW.dbo.ODH ODH ON ( DST.DIST_ID = ODH.DIST_ID AND ODH.PV_DATE_DATE  BETWEEN  '2019-04-01' and '2019-06-01' --@StartPVDate and @EndPVDate
+									AND ODH.STATUS in (2,3,4,5))
+WHERE
+  (
+   SPONSOR.UNI_MKTING_UNIT  IN (60,65) AND (DST.ENTRY_DATE&gt;='2019-04-01')
+  )
+GROUP BY
+  DST.ROMAN_NAME_1,
+  DST.DIST_ID,
+  SPONSOR.DIST_ID,
+  DST.COUNTRY_CODE,
+  DST.ENTRY_DATE,
+  DATEADD(MONTH, DATEDIFF(MONTH, 0, DST.ENTRY_DATE), 0),
+  ODH.PV_DATE_DATE
+) B ON (A.DISTRIBUTOR_ID=B.SPONSOR_ID)
+--where A.DISTRIBUTOR_ID=6321160</CommandText>
       </Query>
       <Fields>
-        <Field Name="DIST_ID">
-          <DataField>DIST_ID</DataField>
-          <rd:TypeName>System.Decimal</rd:TypeName>
-        </Field>
-        <Field Name="ROMAN_NAME_1">
-          <DataField>ROMAN_NAME_1</DataField>
+        <Field Name="DISTRIBUTOR_NAME">
+          <DataField>DISTRIBUTOR_NAME</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
-        <Field Name="UNI_MKTING_UNIT">
-          <DataField>UNI_MKTING_UNIT</DataField>
+        <Field Name="DISTRIBUTOR_ID">
+          <DataField>DISTRIBUTOR_ID</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
         <Field Name="COUNTRY_CODE">
@@ -91,76 +118,72 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
           <DataField>ENTRY_DATE</DataField>
           <rd:TypeName>System.DateTime</rd:TypeName>
         </Field>
-        <Field Name="ENTRY_PV_DATE_DATE">
-          <DataField>ENTRY_PV_DATE_DATE</DataField>
+        <Field Name="JOIN_MONTH">
+          <DataField>JOIN_MONTH</DataField>
           <rd:TypeName>System.DateTime</rd:TypeName>
         </Field>
-        <Field Name="DIST_STATUS">
-          <DataField>DIST_STATUS</DataField>
-          <rd:TypeName>System.String</rd:TypeName>
-        </Field>
-        <Field Name="HOME_PHONE">
-          <DataField>HOME_PHONE</DataField>
-          <rd:TypeName>System.String</rd:TypeName>
-        </Field>
-        <Field Name="EMAIL_ADDR">
-          <DataField>EMAIL_ADDR</DataField>
-          <rd:TypeName>System.String</rd:TypeName>
-        </Field>
-        <Field Name="ADDR">
-          <DataField>ADDR</DataField>
-          <rd:TypeName>System.String</rd:TypeName>
-        </Field>
-        <Field Name="ADDR_2">
-          <DataField>ADDR_2</DataField>
-          <rd:TypeName>System.String</rd:TypeName>
-        </Field>
-        <Field Name="ADDR_3">
-          <DataField>ADDR_3</DataField>
-          <rd:TypeName>System.String</rd:TypeName>
-        </Field>
-        <Field Name="CITY">
-          <DataField>CITY</DataField>
-          <rd:TypeName>System.String</rd:TypeName>
-        </Field>
-        <Field Name="STATE">
-          <DataField>STATE</DataField>
-          <rd:TypeName>System.String</rd:TypeName>
-        </Field>
-        <Field Name="POSTAL_CODE">
-          <DataField>POSTAL_CODE</DataField>
-          <rd:TypeName>System.String</rd:TypeName>
-        </Field>
-        <Field Name="ORDER_COUNTRY_CODE">
-          <DataField>ORDER_COUNTRY_CODE</DataField>
-          <rd:TypeName>System.String</rd:TypeName>
-        </Field>
-        <Field Name="ORDER_MARKET">
-          <DataField>ORDER_MARKET</DataField>
-          <rd:TypeName>System.Decimal</rd:TypeName>
-        </Field>
-        <Field Name="PV_Date">
-          <DataField>PV_Date</DataField>
+        <Field Name="PV_DATE_DATE">
+          <DataField>PV_DATE_DATE</DataField>
           <rd:TypeName>System.DateTime</rd:TypeName>
         </Field>
-        <Field Name="ORDER_ENTRY_DATE">
-          <DataField>ORDER_ENTRY_DATE</DataField>
-          <rd:TypeName>System.DateTime</rd:TypeName>
-        </Field>
-        <Field Name="ORDER_NUMBER">
-          <DataField>ORDER_NUMBER</DataField>
+        <Field Name="SGP_LOCAL_VOLUME">
+          <DataField>SGP_LOCAL_VOLUME</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
-        <Field Name="ODH_TYPE">
-          <DataField>ODH_TYPE</DataField>
+        <Field Name="BRN_LOCAL_VOLUME">
+          <DataField>BRN_LOCAL_VOLUME</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="MYS_LOCAL_VOLUME">
+          <DataField>MYS_LOCAL_VOLUME</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="TOTAL_PV">
+          <DataField>TOTAL_PV</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="SPONSORED_NAME">
+          <DataField>SPONSORED_NAME</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
-        <Field Name="PRICE_1">
-          <DataField>PRICE_1</DataField>
+        <Field Name="SPONSORED_ID">
+          <DataField>SPONSORED_ID</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
-        <Field Name="PV">
-          <DataField>PV</DataField>
+        <Field Name="SPONSORED_COUNTRY_CODE">
+          <DataField>SPONSORED_COUNTRY_CODE</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="SPONSORED_ENTRY_DATE">
+          <DataField>SPONSORED_ENTRY_DATE</DataField>
+          <rd:TypeName>System.DateTime</rd:TypeName>
+        </Field>
+        <Field Name="SPONSORED_JOIN_MONTH">
+          <DataField>SPONSORED_JOIN_MONTH</DataField>
+          <rd:TypeName>System.DateTime</rd:TypeName>
+        </Field>
+        <Field Name="SPONSORED_PV_DATE_DATE">
+          <DataField>SPONSORED_PV_DATE_DATE</DataField>
+          <rd:TypeName>System.DateTime</rd:TypeName>
+        </Field>
+        <Field Name="SPONSORED_SGP_LOCAL_VOLUME">
+          <DataField>SPONSORED_SGP_LOCAL_VOLUME</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="SPONSORED_BRN_LOCAL_VOLUME">
+          <DataField>SPONSORED_BRN_LOCAL_VOLUME</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="SPONSORED_MYS_LOCAL_VOLUME">
+          <DataField>SPONSORED_MYS_LOCAL_VOLUME</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="SPONSORED_TOTAL_PV">
+          <DataField>SPONSORED_TOTAL_PV</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="PARTI_SPONSORED_PV">
+          <DataField>PARTI_SPONSORED_PV</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
       </Fields>
@@ -176,276 +199,6 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
                 <TablixCornerRow>
                   <TablixCornerCell>
                     <CellContents>
-                      <Textbox Name="Textbox4">
-                        <CanGrow>true</CanGrow>
-                        <KeepTogether>true</KeepTogether>
-                        <Paragraphs>
-                          <Paragraph>
-                            <TextRuns>
-                              <TextRun>
-                                <Value>DIST ID</Value>
-                                <Style>
-                                  <FontWeight>Bold</FontWeight>
-                                </Style>
-                              </TextRun>
-                            </TextRuns>
-                            <Style>
-                              <TextAlign>Center</TextAlign>
-                            </Style>
-                          </Paragraph>
-                        </Paragraphs>
-                        <rd:DefaultName>Textbox4</rd:DefaultName>
-                        <Style>
-                          <Border>
-                            <Style>Solid</Style>
-                          </Border>
-                          <TopBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </TopBorder>
-                          <BottomBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </BottomBorder>
-                          <LeftBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </LeftBorder>
-                          <RightBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </RightBorder>
-                          <BackgroundColor>LightBlue</BackgroundColor>
-                          <PaddingLeft>2pt</PaddingLeft>
-                          <PaddingRight>2pt</PaddingRight>
-                          <PaddingTop>2pt</PaddingTop>
-                          <PaddingBottom>2pt</PaddingBottom>
-                        </Style>
-                      </Textbox>
-                    </CellContents>
-                  </TablixCornerCell>
-                  <TablixCornerCell>
-                    <CellContents>
-                      <Textbox Name="Textbox5">
-                        <CanGrow>true</CanGrow>
-                        <KeepTogether>true</KeepTogether>
-                        <Paragraphs>
-                          <Paragraph>
-                            <TextRuns>
-                              <TextRun>
-                                <Value>ROMAN NAME 1</Value>
-                                <Style>
-                                  <FontWeight>Bold</FontWeight>
-                                </Style>
-                              </TextRun>
-                            </TextRuns>
-                            <Style>
-                              <TextAlign>Center</TextAlign>
-                            </Style>
-                          </Paragraph>
-                        </Paragraphs>
-                        <rd:DefaultName>Textbox5</rd:DefaultName>
-                        <Style>
-                          <Border>
-                            <Style>Solid</Style>
-                          </Border>
-                          <TopBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </TopBorder>
-                          <BottomBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </BottomBorder>
-                          <LeftBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </LeftBorder>
-                          <RightBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </RightBorder>
-                          <BackgroundColor>LightBlue</BackgroundColor>
-                          <PaddingLeft>2pt</PaddingLeft>
-                          <PaddingRight>2pt</PaddingRight>
-                          <PaddingTop>2pt</PaddingTop>
-                          <PaddingBottom>2pt</PaddingBottom>
-                        </Style>
-                      </Textbox>
-                    </CellContents>
-                  </TablixCornerCell>
-                  <TablixCornerCell>
-                    <CellContents>
-                      <Textbox Name="Textbox7">
-                        <CanGrow>true</CanGrow>
-                        <KeepTogether>true</KeepTogether>
-                        <Paragraphs>
-                          <Paragraph>
-                            <TextRuns>
-                              <TextRun>
-                                <Value>UNI MKTING UNIT</Value>
-                                <Style>
-                                  <FontWeight>Bold</FontWeight>
-                                </Style>
-                              </TextRun>
-                            </TextRuns>
-                            <Style>
-                              <TextAlign>Center</TextAlign>
-                            </Style>
-                          </Paragraph>
-                        </Paragraphs>
-                        <rd:DefaultName>Textbox7</rd:DefaultName>
-                        <Style>
-                          <Border>
-                            <Style>Solid</Style>
-                          </Border>
-                          <TopBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </TopBorder>
-                          <BottomBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </BottomBorder>
-                          <LeftBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </LeftBorder>
-                          <RightBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </RightBorder>
-                          <BackgroundColor>LightBlue</BackgroundColor>
-                          <PaddingLeft>2pt</PaddingLeft>
-                          <PaddingRight>2pt</PaddingRight>
-                          <PaddingTop>2pt</PaddingTop>
-                          <PaddingBottom>2pt</PaddingBottom>
-                        </Style>
-                      </Textbox>
-                    </CellContents>
-                  </TablixCornerCell>
-                  <TablixCornerCell>
-                    <CellContents>
-                      <Textbox Name="Textbox9">
-                        <CanGrow>true</CanGrow>
-                        <KeepTogether>true</KeepTogether>
-                        <Paragraphs>
-                          <Paragraph>
-                            <TextRuns>
-                              <TextRun>
-                                <Value>COUNTRY CODE</Value>
-                                <Style>
-                                  <FontWeight>Bold</FontWeight>
-                                </Style>
-                              </TextRun>
-                            </TextRuns>
-                            <Style>
-                              <TextAlign>Center</TextAlign>
-                            </Style>
-                          </Paragraph>
-                        </Paragraphs>
-                        <rd:DefaultName>Textbox9</rd:DefaultName>
-                        <Style>
-                          <Border>
-                            <Style>Solid</Style>
-                          </Border>
-                          <TopBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </TopBorder>
-                          <BottomBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </BottomBorder>
-                          <LeftBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </LeftBorder>
-                          <RightBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </RightBorder>
-                          <BackgroundColor>LightBlue</BackgroundColor>
-                          <PaddingLeft>2pt</PaddingLeft>
-                          <PaddingRight>2pt</PaddingRight>
-                          <PaddingTop>2pt</PaddingTop>
-                          <PaddingBottom>2pt</PaddingBottom>
-                        </Style>
-                      </Textbox>
-                    </CellContents>
-                  </TablixCornerCell>
-                  <TablixCornerCell>
-                    <CellContents>
-                      <Textbox Name="Textbox11">
-                        <CanGrow>true</CanGrow>
-                        <KeepTogether>true</KeepTogether>
-                        <Paragraphs>
-                          <Paragraph>
-                            <TextRuns>
-                              <TextRun>
-                                <Value>ENTRY DATE</Value>
-                                <Style>
-                                  <FontWeight>Bold</FontWeight>
-                                </Style>
-                              </TextRun>
-                            </TextRuns>
-                            <Style>
-                              <TextAlign>Center</TextAlign>
-                            </Style>
-                          </Paragraph>
-                        </Paragraphs>
-                        <rd:DefaultName>Textbox11</rd:DefaultName>
-                        <Style>
-                          <Border>
-                            <Style>Solid</Style>
-                          </Border>
-                          <TopBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </TopBorder>
-                          <BottomBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </BottomBorder>
-                          <LeftBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </LeftBorder>
-                          <RightBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </RightBorder>
-                          <BackgroundColor>LightBlue</BackgroundColor>
-                          <PaddingLeft>2pt</PaddingLeft>
-                          <PaddingRight>2pt</PaddingRight>
-                          <PaddingTop>2pt</PaddingTop>
-                          <PaddingBottom>2pt</PaddingBottom>
-                        </Style>
-                      </Textbox>
-                    </CellContents>
-                  </TablixCornerCell>
-                  <TablixCornerCell>
-                    <CellContents>
                       <Textbox Name="Textbox13">
                         <CanGrow>true</CanGrow>
                         <KeepTogether>true</KeepTogether>
@@ -453,7 +206,7 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
                           <Paragraph>
                             <TextRuns>
                               <TextRun>
-                                <Value>DIST STATUS</Value>
+                                <Value>Sponsor ID</Value>
                                 <Style>
                                   <FontWeight>Bold</FontWeight>
                                 </Style>
@@ -496,6 +249,62 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
                           <PaddingBottom>2pt</PaddingBottom>
                         </Style>
                       </Textbox>
+                      <RowSpan>2</RowSpan>
+                    </CellContents>
+                  </TablixCornerCell>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox14">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Sponsor Name</Value>
+                                <Style>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox14</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
+                          <BackgroundColor>LightBlue</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                      <RowSpan>2</RowSpan>
                     </CellContents>
                   </TablixCornerCell>
                   <TablixCornerCell>
@@ -507,7 +316,7 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
                           <Paragraph>
                             <TextRuns>
                               <TextRun>
-                                <Value>HOME PHONE</Value>
+                                <Value>Sponsor Country</Value>
                                 <Style>
                                   <FontWeight>Bold</FontWeight>
                                 </Style>
@@ -550,6 +359,62 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
                           <PaddingBottom>2pt</PaddingBottom>
                         </Style>
                       </Textbox>
+                      <RowSpan>2</RowSpan>
+                    </CellContents>
+                  </TablixCornerCell>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox16">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Sponsor Entry Date</Value>
+                                <Style>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox16</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
+                          <BackgroundColor>LightBlue</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                      <RowSpan>2</RowSpan>
                     </CellContents>
                   </TablixCornerCell>
                   <TablixCornerCell>
@@ -561,7 +426,7 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
                           <Paragraph>
                             <TextRuns>
                               <TextRun>
-                                <Value>EMAIL ADDR</Value>
+                                <Value>Sponsor Entry Month</Value>
                                 <Style>
                                   <FontWeight>Bold</FontWeight>
                                 </Style>
@@ -604,337 +469,24 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
                           <PaddingBottom>2pt</PaddingBottom>
                         </Style>
                       </Textbox>
+                      <RowSpan>2</RowSpan>
                     </CellContents>
                   </TablixCornerCell>
-                  <TablixCornerCell>
-                    <CellContents>
-                      <Textbox Name="Textbox19">
-                        <CanGrow>true</CanGrow>
-                        <KeepTogether>true</KeepTogether>
-                        <Paragraphs>
-                          <Paragraph>
-                            <TextRuns>
-                              <TextRun>
-                                <Value>ADDR</Value>
-                                <Style>
-                                  <FontWeight>Bold</FontWeight>
-                                </Style>
-                              </TextRun>
-                            </TextRuns>
-                            <Style>
-                              <TextAlign>Center</TextAlign>
-                            </Style>
-                          </Paragraph>
-                        </Paragraphs>
-                        <rd:DefaultName>Textbox19</rd:DefaultName>
-                        <Style>
-                          <Border>
-                            <Style>Solid</Style>
-                          </Border>
-                          <TopBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </TopBorder>
-                          <BottomBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </BottomBorder>
-                          <LeftBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </LeftBorder>
-                          <RightBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </RightBorder>
-                          <BackgroundColor>LightBlue</BackgroundColor>
-                          <PaddingLeft>2pt</PaddingLeft>
-                          <PaddingRight>2pt</PaddingRight>
-                          <PaddingTop>2pt</PaddingTop>
-                          <PaddingBottom>2pt</PaddingBottom>
-                        </Style>
-                      </Textbox>
-                    </CellContents>
-                  </TablixCornerCell>
-                  <TablixCornerCell>
-                    <CellContents>
-                      <Textbox Name="Textbox21">
-                        <CanGrow>true</CanGrow>
-                        <KeepTogether>true</KeepTogether>
-                        <Paragraphs>
-                          <Paragraph>
-                            <TextRuns>
-                              <TextRun>
-                                <Value>ADDR 2</Value>
-                                <Style>
-                                  <FontWeight>Bold</FontWeight>
-                                </Style>
-                              </TextRun>
-                            </TextRuns>
-                            <Style>
-                              <TextAlign>Center</TextAlign>
-                            </Style>
-                          </Paragraph>
-                        </Paragraphs>
-                        <rd:DefaultName>Textbox21</rd:DefaultName>
-                        <Style>
-                          <Border>
-                            <Style>Solid</Style>
-                          </Border>
-                          <TopBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </TopBorder>
-                          <BottomBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </BottomBorder>
-                          <LeftBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </LeftBorder>
-                          <RightBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </RightBorder>
-                          <BackgroundColor>LightBlue</BackgroundColor>
-                          <PaddingLeft>2pt</PaddingLeft>
-                          <PaddingRight>2pt</PaddingRight>
-                          <PaddingTop>2pt</PaddingTop>
-                          <PaddingBottom>2pt</PaddingBottom>
-                        </Style>
-                      </Textbox>
-                    </CellContents>
-                  </TablixCornerCell>
-                  <TablixCornerCell>
-                    <CellContents>
-                      <Textbox Name="Textbox23">
-                        <CanGrow>true</CanGrow>
-                        <KeepTogether>true</KeepTogether>
-                        <Paragraphs>
-                          <Paragraph>
-                            <TextRuns>
-                              <TextRun>
-                                <Value>ADDR 3</Value>
-                                <Style>
-                                  <FontWeight>Bold</FontWeight>
-                                </Style>
-                              </TextRun>
-                            </TextRuns>
-                            <Style>
-                              <TextAlign>Center</TextAlign>
-                            </Style>
-                          </Paragraph>
-                        </Paragraphs>
-                        <rd:DefaultName>Textbox23</rd:DefaultName>
-                        <Style>
-                          <Border>
-                            <Style>Solid</Style>
-                          </Border>
-                          <TopBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </TopBorder>
-                          <BottomBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </BottomBorder>
-                          <LeftBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </LeftBorder>
-                          <RightBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </RightBorder>
-                          <BackgroundColor>LightBlue</BackgroundColor>
-                          <PaddingLeft>2pt</PaddingLeft>
-                          <PaddingRight>2pt</PaddingRight>
-                          <PaddingTop>2pt</PaddingTop>
-                          <PaddingBottom>2pt</PaddingBottom>
-                        </Style>
-                      </Textbox>
-                    </CellContents>
-                  </TablixCornerCell>
-                  <TablixCornerCell>
-                    <CellContents>
-                      <Textbox Name="Textbox25">
-                        <CanGrow>true</CanGrow>
-                        <KeepTogether>true</KeepTogether>
-                        <Paragraphs>
-                          <Paragraph>
-                            <TextRuns>
-                              <TextRun>
-                                <Value>CITY</Value>
-                                <Style>
-                                  <FontWeight>Bold</FontWeight>
-                                </Style>
-                              </TextRun>
-                            </TextRuns>
-                            <Style>
-                              <TextAlign>Center</TextAlign>
-                            </Style>
-                          </Paragraph>
-                        </Paragraphs>
-                        <rd:DefaultName>Textbox25</rd:DefaultName>
-                        <Style>
-                          <Border>
-                            <Style>Solid</Style>
-                          </Border>
-                          <TopBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </TopBorder>
-                          <BottomBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </BottomBorder>
-                          <LeftBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </LeftBorder>
-                          <RightBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </RightBorder>
-                          <BackgroundColor>LightBlue</BackgroundColor>
-                          <PaddingLeft>2pt</PaddingLeft>
-                          <PaddingRight>2pt</PaddingRight>
-                          <PaddingTop>2pt</PaddingTop>
-                          <PaddingBottom>2pt</PaddingBottom>
-                        </Style>
-                      </Textbox>
-                    </CellContents>
-                  </TablixCornerCell>
-                  <TablixCornerCell>
-                    <CellContents>
-                      <Textbox Name="Textbox27">
-                        <CanGrow>true</CanGrow>
-                        <KeepTogether>true</KeepTogether>
-                        <Paragraphs>
-                          <Paragraph>
-                            <TextRuns>
-                              <TextRun>
-                                <Value>STATE</Value>
-                                <Style>
-                                  <FontWeight>Bold</FontWeight>
-                                </Style>
-                              </TextRun>
-                            </TextRuns>
-                            <Style>
-                              <TextAlign>Center</TextAlign>
-                            </Style>
-                          </Paragraph>
-                        </Paragraphs>
-                        <rd:DefaultName>Textbox27</rd:DefaultName>
-                        <Style>
-                          <Border>
-                            <Style>Solid</Style>
-                          </Border>
-                          <TopBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </TopBorder>
-                          <BottomBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </BottomBorder>
-                          <LeftBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </LeftBorder>
-                          <RightBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </RightBorder>
-                          <BackgroundColor>LightBlue</BackgroundColor>
-                          <PaddingLeft>2pt</PaddingLeft>
-                          <PaddingRight>2pt</PaddingRight>
-                          <PaddingTop>2pt</PaddingTop>
-                          <PaddingBottom>2pt</PaddingBottom>
-                        </Style>
-                      </Textbox>
-                    </CellContents>
-                  </TablixCornerCell>
-                  <TablixCornerCell>
-                    <CellContents>
-                      <Textbox Name="Textbox29">
-                        <CanGrow>true</CanGrow>
-                        <KeepTogether>true</KeepTogether>
-                        <Paragraphs>
-                          <Paragraph>
-                            <TextRuns>
-                              <TextRun>
-                                <Value>POSTAL CODE</Value>
-                                <Style>
-                                  <FontWeight>Bold</FontWeight>
-                                </Style>
-                              </TextRun>
-                            </TextRuns>
-                            <Style>
-                              <TextAlign>Center</TextAlign>
-                            </Style>
-                          </Paragraph>
-                        </Paragraphs>
-                        <rd:DefaultName>Textbox29</rd:DefaultName>
-                        <Style>
-                          <Border>
-                            <Style>Solid</Style>
-                          </Border>
-                          <TopBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </TopBorder>
-                          <BottomBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </BottomBorder>
-                          <LeftBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </LeftBorder>
-                          <RightBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </RightBorder>
-                          <BackgroundColor>LightBlue</BackgroundColor>
-                          <PaddingLeft>2pt</PaddingLeft>
-                          <PaddingRight>2pt</PaddingRight>
-                          <PaddingTop>2pt</PaddingTop>
-                          <PaddingBottom>2pt</PaddingBottom>
-                        </Style>
-                      </Textbox>
-                    </CellContents>
-                  </TablixCornerCell>
+                </TablixCornerRow>
+                <TablixCornerRow>
+                  <TablixCornerCell />
+                  <TablixCornerCell />
+                  <TablixCornerCell />
+                  <TablixCornerCell />
+                  <TablixCornerCell />
                 </TablixCornerRow>
               </TablixCornerRows>
             </TablixCorner>
             <TablixBody>
               <TablixColumns>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
                 <TablixColumn>
                   <Width>1in</Width>
                 </TablixColumn>
@@ -948,20 +500,20 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
                   <TablixCells>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="PV">
+                        <Textbox Name="SPONSORED_ID2">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Sum(Fields!PV.Value)</Value>
+                                  <Value>=CountDistinct(Fields!SPONSORED_ID.Value)</Value>
                                   <Style />
                                 </TextRun>
                               </TextRuns>
                               <Style />
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>PV</rd:DefaultName>
+                          <rd:DefaultName>SPONSORED_ID</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -996,22 +548,980 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="PV2">
+                        <Textbox Name="TOTAL_PV">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Sum(Fields!PV.Value)</Value>
-                                  <Style>
-                                    <FontWeight>Bold</FontWeight>
-                                  </Style>
+                                  <Value>=Max(Fields!TOTAL_PV.Value)</Value>
+                                  <Style />
                                 </TextRun>
                               </TextRuns>
                               <Style />
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>PV</rd:DefaultName>
+                          <rd:DefaultName>TOTAL_PV</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="SPONSORED_TOTAL_PV">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Max(Fields!PARTI_SPONSORED_PV.Value)</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>SPONSORED_TOTAL_PV</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+              </TablixRows>
+            </TablixBody>
+            <TablixColumnHierarchy>
+              <TablixMembers>
+                <TablixMember>
+                  <TablixHeader>
+                    <Size>0.5in</Size>
+                    <CellContents>
+                      <Textbox Name="Textbox5">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Sponsored Count</Value>
+                                <Style>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox5</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>Solid</Style>
+                          </Border>
+                          <BackgroundColor>LightBlue</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixHeader>
+                </TablixMember>
+                <TablixMember>
+                  <Group Name="PV_DATE_DATE">
+                    <GroupExpressions>
+                      <GroupExpression>=Fields!PV_DATE_DATE.Value</GroupExpression>
+                    </GroupExpressions>
+                  </Group>
+                  <SortExpressions>
+                    <SortExpression>
+                      <Value>=Fields!PV_DATE_DATE.Value</Value>
+                    </SortExpression>
+                  </SortExpressions>
+                  <TablixHeader>
+                    <Size>0.25in</Size>
+                    <CellContents>
+                      <Textbox Name="PV_DATE_DATE">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>=Fields!PV_DATE_DATE.Value</Value>
+                                <Style>
+                                  <FontWeight>Bold</FontWeight>
+                                  <Format>MMM yyyy</Format>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>PV_DATE_DATE</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>Solid</Style>
+                          </Border>
+                          <BackgroundColor>Yellow</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixHeader>
+                  <TablixMembers>
+                    <TablixMember>
+                      <Group Name="ColumnGroup">
+                        <GroupExpressions>
+                          <GroupExpression />
+                        </GroupExpressions>
+                      </Group>
+                      <TablixHeader>
+                        <Size>0.25in</Size>
+                        <CellContents>
+                          <Textbox Name="Textbox2">
+                            <CanGrow>true</CanGrow>
+                            <KeepTogether>true</KeepTogether>
+                            <Paragraphs>
+                              <Paragraph>
+                                <TextRuns>
+                                  <TextRun>
+                                    <Value>Sponsor PV</Value>
+                                    <Style>
+                                      <FontWeight>Bold</FontWeight>
+                                    </Style>
+                                  </TextRun>
+                                </TextRuns>
+                                <Style>
+                                  <TextAlign>Center</TextAlign>
+                                </Style>
+                              </Paragraph>
+                            </Paragraphs>
+                            <rd:DefaultName>Textbox2</rd:DefaultName>
+                            <Style>
+                              <Border>
+                                <Style>Solid</Style>
+                              </Border>
+                              <TopBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </TopBorder>
+                              <BottomBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </BottomBorder>
+                              <LeftBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </LeftBorder>
+                              <RightBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </RightBorder>
+                              <BackgroundColor>LightGrey</BackgroundColor>
+                              <PaddingLeft>2pt</PaddingLeft>
+                              <PaddingRight>2pt</PaddingRight>
+                              <PaddingTop>2pt</PaddingTop>
+                              <PaddingBottom>2pt</PaddingBottom>
+                            </Style>
+                          </Textbox>
+                        </CellContents>
+                      </TablixHeader>
+                    </TablixMember>
+                    <TablixMember>
+                      <TablixHeader>
+                        <Size>0.25in</Size>
+                        <CellContents>
+                          <Textbox Name="Textbox26">
+                            <CanGrow>true</CanGrow>
+                            <KeepTogether>true</KeepTogether>
+                            <Paragraphs>
+                              <Paragraph>
+                                <TextRuns>
+                                  <TextRun>
+                                    <Value>Sponsored PV</Value>
+                                    <Style>
+                                      <FontWeight>Bold</FontWeight>
+                                    </Style>
+                                  </TextRun>
+                                </TextRuns>
+                                <Style>
+                                  <TextAlign>Center</TextAlign>
+                                </Style>
+                              </Paragraph>
+                            </Paragraphs>
+                            <rd:DefaultName>Textbox26</rd:DefaultName>
+                            <Style>
+                              <Border>
+                                <Style>Solid</Style>
+                              </Border>
+                              <TopBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </TopBorder>
+                              <BottomBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </BottomBorder>
+                              <LeftBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </LeftBorder>
+                              <RightBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </RightBorder>
+                              <BackgroundColor>LightGrey</BackgroundColor>
+                              <PaddingLeft>2pt</PaddingLeft>
+                              <PaddingRight>2pt</PaddingRight>
+                              <PaddingTop>2pt</PaddingTop>
+                              <PaddingBottom>2pt</PaddingBottom>
+                            </Style>
+                          </Textbox>
+                        </CellContents>
+                      </TablixHeader>
+                    </TablixMember>
+                  </TablixMembers>
+                </TablixMember>
+              </TablixMembers>
+            </TablixColumnHierarchy>
+            <TablixRowHierarchy>
+              <TablixMembers>
+                <TablixMember>
+                  <Group Name="DISTRIBUTOR_ID">
+                    <GroupExpressions>
+                      <GroupExpression>=Fields!DISTRIBUTOR_ID.Value</GroupExpression>
+                      <GroupExpression>=Fields!DISTRIBUTOR_NAME.Value</GroupExpression>
+                      <GroupExpression>=Fields!COUNTRY_CODE.Value</GroupExpression>
+                      <GroupExpression>=Fields!ENTRY_DATE.Value</GroupExpression>
+                      <GroupExpression>=Fields!JOIN_MONTH.Value</GroupExpression>
+                    </GroupExpressions>
+                  </Group>
+                  <SortExpressions>
+                    <SortExpression>
+                      <Value>=Fields!DISTRIBUTOR_ID.Value</Value>
+                    </SortExpression>
+                  </SortExpressions>
+                  <TablixHeader>
+                    <Size>1in</Size>
+                    <CellContents>
+                      <Textbox Name="DISTRIBUTOR_ID">
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>=Fields!DISTRIBUTOR_ID.Value</Value>
+                                <Style />
+                              </TextRun>
+                            </TextRuns>
+                            <Style />
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>DISTRIBUTOR_ID</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixHeader>
+                  <TablixMembers>
+                    <TablixMember>
+                      <TablixHeader>
+                        <Size>2in</Size>
+                        <CellContents>
+                          <Textbox Name="DISTRIBUTOR_NAME">
+                            <KeepTogether>true</KeepTogether>
+                            <Paragraphs>
+                              <Paragraph>
+                                <TextRuns>
+                                  <TextRun>
+                                    <Value>=Fields!DISTRIBUTOR_NAME.Value</Value>
+                                    <Style />
+                                  </TextRun>
+                                </TextRuns>
+                                <Style />
+                              </Paragraph>
+                            </Paragraphs>
+                            <rd:DefaultName>DISTRIBUTOR_NAME</rd:DefaultName>
+                            <Style>
+                              <Border>
+                                <Style>Solid</Style>
+                              </Border>
+                              <TopBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </TopBorder>
+                              <BottomBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </BottomBorder>
+                              <LeftBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </LeftBorder>
+                              <RightBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </RightBorder>
+                              <PaddingLeft>2pt</PaddingLeft>
+                              <PaddingRight>2pt</PaddingRight>
+                              <PaddingTop>2pt</PaddingTop>
+                              <PaddingBottom>2pt</PaddingBottom>
+                            </Style>
+                          </Textbox>
+                        </CellContents>
+                      </TablixHeader>
+                      <TablixMembers>
+                        <TablixMember>
+                          <TablixHeader>
+                            <Size>1in</Size>
+                            <CellContents>
+                              <Textbox Name="COUNTRY_CODE">
+                                <KeepTogether>true</KeepTogether>
+                                <Paragraphs>
+                                  <Paragraph>
+                                    <TextRuns>
+                                      <TextRun>
+                                        <Value>=Fields!COUNTRY_CODE.Value</Value>
+                                        <Style />
+                                      </TextRun>
+                                    </TextRuns>
+                                    <Style />
+                                  </Paragraph>
+                                </Paragraphs>
+                                <rd:DefaultName>COUNTRY_CODE</rd:DefaultName>
+                                <Style>
+                                  <Border>
+                                    <Style>Solid</Style>
+                                  </Border>
+                                  <TopBorder>
+                                    <Color>Black</Color>
+                                    <Style>Solid</Style>
+                                    <Width>1pt</Width>
+                                  </TopBorder>
+                                  <BottomBorder>
+                                    <Color>Black</Color>
+                                    <Style>Solid</Style>
+                                    <Width>1pt</Width>
+                                  </BottomBorder>
+                                  <LeftBorder>
+                                    <Color>Black</Color>
+                                    <Style>Solid</Style>
+                                    <Width>1pt</Width>
+                                  </LeftBorder>
+                                  <RightBorder>
+                                    <Color>Black</Color>
+                                    <Style>Solid</Style>
+                                    <Width>1pt</Width>
+                                  </RightBorder>
+                                  <PaddingLeft>2pt</PaddingLeft>
+                                  <PaddingRight>2pt</PaddingRight>
+                                  <PaddingTop>2pt</PaddingTop>
+                                  <PaddingBottom>2pt</PaddingBottom>
+                                </Style>
+                              </Textbox>
+                            </CellContents>
+                          </TablixHeader>
+                          <TablixMembers>
+                            <TablixMember>
+                              <TablixHeader>
+                                <Size>1in</Size>
+                                <CellContents>
+                                  <Textbox Name="ENTRY_DATE">
+                                    <KeepTogether>true</KeepTogether>
+                                    <Paragraphs>
+                                      <Paragraph>
+                                        <TextRuns>
+                                          <TextRun>
+                                            <Value>=Fields!ENTRY_DATE.Value</Value>
+                                            <Style>
+                                              <Format>yyyy-MM-dd</Format>
+                                            </Style>
+                                          </TextRun>
+                                        </TextRuns>
+                                        <Style />
+                                      </Paragraph>
+                                    </Paragraphs>
+                                    <rd:DefaultName>ENTRY_DATE</rd:DefaultName>
+                                    <Style>
+                                      <Border>
+                                        <Style>Solid</Style>
+                                      </Border>
+                                      <PaddingLeft>2pt</PaddingLeft>
+                                      <PaddingRight>2pt</PaddingRight>
+                                      <PaddingTop>2pt</PaddingTop>
+                                      <PaddingBottom>2pt</PaddingBottom>
+                                    </Style>
+                                  </Textbox>
+                                </CellContents>
+                              </TablixHeader>
+                              <TablixMembers>
+                                <TablixMember>
+                                  <TablixHeader>
+                                    <Size>1in</Size>
+                                    <CellContents>
+                                      <Textbox Name="JOIN_MONTH">
+                                        <KeepTogether>true</KeepTogether>
+                                        <Paragraphs>
+                                          <Paragraph>
+                                            <TextRuns>
+                                              <TextRun>
+                                                <Value>=Fields!JOIN_MONTH.Value</Value>
+                                                <Style>
+                                                  <Format>MMM yyyy</Format>
+                                                </Style>
+                                              </TextRun>
+                                            </TextRuns>
+                                            <Style />
+                                          </Paragraph>
+                                        </Paragraphs>
+                                        <rd:DefaultName>JOIN_MONTH</rd:DefaultName>
+                                        <Style>
+                                          <Border>
+                                            <Style>Solid</Style>
+                                          </Border>
+                                          <PaddingLeft>2pt</PaddingLeft>
+                                          <PaddingRight>2pt</PaddingRight>
+                                          <PaddingTop>2pt</PaddingTop>
+                                          <PaddingBottom>2pt</PaddingBottom>
+                                        </Style>
+                                      </Textbox>
+                                    </CellContents>
+                                  </TablixHeader>
+                                </TablixMember>
+                              </TablixMembers>
+                            </TablixMember>
+                          </TablixMembers>
+                        </TablixMember>
+                      </TablixMembers>
+                    </TablixMember>
+                  </TablixMembers>
+                </TablixMember>
+              </TablixMembers>
+            </TablixRowHierarchy>
+            <DataSetName>Query_1</DataSetName>
+            <PageBreak>
+              <BreakLocation>End</BreakLocation>
+            </PageBreak>
+            <PageName>Sponsor Summary</PageName>
+            <Height>0.75in</Height>
+            <Width>9in</Width>
+            <Style>
+              <Border>
+                <Style>None</Style>
+              </Border>
+            </Style>
+          </Tablix>
+          <Tablix Name="Tablix2">
+            <TablixCorner>
+              <TablixCornerRows>
+                <TablixCornerRow>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox42">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Sponsor ID</Value>
+                                <Style>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox42</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
+                          <BackgroundColor>LightBlue</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                      <RowSpan>2</RowSpan>
+                    </CellContents>
+                  </TablixCornerCell>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox1">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Sponsor Name</Value>
+                                <Style>
+                                  <FontFamily>Arial</FontFamily>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox1</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
+                          <BackgroundColor>LightBlue</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                      <RowSpan>2</RowSpan>
+                    </CellContents>
+                  </TablixCornerCell>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox43">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Sponsored ID</Value>
+                                <Style>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox43</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
+                          <BackgroundColor>LightBlue</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                      <RowSpan>2</RowSpan>
+                    </CellContents>
+                  </TablixCornerCell>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox44">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Sponsored Name</Value>
+                                <Style>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox44</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
+                          <BackgroundColor>LightBlue</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                      <RowSpan>2</RowSpan>
+                    </CellContents>
+                  </TablixCornerCell>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox45">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Sponsored Country</Value>
+                                <Style>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox45</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
+                          <BackgroundColor>LightBlue</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                      <RowSpan>2</RowSpan>
+                    </CellContents>
+                  </TablixCornerCell>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox46">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Sponsored Entry Date</Value>
+                                <Style>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox46</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
+                          <BackgroundColor>LightBlue</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                      <RowSpan>2</RowSpan>
+                    </CellContents>
+                  </TablixCornerCell>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox47">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Sponsored Entry Month</Value>
+                                <Style>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox47</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
+                          <BackgroundColor>LightBlue</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                      <RowSpan>2</RowSpan>
+                    </CellContents>
+                  </TablixCornerCell>
+                </TablixCornerRow>
+                <TablixCornerRow>
+                  <TablixCornerCell />
+                  <TablixCornerCell />
+                  <TablixCornerCell />
+                  <TablixCornerCell />
+                  <TablixCornerCell />
+                  <TablixCornerCell />
+                  <TablixCornerCell />
+                </TablixCornerRow>
+              </TablixCornerRows>
+            </TablixCorner>
+            <TablixBody>
+              <TablixColumns>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+              </TablixColumns>
+              <TablixRows>
+                <TablixRow>
+                  <Height>0.25in</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="PARTI_SPONSORED_PV">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Max(Fields!SPONSORED_TOTAL_PV.Value)</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>PARTI_SPONSORED_PV</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -1051,27 +1561,27 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
             <TablixColumnHierarchy>
               <TablixMembers>
                 <TablixMember>
-                  <Group Name="PV_Date">
+                  <Group Name="SPONSORED_PV_DATE_DATE">
                     <GroupExpressions>
-                      <GroupExpression>=Fields!PV_Date.Value</GroupExpression>
+                      <GroupExpression>=Fields!SPONSORED_PV_DATE_DATE.Value</GroupExpression>
                     </GroupExpressions>
                   </Group>
                   <SortExpressions>
                     <SortExpression>
-                      <Value>=Fields!PV_Date.Value</Value>
+                      <Value>=Fields!SPONSORED_PV_DATE_DATE.Value</Value>
                     </SortExpression>
                   </SortExpressions>
                   <TablixHeader>
                     <Size>0.25in</Size>
                     <CellContents>
-                      <Textbox Name="PV_Date">
+                      <Textbox Name="SPONSORED_PV_DATE_DATE">
                         <CanGrow>true</CanGrow>
                         <KeepTogether>true</KeepTogether>
                         <Paragraphs>
                           <Paragraph>
                             <TextRuns>
                               <TextRun>
-                                <Value>=Fields!PV_Date.Value</Value>
+                                <Value>=Fields!SPONSORED_PV_DATE_DATE.Value</Value>
                                 <Style>
                                   <FontWeight>Bold</FontWeight>
                                   <Format>MMM yyyy</Format>
@@ -1083,7 +1593,7 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
                             </Style>
                           </Paragraph>
                         </Paragraphs>
-                        <rd:DefaultName>PV_Date</rd:DefaultName>
+                        <rd:DefaultName>SPONSORED_PV_DATE_DATE</rd:DefaultName>
                         <Style>
                           <Border>
                             <Style>Solid</Style>
@@ -1097,100 +1607,120 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
                       </Textbox>
                     </CellContents>
                   </TablixHeader>
-                </TablixMember>
-                <TablixMember>
-                  <TablixHeader>
-                    <Size>0.25in</Size>
-                    <CellContents>
-                      <Textbox Name="Textbox31">
-                        <CanGrow>true</CanGrow>
-                        <KeepTogether>true</KeepTogether>
-                        <Paragraphs>
-                          <Paragraph>
-                            <TextRuns>
-                              <TextRun>
-                                <Value>Total PV</Value>
+                  <TablixMembers>
+                    <TablixMember>
+                      <Group Name="ColumnGroup1">
+                        <GroupExpressions>
+                          <GroupExpression />
+                        </GroupExpressions>
+                      </Group>
+                      <TablixHeader>
+                        <Size>0.25in</Size>
+                        <CellContents>
+                          <Textbox Name="Textbox29">
+                            <CanGrow>true</CanGrow>
+                            <KeepTogether>true</KeepTogether>
+                            <Paragraphs>
+                              <Paragraph>
+                                <TextRuns>
+                                  <TextRun>
+                                    <Value>Sponsored </Value>
+                                    <Style>
+                                      <FontWeight>Bold</FontWeight>
+                                    </Style>
+                                  </TextRun>
+                                  <TextRun>
+                                    <Value>PV</Value>
+                                    <Style>
+                                      <FontWeight>Bold</FontWeight>
+                                    </Style>
+                                  </TextRun>
+                                </TextRuns>
                                 <Style>
-                                  <FontWeight>Bold</FontWeight>
+                                  <TextAlign>Center</TextAlign>
                                 </Style>
-                              </TextRun>
-                            </TextRuns>
+                              </Paragraph>
+                            </Paragraphs>
+                            <rd:DefaultName>Textbox29</rd:DefaultName>
                             <Style>
-                              <TextAlign>Center</TextAlign>
+                              <Border>
+                                <Style>Solid</Style>
+                              </Border>
+                              <TopBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </TopBorder>
+                              <BottomBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </BottomBorder>
+                              <LeftBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </LeftBorder>
+                              <RightBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </RightBorder>
+                              <BackgroundColor>LightGrey</BackgroundColor>
+                              <PaddingLeft>2pt</PaddingLeft>
+                              <PaddingRight>2pt</PaddingRight>
+                              <PaddingTop>2pt</PaddingTop>
+                              <PaddingBottom>2pt</PaddingBottom>
                             </Style>
-                          </Paragraph>
-                        </Paragraphs>
-                        <rd:DefaultName>Textbox31</rd:DefaultName>
-                        <Style>
-                          <Border>
-                            <Style>Solid</Style>
-                          </Border>
-                          <TopBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </TopBorder>
-                          <BottomBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </BottomBorder>
-                          <LeftBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </LeftBorder>
-                          <RightBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </RightBorder>
-                          <BackgroundColor>LightBlue</BackgroundColor>
-                          <PaddingLeft>2pt</PaddingLeft>
-                          <PaddingRight>2pt</PaddingRight>
-                          <PaddingTop>2pt</PaddingTop>
-                          <PaddingBottom>2pt</PaddingBottom>
-                        </Style>
-                      </Textbox>
-                    </CellContents>
-                  </TablixHeader>
+                          </Textbox>
+                        </CellContents>
+                      </TablixHeader>
+                    </TablixMember>
+                  </TablixMembers>
+                  <Visibility>
+                    <Hidden>=IsNothing(Fields!SPONSORED_PV_DATE_DATE.Value)</Hidden>
+                  </Visibility>
                 </TablixMember>
               </TablixMembers>
             </TablixColumnHierarchy>
             <TablixRowHierarchy>
               <TablixMembers>
                 <TablixMember>
-                  <Group Name="DIST_ID">
+                  <Group Name="DISTRIBUTOR_ID1">
                     <GroupExpressions>
-                      <GroupExpression>=Fields!DIST_ID.Value</GroupExpression>
-                      <GroupExpression>=Fields!ROMAN_NAME_1.Value</GroupExpression>
+                      <GroupExpression>=Fields!DISTRIBUTOR_ID.Value</GroupExpression>
+                      <GroupExpression>=Fields!SPONSORED_ID.Value</GroupExpression>
+                      <GroupExpression>=Fields!SPONSORED_NAME.Value</GroupExpression>
+                      <GroupExpression>=Fields!SPONSORED_COUNTRY_CODE.Value</GroupExpression>
+                      <GroupExpression>=Fields!SPONSORED_ENTRY_DATE.Value</GroupExpression>
+                      <GroupExpression>=Fields!SPONSORED_JOIN_MONTH.Value</GroupExpression>
                     </GroupExpressions>
                   </Group>
                   <SortExpressions>
                     <SortExpression>
-                      <Value>=Fields!DIST_ID.Value</Value>
+                      <Value>=Fields!DISTRIBUTOR_ID.Value</Value>
                     </SortExpression>
                     <SortExpression>
-                      <Value>=Fields!PV_Date.Value</Value>
+                      <Value>=Fields!SPONSORED_ID.Value</Value>
                     </SortExpression>
                   </SortExpressions>
                   <TablixHeader>
                     <Size>1in</Size>
                     <CellContents>
-                      <Textbox Name="DIST_ID">
+                      <Textbox Name="DISTRIBUTOR_ID1">
                         <KeepTogether>true</KeepTogether>
                         <Paragraphs>
                           <Paragraph>
                             <TextRuns>
                               <TextRun>
-                                <Value>=Fields!DIST_ID.Value</Value>
+                                <Value>=Fields!DISTRIBUTOR_ID.Value</Value>
                                 <Style />
                               </TextRun>
                             </TextRuns>
                             <Style />
                           </Paragraph>
                         </Paragraphs>
-                        <rd:DefaultName>DIST_ID</rd:DefaultName>
+                        <rd:DefaultName>DISTRIBUTOR_ID1</rd:DefaultName>
                         <Style>
                           <Border>
                             <Style>Solid</Style>
@@ -1228,20 +1758,20 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
                       <TablixHeader>
                         <Size>2in</Size>
                         <CellContents>
-                          <Textbox Name="ROMAN_NAME_1">
+                          <Textbox Name="DISTRIBUTOR_NAME1">
                             <KeepTogether>true</KeepTogether>
                             <Paragraphs>
                               <Paragraph>
                                 <TextRuns>
                                   <TextRun>
-                                    <Value>=Fields!ROMAN_NAME_1.Value</Value>
+                                    <Value>=Fields!DISTRIBUTOR_NAME.Value</Value>
                                     <Style />
                                   </TextRun>
                                 </TextRuns>
                                 <Style />
                               </Paragraph>
                             </Paragraphs>
-                            <rd:DefaultName>ROMAN_NAME_1</rd:DefaultName>
+                            <rd:DefaultName>DISTRIBUTOR_NAME1</rd:DefaultName>
                             <Style>
                               <Border>
                                 <Style>Solid</Style>
@@ -1279,20 +1809,20 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
                           <TablixHeader>
                             <Size>1in</Size>
                             <CellContents>
-                              <Textbox Name="UNI_MKTING_UNIT">
+                              <Textbox Name="SPONSORED_ID1">
                                 <KeepTogether>true</KeepTogether>
                                 <Paragraphs>
                                   <Paragraph>
                                     <TextRuns>
                                       <TextRun>
-                                        <Value>=Fields!UNI_MKTING_UNIT.Value</Value>
+                                        <Value>=Fields!SPONSORED_ID.Value</Value>
                                         <Style />
                                       </TextRun>
                                     </TextRuns>
                                     <Style />
                                   </Paragraph>
                                 </Paragraphs>
-                                <rd:DefaultName>UNI_MKTING_UNIT</rd:DefaultName>
+                                <rd:DefaultName>SPONSORED_ID1</rd:DefaultName>
                                 <Style>
                                   <Border>
                                     <Style>Solid</Style>
@@ -1328,22 +1858,22 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
                           <TablixMembers>
                             <TablixMember>
                               <TablixHeader>
-                                <Size>1in</Size>
+                                <Size>2in</Size>
                                 <CellContents>
-                                  <Textbox Name="COUNTRY_CODE">
+                                  <Textbox Name="SPONSORED_NAME">
                                     <KeepTogether>true</KeepTogether>
                                     <Paragraphs>
                                       <Paragraph>
                                         <TextRuns>
                                           <TextRun>
-                                            <Value>=Fields!COUNTRY_CODE.Value</Value>
+                                            <Value>=Fields!SPONSORED_NAME.Value</Value>
                                             <Style />
                                           </TextRun>
                                         </TextRuns>
                                         <Style />
                                       </Paragraph>
                                     </Paragraphs>
-                                    <rd:DefaultName>COUNTRY_CODE</rd:DefaultName>
+                                    <rd:DefaultName>SPONSORED_NAME</rd:DefaultName>
                                     <Style>
                                       <Border>
                                         <Style>Solid</Style>
@@ -1381,26 +1911,44 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
                                   <TablixHeader>
                                     <Size>1in</Size>
                                     <CellContents>
-                                      <Textbox Name="ENTRY_DATE">
+                                      <Textbox Name="SPONSORED_COUNTRY_CODE">
                                         <KeepTogether>true</KeepTogether>
                                         <Paragraphs>
                                           <Paragraph>
                                             <TextRuns>
                                               <TextRun>
-                                                <Value>=Fields!ENTRY_DATE.Value</Value>
-                                                <Style>
-                                                  <Format>yyyy-MM-dd</Format>
-                                                </Style>
+                                                <Value>=Fields!SPONSORED_COUNTRY_CODE.Value</Value>
+                                                <Style />
                                               </TextRun>
                                             </TextRuns>
                                             <Style />
                                           </Paragraph>
                                         </Paragraphs>
-                                        <rd:DefaultName>ENTRY_DATE</rd:DefaultName>
+                                        <rd:DefaultName>SPONSORED_COUNTRY_CODE</rd:DefaultName>
                                         <Style>
                                           <Border>
                                             <Style>Solid</Style>
                                           </Border>
+                                          <TopBorder>
+                                            <Color>Black</Color>
+                                            <Style>Solid</Style>
+                                            <Width>1pt</Width>
+                                          </TopBorder>
+                                          <BottomBorder>
+                                            <Color>Black</Color>
+                                            <Style>Solid</Style>
+                                            <Width>1pt</Width>
+                                          </BottomBorder>
+                                          <LeftBorder>
+                                            <Color>Black</Color>
+                                            <Style>Solid</Style>
+                                            <Width>1pt</Width>
+                                          </LeftBorder>
+                                          <RightBorder>
+                                            <Color>Black</Color>
+                                            <Style>Solid</Style>
+                                            <Width>1pt</Width>
+                                          </RightBorder>
                                           <PaddingLeft>2pt</PaddingLeft>
                                           <PaddingRight>2pt</PaddingRight>
                                           <PaddingTop>2pt</PaddingTop>
@@ -1414,44 +1962,26 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
                                       <TablixHeader>
                                         <Size>1in</Size>
                                         <CellContents>
-                                          <Textbox Name="DIST_STATUS">
+                                          <Textbox Name="SPONSORED_ENTRY_DATE">
                                             <KeepTogether>true</KeepTogether>
                                             <Paragraphs>
                                               <Paragraph>
                                                 <TextRuns>
                                                   <TextRun>
-                                                    <Value>=Fields!DIST_STATUS.Value</Value>
-                                                    <Style />
+                                                    <Value>=Fields!SPONSORED_ENTRY_DATE.Value</Value>
+                                                    <Style>
+                                                      <Format>yyyy-MM-dd</Format>
+                                                    </Style>
                                                   </TextRun>
                                                 </TextRuns>
                                                 <Style />
                                               </Paragraph>
                                             </Paragraphs>
-                                            <rd:DefaultName>DIST_STATUS</rd:DefaultName>
+                                            <rd:DefaultName>SPONSORED_ENTRY_DATE</rd:DefaultName>
                                             <Style>
                                               <Border>
                                                 <Style>Solid</Style>
                                               </Border>
-                                              <TopBorder>
-                                                <Color>Black</Color>
-                                                <Style>Solid</Style>
-                                                <Width>1pt</Width>
-                                              </TopBorder>
-                                              <BottomBorder>
-                                                <Color>Black</Color>
-                                                <Style>Solid</Style>
-                                                <Width>1pt</Width>
-                                              </BottomBorder>
-                                              <LeftBorder>
-                                                <Color>Black</Color>
-                                                <Style>Solid</Style>
-                                                <Width>1pt</Width>
-                                              </LeftBorder>
-                                              <RightBorder>
-                                                <Color>Black</Color>
-                                                <Style>Solid</Style>
-                                                <Width>1pt</Width>
-                                              </RightBorder>
                                               <PaddingLeft>2pt</PaddingLeft>
                                               <PaddingRight>2pt</PaddingRight>
                                               <PaddingTop>2pt</PaddingTop>
@@ -1465,44 +1995,26 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
                                           <TablixHeader>
                                             <Size>1in</Size>
                                             <CellContents>
-                                              <Textbox Name="HOME_PHONE">
+                                              <Textbox Name="SPONSORED_JOIN_MONTH">
                                                 <KeepTogether>true</KeepTogether>
                                                 <Paragraphs>
                                                   <Paragraph>
                                                     <TextRuns>
                                                       <TextRun>
-                                                        <Value>=Fields!HOME_PHONE.Value</Value>
-                                                        <Style />
+                                                        <Value>=Fields!SPONSORED_JOIN_MONTH.Value</Value>
+                                                        <Style>
+                                                          <Format>MMM yyyy</Format>
+                                                        </Style>
                                                       </TextRun>
                                                     </TextRuns>
                                                     <Style />
                                                   </Paragraph>
                                                 </Paragraphs>
-                                                <rd:DefaultName>HOME_PHONE</rd:DefaultName>
+                                                <rd:DefaultName>SPONSORED_JOIN_MONTH</rd:DefaultName>
                                                 <Style>
                                                   <Border>
                                                     <Style>Solid</Style>
                                                   </Border>
-                                                  <TopBorder>
-                                                    <Color>Black</Color>
-                                                    <Style>Solid</Style>
-                                                    <Width>1pt</Width>
-                                                  </TopBorder>
-                                                  <BottomBorder>
-                                                    <Color>Black</Color>
-                                                    <Style>Solid</Style>
-                                                    <Width>1pt</Width>
-                                                  </BottomBorder>
-                                                  <LeftBorder>
-                                                    <Color>Black</Color>
-                                                    <Style>Solid</Style>
-                                                    <Width>1pt</Width>
-                                                  </LeftBorder>
-                                                  <RightBorder>
-                                                    <Color>Black</Color>
-                                                    <Style>Solid</Style>
-                                                    <Width>1pt</Width>
-                                                  </RightBorder>
                                                   <PaddingLeft>2pt</PaddingLeft>
                                                   <PaddingRight>2pt</PaddingRight>
                                                   <PaddingTop>2pt</PaddingTop>
@@ -1511,377 +2023,6 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
                                               </Textbox>
                                             </CellContents>
                                           </TablixHeader>
-                                          <TablixMembers>
-                                            <TablixMember>
-                                              <TablixHeader>
-                                                <Size>1in</Size>
-                                                <CellContents>
-                                                  <Textbox Name="EMAIL_ADDR">
-                                                    <KeepTogether>true</KeepTogether>
-                                                    <Paragraphs>
-                                                      <Paragraph>
-                                                        <TextRuns>
-                                                          <TextRun>
-                                                            <Value>=Fields!EMAIL_ADDR.Value</Value>
-                                                            <Style />
-                                                          </TextRun>
-                                                        </TextRuns>
-                                                        <Style />
-                                                      </Paragraph>
-                                                    </Paragraphs>
-                                                    <rd:DefaultName>EMAIL_ADDR</rd:DefaultName>
-                                                    <Style>
-                                                      <Border>
-                                                        <Style>Solid</Style>
-                                                      </Border>
-                                                      <TopBorder>
-                                                        <Color>Black</Color>
-                                                        <Style>Solid</Style>
-                                                        <Width>1pt</Width>
-                                                      </TopBorder>
-                                                      <BottomBorder>
-                                                        <Color>Black</Color>
-                                                        <Style>Solid</Style>
-                                                        <Width>1pt</Width>
-                                                      </BottomBorder>
-                                                      <LeftBorder>
-                                                        <Color>Black</Color>
-                                                        <Style>Solid</Style>
-                                                        <Width>1pt</Width>
-                                                      </LeftBorder>
-                                                      <RightBorder>
-                                                        <Color>Black</Color>
-                                                        <Style>Solid</Style>
-                                                        <Width>1pt</Width>
-                                                      </RightBorder>
-                                                      <PaddingLeft>2pt</PaddingLeft>
-                                                      <PaddingRight>2pt</PaddingRight>
-                                                      <PaddingTop>2pt</PaddingTop>
-                                                      <PaddingBottom>2pt</PaddingBottom>
-                                                    </Style>
-                                                  </Textbox>
-                                                </CellContents>
-                                              </TablixHeader>
-                                              <TablixMembers>
-                                                <TablixMember>
-                                                  <TablixHeader>
-                                                    <Size>2in</Size>
-                                                    <CellContents>
-                                                      <Textbox Name="ADDR">
-                                                        <KeepTogether>true</KeepTogether>
-                                                        <Paragraphs>
-                                                          <Paragraph>
-                                                            <TextRuns>
-                                                              <TextRun>
-                                                                <Value>=Fields!ADDR.Value</Value>
-                                                                <Style />
-                                                              </TextRun>
-                                                            </TextRuns>
-                                                            <Style />
-                                                          </Paragraph>
-                                                        </Paragraphs>
-                                                        <rd:DefaultName>ADDR</rd:DefaultName>
-                                                        <Style>
-                                                          <Border>
-                                                            <Style>Solid</Style>
-                                                          </Border>
-                                                          <TopBorder>
-                                                            <Color>Black</Color>
-                                                            <Style>Solid</Style>
-                                                            <Width>1pt</Width>
-                                                          </TopBorder>
-                                                          <BottomBorder>
-                                                            <Color>Black</Color>
-                                                            <Style>Solid</Style>
-                                                            <Width>1pt</Width>
-                                                          </BottomBorder>
-                                                          <LeftBorder>
-                                                            <Color>Black</Color>
-                                                            <Style>Solid</Style>
-                                                            <Width>1pt</Width>
-                                                          </LeftBorder>
-                                                          <RightBorder>
-                                                            <Color>Black</Color>
-                                                            <Style>Solid</Style>
-                                                            <Width>1pt</Width>
-                                                          </RightBorder>
-                                                          <PaddingLeft>2pt</PaddingLeft>
-                                                          <PaddingRight>2pt</PaddingRight>
-                                                          <PaddingTop>2pt</PaddingTop>
-                                                          <PaddingBottom>2pt</PaddingBottom>
-                                                        </Style>
-                                                      </Textbox>
-                                                    </CellContents>
-                                                  </TablixHeader>
-                                                  <TablixMembers>
-                                                    <TablixMember>
-                                                      <TablixHeader>
-                                                        <Size>2in</Size>
-                                                        <CellContents>
-                                                          <Textbox Name="ADDR_2">
-                                                            <KeepTogether>true</KeepTogether>
-                                                            <Paragraphs>
-                                                              <Paragraph>
-                                                                <TextRuns>
-                                                                  <TextRun>
-                                                                    <Value>=Fields!ADDR_2.Value</Value>
-                                                                    <Style />
-                                                                  </TextRun>
-                                                                </TextRuns>
-                                                                <Style />
-                                                              </Paragraph>
-                                                            </Paragraphs>
-                                                            <rd:DefaultName>ADDR_2</rd:DefaultName>
-                                                            <Style>
-                                                              <Border>
-                                                                <Style>Solid</Style>
-                                                              </Border>
-                                                              <TopBorder>
-                                                                <Color>Black</Color>
-                                                                <Style>Solid</Style>
-                                                                <Width>1pt</Width>
-                                                              </TopBorder>
-                                                              <BottomBorder>
-                                                                <Color>Black</Color>
-                                                                <Style>Solid</Style>
-                                                                <Width>1pt</Width>
-                                                              </BottomBorder>
-                                                              <LeftBorder>
-                                                                <Color>Black</Color>
-                                                                <Style>Solid</Style>
-                                                                <Width>1pt</Width>
-                                                              </LeftBorder>
-                                                              <RightBorder>
-                                                                <Color>Black</Color>
-                                                                <Style>Solid</Style>
-                                                                <Width>1pt</Width>
-                                                              </RightBorder>
-                                                              <PaddingLeft>2pt</PaddingLeft>
-                                                              <PaddingRight>2pt</PaddingRight>
-                                                              <PaddingTop>2pt</PaddingTop>
-                                                              <PaddingBottom>2pt</PaddingBottom>
-                                                            </Style>
-                                                          </Textbox>
-                                                        </CellContents>
-                                                      </TablixHeader>
-                                                      <TablixMembers>
-                                                        <TablixMember>
-                                                          <TablixHeader>
-                                                            <Size>2in</Size>
-                                                            <CellContents>
-                                                              <Textbox Name="ADDR_3">
-                                                                <KeepTogether>true</KeepTogether>
-                                                                <Paragraphs>
-                                                                  <Paragraph>
-                                                                    <TextRuns>
-                                                                      <TextRun>
-                                                                        <Value>=Fields!ADDR_3.Value</Value>
-                                                                        <Style />
-                                                                      </TextRun>
-                                                                    </TextRuns>
-                                                                    <Style />
-                                                                  </Paragraph>
-                                                                </Paragraphs>
-                                                                <rd:DefaultName>ADDR_3</rd:DefaultName>
-                                                                <Style>
-                                                                  <Border>
-                                                                    <Style>Solid</Style>
-                                                                  </Border>
-                                                                  <TopBorder>
-                                                                    <Color>Black</Color>
-                                                                    <Style>Solid</Style>
-                                                                    <Width>1pt</Width>
-                                                                  </TopBorder>
-                                                                  <BottomBorder>
-                                                                    <Color>Black</Color>
-                                                                    <Style>Solid</Style>
-                                                                    <Width>1pt</Width>
-                                                                  </BottomBorder>
-                                                                  <LeftBorder>
-                                                                    <Color>Black</Color>
-                                                                    <Style>Solid</Style>
-                                                                    <Width>1pt</Width>
-                                                                  </LeftBorder>
-                                                                  <RightBorder>
-                                                                    <Color>Black</Color>
-                                                                    <Style>Solid</Style>
-                                                                    <Width>1pt</Width>
-                                                                  </RightBorder>
-                                                                  <PaddingLeft>2pt</PaddingLeft>
-                                                                  <PaddingRight>2pt</PaddingRight>
-                                                                  <PaddingTop>2pt</PaddingTop>
-                                                                  <PaddingBottom>2pt</PaddingBottom>
-                                                                </Style>
-                                                              </Textbox>
-                                                            </CellContents>
-                                                          </TablixHeader>
-                                                          <TablixMembers>
-                                                            <TablixMember>
-                                                              <TablixHeader>
-                                                                <Size>1.5in</Size>
-                                                                <CellContents>
-                                                                  <Textbox Name="CITY">
-                                                                    <KeepTogether>true</KeepTogether>
-                                                                    <Paragraphs>
-                                                                      <Paragraph>
-                                                                        <TextRuns>
-                                                                          <TextRun>
-                                                                            <Value>=Fields!CITY.Value</Value>
-                                                                            <Style />
-                                                                          </TextRun>
-                                                                        </TextRuns>
-                                                                        <Style />
-                                                                      </Paragraph>
-                                                                    </Paragraphs>
-                                                                    <rd:DefaultName>CITY</rd:DefaultName>
-                                                                    <Style>
-                                                                      <Border>
-                                                                        <Style>Solid</Style>
-                                                                      </Border>
-                                                                      <TopBorder>
-                                                                        <Color>Black</Color>
-                                                                        <Style>Solid</Style>
-                                                                        <Width>1pt</Width>
-                                                                      </TopBorder>
-                                                                      <BottomBorder>
-                                                                        <Color>Black</Color>
-                                                                        <Style>Solid</Style>
-                                                                        <Width>1pt</Width>
-                                                                      </BottomBorder>
-                                                                      <LeftBorder>
-                                                                        <Color>Black</Color>
-                                                                        <Style>Solid</Style>
-                                                                        <Width>1pt</Width>
-                                                                      </LeftBorder>
-                                                                      <RightBorder>
-                                                                        <Color>Black</Color>
-                                                                        <Style>Solid</Style>
-                                                                        <Width>1pt</Width>
-                                                                      </RightBorder>
-                                                                      <PaddingLeft>2pt</PaddingLeft>
-                                                                      <PaddingRight>2pt</PaddingRight>
-                                                                      <PaddingTop>2pt</PaddingTop>
-                                                                      <PaddingBottom>2pt</PaddingBottom>
-                                                                    </Style>
-                                                                  </Textbox>
-                                                                </CellContents>
-                                                              </TablixHeader>
-                                                              <TablixMembers>
-                                                                <TablixMember>
-                                                                  <TablixHeader>
-                                                                    <Size>1.5in</Size>
-                                                                    <CellContents>
-                                                                      <Textbox Name="STATE">
-                                                                        <KeepTogether>true</KeepTogether>
-                                                                        <Paragraphs>
-                                                                          <Paragraph>
-                                                                            <TextRuns>
-                                                                              <TextRun>
-                                                                                <Value>=Fields!STATE.Value</Value>
-                                                                                <Style />
-                                                                              </TextRun>
-                                                                            </TextRuns>
-                                                                            <Style />
-                                                                          </Paragraph>
-                                                                        </Paragraphs>
-                                                                        <rd:DefaultName>STATE</rd:DefaultName>
-                                                                        <Style>
-                                                                          <Border>
-                                                                            <Style>Solid</Style>
-                                                                          </Border>
-                                                                          <TopBorder>
-                                                                            <Color>Black</Color>
-                                                                            <Style>Solid</Style>
-                                                                            <Width>1pt</Width>
-                                                                          </TopBorder>
-                                                                          <BottomBorder>
-                                                                            <Color>Black</Color>
-                                                                            <Style>Solid</Style>
-                                                                            <Width>1pt</Width>
-                                                                          </BottomBorder>
-                                                                          <LeftBorder>
-                                                                            <Color>Black</Color>
-                                                                            <Style>Solid</Style>
-                                                                            <Width>1pt</Width>
-                                                                          </LeftBorder>
-                                                                          <RightBorder>
-                                                                            <Color>Black</Color>
-                                                                            <Style>Solid</Style>
-                                                                            <Width>1pt</Width>
-                                                                          </RightBorder>
-                                                                          <PaddingLeft>2pt</PaddingLeft>
-                                                                          <PaddingRight>2pt</PaddingRight>
-                                                                          <PaddingTop>2pt</PaddingTop>
-                                                                          <PaddingBottom>2pt</PaddingBottom>
-                                                                        </Style>
-                                                                      </Textbox>
-                                                                    </CellContents>
-                                                                  </TablixHeader>
-                                                                  <TablixMembers>
-                                                                    <TablixMember>
-                                                                      <TablixHeader>
-                                                                        <Size>1.5in</Size>
-                                                                        <CellContents>
-                                                                          <Textbox Name="POSTAL_CODE">
-                                                                            <KeepTogether>true</KeepTogether>
-                                                                            <Paragraphs>
-                                                                              <Paragraph>
-                                                                                <TextRuns>
-                                                                                  <TextRun>
-                                                                                    <Value>=Fields!POSTAL_CODE.Value</Value>
-                                                                                    <Style />
-                                                                                  </TextRun>
-                                                                                </TextRuns>
-                                                                                <Style />
-                                                                              </Paragraph>
-                                                                            </Paragraphs>
-                                                                            <rd:DefaultName>POSTAL_CODE</rd:DefaultName>
-                                                                            <Style>
-                                                                              <Border>
-                                                                                <Style>Solid</Style>
-                                                                              </Border>
-                                                                              <TopBorder>
-                                                                                <Color>Black</Color>
-                                                                                <Style>Solid</Style>
-                                                                                <Width>1pt</Width>
-                                                                              </TopBorder>
-                                                                              <BottomBorder>
-                                                                                <Color>Black</Color>
-                                                                                <Style>Solid</Style>
-                                                                                <Width>1pt</Width>
-                                                                              </BottomBorder>
-                                                                              <LeftBorder>
-                                                                                <Color>Black</Color>
-                                                                                <Style>Solid</Style>
-                                                                                <Width>1pt</Width>
-                                                                              </LeftBorder>
-                                                                              <RightBorder>
-                                                                                <Color>Black</Color>
-                                                                                <Style>Solid</Style>
-                                                                                <Width>1pt</Width>
-                                                                              </RightBorder>
-                                                                              <PaddingLeft>2pt</PaddingLeft>
-                                                                              <PaddingRight>2pt</PaddingRight>
-                                                                              <PaddingTop>2pt</PaddingTop>
-                                                                              <PaddingBottom>2pt</PaddingBottom>
-                                                                            </Style>
-                                                                          </Textbox>
-                                                                        </CellContents>
-                                                                      </TablixHeader>
-                                                                    </TablixMember>
-                                                                  </TablixMembers>
-                                                                </TablixMember>
-                                                              </TablixMembers>
-                                                            </TablixMember>
-                                                          </TablixMembers>
-                                                        </TablixMember>
-                                                      </TablixMembers>
-                                                    </TablixMember>
-                                                  </TablixMembers>
-                                                </TablixMember>
-                                              </TablixMembers>
-                                            </TablixMember>
-                                          </TablixMembers>
                                         </TablixMember>
                                       </TablixMembers>
                                     </TablixMember>
@@ -1894,12 +2035,18 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
                       </TablixMembers>
                     </TablixMember>
                   </TablixMembers>
+                  <Visibility>
+                    <Hidden>=IsNothing(Fields!SPONSORED_ID.Value)</Hidden>
+                  </Visibility>
                 </TablixMember>
               </TablixMembers>
             </TablixRowHierarchy>
             <DataSetName>Query_1</DataSetName>
-            <Height>0.5in</Height>
-            <Width>21.5in</Width>
+            <PageName>Sponsored Details</PageName>
+            <Top>0.75in</Top>
+            <Height>0.75in</Height>
+            <Width>10in</Width>
+            <ZIndex>1</ZIndex>
             <Style>
               <Border>
                 <Style>None</Style>
@@ -1907,10 +2054,10 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
             </Style>
           </Tablix>
         </ReportItems>
-        <Height>0.5in</Height>
+        <Height>1.5in</Height>
         <Style />
       </Body>
-      <Width>21.5in</Width>
+      <Width>10in</Width>
       <Page>
         <LeftMargin>1in</LeftMargin>
         <RightMargin>1in</RightMargin>
@@ -1927,5 +2074,5 @@ having sum(case when odh_type='C' then -1*price_2 else price_2 end)&gt;=100
     </GridLayoutDefinition>
   </ReportParametersLayout>
   <rd:ReportUnitType>Inch</rd:ReportUnitType>
-  <rd:ReportID>89c53c16-a55e-4180-8bc3-a3895eddef1e</rd:ReportID>
+  <rd:ReportID>827be2d6-1f25-4c87-aba4-10fc1b759ca2</rd:ReportID>
 </Report>
