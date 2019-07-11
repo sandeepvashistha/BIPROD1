@@ -14,8 +14,11 @@
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
         <QueryParameters>
-          <QueryParameter Name="@Enroller_PV_Month">
-            <Value>=Parameters!Enroller_PV_Month.Value</Value>
+          <QueryParameter Name="@Start_Dist_Entry_Date">
+            <Value>=Parameters!Start_Dist_Entry_Date.Value</Value>
+          </QueryParameter>
+          <QueryParameter Name="@End_Dist_Entry_Date">
+            <Value>=Parameters!End_Dist_Entry_Date.Value</Value>
           </QueryParameter>
         </QueryParameters>
         <CommandText>SELECT 
@@ -56,10 +59,11 @@ FROM
 	  ODH.STATUS IN (2,3,4,5) 
 	  AND 
 	  --ODH.PV_DATE_DATE = '2018-01-01' --@E_Com_Date
-                     ODH.PV_DATE_DATE = @Enroller_PV_Month
-	  --ODH.PV_DATE_DATE &gt;= DATEADD(MONTH, DATEDIFF(MONTH, 0, GetDate())-1, 0)
-	  --And
-	  --ODH.PV_DATE_DATE &lt;&gt; DATEADD(MONTH, DATEDIFF(MONTH, 0, GetDate()), 0)
+      --ODH.PV_DATE_DATE = @Enroller_PV_Month
+	  --DST.Entry_Date between '01-June-2019' and '02-July-2019'
+	  ODH.PV_DATE_DATE &gt;= DATEADD(MONTH, DATEDIFF(MONTH, 0, GetDate())-1, 0)
+	  And
+	  ODH.PV_DATE_DATE &lt;&gt; DATEADD(MONTH, DATEDIFF(MONTH, 0, GetDate()), 0)
 	  --And
 	  --DST.Dist_id = '114446701'
 	GROUP BY
@@ -70,7 +74,10 @@ FROM
 	  ODH.PV_DATE_DATE
 	HAVING SUM(CASE WHEN ODH.ODH_TYPE='C' THEN -1*ODH.PRICE_2 ELSE ODH.PRICE_2 END)&gt;= 100
   ) E
-INNER JOIN DW.DBO.DST D ON (E.MDIST = D.MENROLLER_ID AND E.COUNTRY_CODE = D.COUNTRY_CODE AND E.PV_DATE = DATEADD(MONTH, DATEDIFF(MONTH, 0, D.ENTRY_DATE), 0) AND D.DIST_STATUS &lt;&gt; 'T')
+/*INNER JOIN DW.DBO.DST D ON (E.MDIST = D.MENROLLER_ID AND E.COUNTRY_CODE = D.COUNTRY_CODE AND E.PV_DATE = DATEADD(MONTH, DATEDIFF(MONTH, 0, D.ENTRY_DATE), 0) 
+AND D.DIST_STATUS &lt;&gt; 'T' and D.Entry_Date Between '01-June-2019' and '02-July-2019')*/
+INNER JOIN DW.DBO.DST D ON (E.MDIST = D.MENROLLER_ID AND E.COUNTRY_CODE = D.COUNTRY_CODE AND E.PV_DATE = DATEADD(MONTH, DATEDIFF(MONTH, 0, D.ENTRY_DATE), 0) 
+AND D.DIST_STATUS &lt;&gt; 'T' and D.Entry_Date Between @Start_Dist_Entry_Date and @End_Dist_Entry_Date)
 Left Outer Join DW.dbo.ODH On ( D.Dist_id = DW.dbo.ODH.Dist_id and D.UNI_MKTING_UNIT = 91 AND D.COUNTRY_CODE = 'IND' AND ODH.STATUS IN (2,3,4,5) And ODH.PV_DATE_DATE &gt;= DATEADD(MONTH, DATEDIFF(MONTH, 0, GetDate())-1, 0) And ODH.PV_DATE_DATE &lt;&gt; DATEADD(MONTH, DATEDIFF(MONTH, 0, GetDate()), 0))
 GROUP BY
   E.DIST_ID,
@@ -88,6 +95,7 @@ GROUP BY
   COALESCE(D.CELL_PHONE, D.HOME_PHONE, D.WORK_PHONE),
   D.Email_Addr
   --DW.dbo.ODH.PV_Date_Date</CommandText>
+        <Timeout>6</Timeout>
       </Query>
       <Fields>
         <Field Name="ENROLLER">
@@ -1338,7 +1346,6 @@ GROUP BY
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="ENTRY_DATE">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2076,7 +2083,6 @@ GROUP BY
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="Textbox59">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -3540,6 +3546,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -3593,6 +3600,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -3627,6 +3635,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -3661,6 +3670,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -3714,6 +3724,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -3767,12 +3778,12 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="ENTRY_DATE1">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -3837,6 +3848,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -3890,6 +3902,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -3943,6 +3956,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -3996,6 +4010,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -4049,6 +4064,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -4102,6 +4118,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -4155,6 +4172,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -4189,6 +4207,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                   </TablixCells>
@@ -4248,6 +4267,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -4299,6 +4319,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -4350,6 +4371,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -4401,6 +4423,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -4455,6 +4478,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -4506,12 +4530,12 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="Textbox62">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -4558,6 +4582,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -4609,6 +4634,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -4660,6 +4686,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -4711,6 +4738,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -4762,6 +4790,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -4813,6 +4842,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -4864,6 +4894,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -4915,6 +4946,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -4966,6 +4998,7 @@ GROUP BY
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                   </TablixCells>
@@ -5031,9 +5064,13 @@ GROUP BY
     </ReportSection>
   </ReportSections>
   <ReportParameters>
-    <ReportParameter Name="Enroller_PV_Month">
+    <ReportParameter Name="Start_Dist_Entry_Date">
       <DataType>DateTime</DataType>
-      <Prompt>Enroller PV Month</Prompt>
+      <Prompt>Start Dist Entry Date</Prompt>
+    </ReportParameter>
+    <ReportParameter Name="End_Dist_Entry_Date">
+      <DataType>DateTime</DataType>
+      <Prompt>End Dist Entry Date</Prompt>
     </ReportParameter>
   </ReportParameters>
   <ReportParametersLayout>
@@ -5044,7 +5081,12 @@ GROUP BY
         <CellDefinition>
           <ColumnIndex>0</ColumnIndex>
           <RowIndex>0</RowIndex>
-          <ParameterName>Enroller_PV_Month</ParameterName>
+          <ParameterName>Start_Dist_Entry_Date</ParameterName>
+        </CellDefinition>
+        <CellDefinition>
+          <ColumnIndex>1</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>End_Dist_Entry_Date</ParameterName>
         </CellDefinition>
       </CellDefinitions>
     </GridLayoutDefinition>
