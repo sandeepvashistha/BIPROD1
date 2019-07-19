@@ -45,7 +45,8 @@
 	B.ODH_STATUS,
 	(case when (case when B.idx1=0 then '' else ltrim(rtrim(upper(substring(isnull(IIF(CHARINDEX( '|',B.comment_3)=0,B.comment_2,isnull(B.comment_3,B.comment_2)),''),1,B.idx1-1)))) end)='' then UPPER(B.DESCRIPTION) else (case when B.idx1=0 then '' else ltrim(rtrim(upper(substring(isnull(IIF(CHARINDEX( '|',B.comment_3)=0,B.comment_2,isnull(B.comment_3,B.comment_2)),''),1,B.idx1-1)))) end) end) as [Type],
 	(case when (case when B.idx1=0 then '' else upper(substring(isnull(IIF(CHARINDEX( '|',B.comment_3)=0,B.comment_2,isnull(B.comment_3,B.comment_2)),''),B.idx1+1,IIF(B.idx2-B.idx1&lt;0,1,B.idx2-B.idx1)-1)) end)='' then UPPER(B.DESCRIPTION) else (case when B.idx1=0 then '' else upper(substring(isnull(IIF(CHARINDEX( '|',B.comment_3)=0,B.comment_2,isnull(B.comment_3,B.comment_2)),''),B.idx1+1,IIF(B.idx2-B.idx1&lt;0,1,B.idx2-B.idx1)-1)) end) end) as [Product],
-	(case when (case when B.idx1=0 then '' else upper(substring(isnull(IIF(CHARINDEX( '|',B.comment_3)=0,B.comment_2,isnull(B.comment_3,B.comment_2)),''),B.idx2+1,IIF(B.idx3-B.idx2&lt;0,1,B.idx3-B.idx2)-1)) end)='' then UPPER(B.DESCRIPTION) else (case when B.idx1=0 then '' else upper(substring(isnull(IIF(CHARINDEX( '|',B.comment_3)=0,B.comment_2,isnull(B.comment_3,B.comment_2)),''),B.idx2+1,IIF(B.idx3-B.idx2&lt;0,1,B.idx3-B.idx2)-1)) end) end) as [Tech]
+	(case when (case when B.idx1=0 then '' else upper(substring(isnull(IIF(CHARINDEX( '|',B.comment_3)=0,B.comment_2,isnull(B.comment_3,B.comment_2)),''),B.idx2+1,IIF(B.idx3-B.idx2&lt;0,1,B.idx3-B.idx2)-1)) end)='' then UPPER(B.DESCRIPTION) else (case when B.idx1=0 then '' else upper(substring(isnull(IIF(CHARINDEX( '|',B.comment_3)=0,B.comment_2,isnull(B.comment_3,B.comment_2)),''),B.idx2+1,IIF(B.idx3-B.idx2&lt;0,1,B.idx3-B.idx2)-1)) end) end) as [Tech],
+	B.ship_via
 FROM
 (
 SELECT 
@@ -72,7 +73,8 @@ SELECT
 	A.ODH_STATUS,
 	CHARINDEX( '|', isnull(IIF(CHARINDEX( '|',A.comment_3)=0,A.comment_2,isnull(A.comment_3,A.comment_2)),'')) AS idx1,
 	CHARINDEX( '|', isnull(IIF(CHARINDEX( '|',A.comment_3)=0,A.comment_2,isnull(A.comment_3,A.comment_2)),''), CHARINDEX( '|', isnull(IIF(CHARINDEX( '|',A.comment_3)=0,A.comment_2,isnull(A.comment_3,A.comment_2)),'') ) + 1 ) AS idx2,
-	CHARINDEX( '|', isnull(IIF(CHARINDEX( '|',A.comment_3)=0,A.comment_2,isnull(A.comment_3,A.comment_2)),''), CHARINDEX( '|', isnull(IIF(CHARINDEX( '|',A.comment_3)=0,A.comment_2,isnull(A.comment_3,A.comment_2)),''), CHARINDEX( '|', isnull(IIF(CHARINDEX( '|',A.comment_3)=0,A.comment_2,isnull(A.comment_3,A.comment_2)),'') ) + 1 ) + 1 ) AS idx3
+	CHARINDEX( '|', isnull(IIF(CHARINDEX( '|',A.comment_3)=0,A.comment_2,isnull(A.comment_3,A.comment_2)),''), CHARINDEX( '|', isnull(IIF(CHARINDEX( '|',A.comment_3)=0,A.comment_2,isnull(A.comment_3,A.comment_2)),''), CHARINDEX( '|', isnull(IIF(CHARINDEX( '|',A.comment_3)=0,A.comment_2,isnull(A.comment_3,A.comment_2)),'') ) + 1 ) + 1 ) AS idx3,
+	A.ship_via
 FROM
 	(
 	SELECT
@@ -96,16 +98,18 @@ FROM
 	  ODH.ENTRY_INIT,
 	  ODH.SHIP_TO_NAME,
 	  ODH.PV_DATE_DATE as PV_Date,
-	  (Case when ODH.STATUS=1 then '1 - Entered' when ODH.STATUS=2 then '2 - ready to Print' when ODH.STATUS=3 then '3 - Invoiced' when ODH.STATUS=4 then '4 - Shipping' when ODH.STATUS=5 then '5 - Completed' when ODH.STATUS=9 then '9 - Deleted' else 'N/A' end) ODH_STATUS
+	  (Case when ODH.STATUS=1 then '1 - Entered' when ODH.STATUS=2 then '2 - ready to Print' when ODH.STATUS=3 then '3 - Invoiced' when ODH.STATUS=4 then '4 - Shipping' when ODH.STATUS=5 then '5 - Completed' when ODH.STATUS=9 then '9 - Deleted' else 'N/A' end) ODH_STATUS,
+	  cast(odh.ship_via_code as varchar)+' - '+fsv.description ship_via
 	FROM
 	  DW.dbo.DST
 	  INNER JOIN DW.dbo.ODH ON ( DST.DIST_ID = ODH.DIST_ID )
 	  INNER JOIN DW.dbo.WHS ON ( WHS.MKTING_UNIT = ODH.UNI_MKTING_UNIT AND WHS.WH_NUMBER = ODH.WAREHOUSE )
 	  INNER JOIN DW.dbo.ODS ON ( ODH.UNI_MKTING_UNIT = ODS.MKTING_UNIT and ODH.ORDER_SOURCE = ODS.ODS_NUMBER )
+	  LEFT OUTER JOIN DW.dbo.FSV ON (odh.uni_mkting_unit=fsv.uni_mkting_unit and fsv.ship_via_code=odh.ship_via_code and fsv.warehouse_number=odh.warehouse and fsv.ship_to_country=odh.ship_to_country)
 	WHERE
 	   ODH.COUNTRY_CODE  =  'MYS' AND ODH.ODH_TYPE  =  'I'
 	   AND ODH.UNI_MKTING_UNIT  =  60 AND ODH.STATUS  IN  ( 2, 3, 4, 5  )
-	   AND ODH.ENTRY_DATE  BETWEEN @Start_Order_Entry_Date  AND  @End_Order_Entry_Date
+	   AND ODH.ENTRY_DATE  BETWEEN @Start_Order_Entry_Date  AND  @End_Order_Entry_Date --'2019-07-01' and '2019-07-30'--
 	GROUP BY
 	  DST.COUNTRY_CODE, 
 	  DST.DIST_ID, 
@@ -125,7 +129,8 @@ FROM
 	  ODH.ENTRY_INIT, 
 	  ODH.SHIP_TO_NAME, 
 	  ODH.PV_DATE_DATE,
-	  (Case when ODH.STATUS=1 then '1 - Entered' when ODH.STATUS=2 then '2 - ready to Print' when ODH.STATUS=3 then '3 - Invoiced' when ODH.STATUS=4 then '4 - Shipping' when ODH.STATUS=5 then '5 - Completed' when ODH.STATUS=9 then '9 - Deleted' else 'N/A' end)
+	  (Case when ODH.STATUS=1 then '1 - Entered' when ODH.STATUS=2 then '2 - ready to Print' when ODH.STATUS=3 then '3 - Invoiced' when ODH.STATUS=4 then '4 - Shipping' when ODH.STATUS=5 then '5 - Completed' when ODH.STATUS=9 then '9 - Deleted' else 'N/A' end),
+	  cast(odh.ship_via_code as varchar)+' - '+fsv.description
 	  ) A
 ) B</CommandText>
       </Query>
@@ -226,6 +231,10 @@ FROM
           <DataField>Tech</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
+        <Field Name="ship_via">
+          <DataField>ship_via</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
       </Fields>
     </DataSet>
   </DataSets>
@@ -280,6 +289,9 @@ FROM
                 </TablixColumn>
                 <TablixColumn>
                   <Width>0.79167in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1.5in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>3.25in</Width>
@@ -1117,6 +1129,62 @@ FROM
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox31</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>CornflowerBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox4">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>SHIP VIA</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox4</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -2402,6 +2470,59 @@ FROM
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="ship_via">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!ship_via.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Left</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>ship_via</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="SHIP_TO_ADDR_3">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
@@ -2853,6 +2974,7 @@ FROM
                 <TablixMember />
                 <TablixMember />
                 <TablixMember />
+                <TablixMember />
               </TablixMembers>
             </TablixColumnHierarchy>
             <TablixRowHierarchy>
@@ -2867,7 +2989,7 @@ FROM
             </TablixRowHierarchy>
             <DataSetName>BISQL01</DataSetName>
             <Height>0.5in</Height>
-            <Width>36.60417in</Width>
+            <Width>38.10417in</Width>
             <Style>
               <Border>
                 <Style>None</Style>
@@ -2878,7 +3000,7 @@ FROM
         <Height>0.5in</Height>
         <Style />
       </Body>
-      <Width>36.60417in</Width>
+      <Width>38.10417in</Width>
       <Page>
         <LeftMargin>1in</LeftMargin>
         <RightMargin>1in</RightMargin>
