@@ -15,7 +15,7 @@
         <DataSourceName>SQLPRODA</DataSourceName>
         <CommandText>select 
        odh.home_country
-	   ,dateadd(hh,0,getdate()) te
+	   ,DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0) te
 	   , odh.ship_to_country 
 	   , odh.order_number
        , odh.record_date
@@ -27,6 +27,7 @@
 	   ,cast(datepart(hour, odh.entry_time) as numeric) [Hour]
 	   ,cast(datepart(hour, odh.entry_time) as varchar)+' - '+cast(datepart(hour, odh.entry_time)+1 as varchar) [Hour1]
 	   , odh.pv_date_date
+	   , odh.post_date
        , odh.[status]
 	   , odh.odh_type
 	   , oty.description type_description
@@ -51,7 +52,7 @@ join dw.dbo.odl_live odl on odh.morder = odl.morder
 left outer join dw.dbo.usr on odh.uni_mkting_unit=usr.uni_mkting_unit and usr.user_initials=(case when odh.entry_init like '*%' then substring(odh.entry_init,2,5) else odh.entry_init end)
 left outer join dw.dbo.oty on oty.mkting_unit=odh.uni_mkting_unit and oty.order_type=odh.odh_type
 where 1=1
-and odh.uni_mkting_unit = 63 and odh.pv_date_date=DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)--and item_code = '32158'
+and odh.uni_mkting_unit = 63 and odh.post_date&gt;=DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)--and item_code = '32158'
 and odh.[status] in (1,2,3,4,5) --add back in after testing
 and (odl.flag_2 is null or odl.flag_2='M')
 --and odl.item_code&lt;&gt;'29853'
@@ -109,6 +110,10 @@ and (odl.flag_2 is null or odl.flag_2='M')
         </Field>
         <Field Name="pv_date_date">
           <DataField>pv_date_date</DataField>
+          <rd:TypeName>System.DateTime</rd:TypeName>
+        </Field>
+        <Field Name="post_date">
+          <DataField>post_date</DataField>
           <rd:TypeName>System.DateTime</rd:TypeName>
         </Field>
         <Field Name="status">
@@ -201,7 +206,7 @@ and (odl.flag_2 is null or odl.flag_2='M')
               <Paragraph>
                 <TextRuns>
                   <TextRun>
-                    <Value>="Selected PV Month: "+format(Max(Fields!pv_date_date.Value),"MMM yyyy")</Value>
+                    <Value>="Post Date from "+format(Max(Fields!te.Value),"yyyy-MM-dd")</Value>
                     <Style>
                       <FontWeight>Bold</FontWeight>
                     </Style>
@@ -1774,16 +1779,16 @@ and (odl.flag_2 is null or odl.flag_2='M')
                   <Width>1in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1in</Width>
+                  <Width>2in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1in</Width>
+                  <Width>3in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1in</Width>
+                  <Width>2.5in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1in</Width>
+                  <Width>2in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1in</Width>
@@ -1808,6 +1813,9 @@ and (odl.flag_2 is null or odl.flag_2='M')
                 </TablixColumn>
                 <TablixColumn>
                   <Width>2in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1in</Width>
@@ -2621,6 +2629,60 @@ and (odl.flag_2 is null or odl.flag_2='M')
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox62</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox2">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Post Date</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox2</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -3921,6 +3983,36 @@ and (odl.flag_2 is null or odl.flag_2='M')
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="post_date">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!post_date.Value</Value>
+                                  <Style>
+                                    <Format>yyyy-MM-dd</Format>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>post_date</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="pv_date_date">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
@@ -4436,6 +4528,7 @@ and (odl.flag_2 is null or odl.flag_2='M')
                 <TablixMember />
                 <TablixMember />
                 <TablixMember />
+                <TablixMember />
               </TablixMembers>
             </TablixColumnHierarchy>
             <TablixRowHierarchy>
@@ -4447,7 +4540,7 @@ and (odl.flag_2 is null or odl.flag_2='M')
                   <Group Name="Details" />
                   <SortExpressions>
                     <SortExpression>
-                      <Value>=Fields!entry_date.Value</Value>
+                      <Value>=Fields!post_date.Value</Value>
                     </SortExpression>
                     <SortExpression>
                       <Value>=Fields!order_number.Value</Value>
@@ -4466,7 +4559,7 @@ and (odl.flag_2 is null or odl.flag_2='M')
             <PageName>Details</PageName>
             <Top>1.39458in</Top>
             <Height>0.5in</Height>
-            <Width>27in</Width>
+            <Width>33.5in</Width>
             <ZIndex>3</ZIndex>
             <Style>
               <Border>
@@ -4478,7 +4571,7 @@ and (odl.flag_2 is null or odl.flag_2='M')
         <Height>1.89458in</Height>
         <Style />
       </Body>
-      <Width>27in</Width>
+      <Width>33.5in</Width>
       <Page>
         <LeftMargin>1in</LeftMargin>
         <RightMargin>1in</RightMargin>
