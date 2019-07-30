@@ -19,17 +19,18 @@ ods.description source_desc,odh.ship_via_code,odh.ship_via_desc,odh.ship_to_name
 odh.freight_amount [ShippingHandlingGrossofVAT],(odh.freight_amount/1.12)[ShippingHandlingNetofVAT],odh.taxable_amount [TotalSalesnetofVAT],
 odh.sales_tax [VAT],(odh.freight_amount+odh.taxable_amount+odh.sales_tax) [TotalAmount],odp.RECEIPT_TYPE,
 rty.description RECEIPT_desc,odp.cc_type2,odh.comment_1,odh.comment_2,odh.comment_3,
-(case when odp.receipt_type=30 then (case when concat(odh.comment_1,odh.comment_2) like '%house%cc%' then 'In-House Credit Card Payment (BDO)' when concat(odh.comment_1,odh.comment_2) like '%moto%' then 'In-House MOTO Payment (BDO)' when concat(odh.comment_1,odh.comment_2) like '%in%house%debit%' then 'In-House Debit Card Payment (BDO)' else 'In-House Debit Card Payment (BDO)' end) when odp.receipt_type=1 then 'On-Us Checks' when odp.receipt_type=3 then 'Online Credit Card' else rty.description end) typecc,
+(case when odp.receipt_type=30 then (case when concat(odh.comment_1,odh.comment_2) like '%house%cc%' then 'In-House Credit Card Payment (BDO)' when concat(odh.comment_1,odh.comment_2) like '%moto%' then 'In-House MOTO Payment (BDO)' when concat(odh.comment_1,odh.comment_2) like '%in%house%debit%' then 'In-House Debit Card Payment (BDO)' else 'In-House Debit Card Payment (BDO)' end) when odp.receipt_type=1 then 'On-Us Checks' when odp.receipt_type=3 then 'Online Credit Card' when odp.receipt_type=4 then 'Applied Prepaid' else rty.description end) typecc,
 sum(cast(odp.AMOUNT_RECD as numeric(20,2))) AMOUNT_RECD,
-max(odh.invoice_print_time) over(partition by odh.invoice_print_date order by odh.invoice_print_date desc,odh.invoice_print_time desc) te
+max(odh.invoice_print_time) over(partition by odh.invoice_print_date order by odh.invoice_print_date desc,odh.invoice_print_time desc) te,
+sum(case when odp.receipt_type=4 then cast(odp.AMOUNT_RECD as numeric(20,2)) else 0 end) AppliedPrepaid
  from dw.dbo.odh_live odh
  left outer join dw.dbo.odp_live odp on (odh.morder=odp.morder)
  left outer join dw.dbo.dst on odh.dist_id=dst.dist_id
  left outer join dw.dbo.rty on (rty.mkting_unit=odp.mkting_unit and rty.receipt_type=odp.RECEIPT_TYPE)
  left outer join dw.dbo.ods on (ods.mkting_unit=odh.uni_mkting_unit and ods.ods_number=odh.order_source)
 where odh.uni_mkting_unit=63 
-and ((cast(odh.invoice_print_date as date)='2019-07-26' and invoice_print_time&lt;='20:00:00')
-or (cast(odh.invoice_print_date as date)='2019-07-25' and invoice_print_time&gt;'20:00:00'))
+and ((cast(odh.invoice_print_date as date)=cast(getdate() as date) and invoice_print_time&lt;='20:00:00')
+or (cast(odh.invoice_print_date as date)=cast(getdate()-1 as date) and invoice_print_time&gt;'20:00:00'))
 and odh.odh_type&lt;&gt;'C'
 --and odh.order_number in (415962105,415962110,415962115)
 and odh.status in (2,3,4,5) --and odp.RECEIPT_TYPE=2
@@ -166,6 +167,10 @@ order by odh.invoice_number</CommandText>
         <Field Name="te">
           <DataField>te</DataField>
           <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="AppliedPrepaid">
+          <DataField>AppliedPrepaid</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
       </Fields>
     </DataSet>
@@ -1303,6 +1308,9 @@ order by odh.invoice_number</CommandText>
                 <TablixColumn>
                   <Width>2in</Width>
                 </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
               </TablixColumns>
               <TablixRows>
                 <TablixRow>
@@ -2064,6 +2072,60 @@ order by odh.invoice_number</CommandText>
                         </Textbox>
                       </CellContents>
                     </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox24">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Applied Prepaid</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox24</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
                   </TablixCells>
                 </TablixRow>
                 <TablixRow>
@@ -2691,6 +2753,54 @@ order by odh.invoice_number</CommandText>
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>comment_3</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="AppliedPrepaid">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!AppliedPrepaid.Value</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>AppliedPrepaid</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -3411,12 +3521,65 @@ order by odh.invoice_number</CommandText>
                         </Textbox>
                       </CellContents>
                     </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox26">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Sum(Fields!AppliedPrepaid.Value)</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox26</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightGrey</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
                   </TablixCells>
                 </TablixRow>
               </TablixRows>
             </TablixBody>
             <TablixColumnHierarchy>
               <TablixMembers>
+                <TablixMember />
                 <TablixMember />
                 <TablixMember />
                 <TablixMember />
@@ -3458,7 +3621,7 @@ order by odh.invoice_number</CommandText>
             <PageName>Consolidated DSS</PageName>
             <Top>1.25in</Top>
             <Height>0.86334in</Height>
-            <Width>19.5in</Width>
+            <Width>20.5in</Width>
             <ZIndex>2</ZIndex>
             <Style>
               <Border>
@@ -6283,7 +6446,7 @@ order by odh.invoice_number</CommandText>
         <Height>3.73834in</Height>
         <Style />
       </Body>
-      <Width>19.5in</Width>
+      <Width>20.5in</Width>
       <Page>
         <LeftMargin>1in</LeftMargin>
         <RightMargin>1in</RightMargin>
