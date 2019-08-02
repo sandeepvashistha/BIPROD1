@@ -21,33 +21,96 @@
             <Value>=Parameters!CountryCode.Value</Value>
           </QueryParameter>
         </QueryParameters>
-        <CommandText>select x.*,y.pv_date_date,y.paid_rank pr_hist,prnk.title paid_rank_hist
+        <CommandText>select 
+   x.*,
+   y.pv_date_date,
+   y.paid_rank pr_hist,
+   --prnk.title paid_rank_hist,
+   dbo.fnGetRankName(y.MDIST,y.PV_DATE_DATE,y.paid_rank) As paid_rank_hist
 from
-(
-select a.dist_id,a.roman_name_1,a.home_country,a.uni_mkting_unit,a.country_code,a.pv_date,a.begin_rank,brnk.title begin_rank_desc ,a.paid_rank,
-ernk.title paid_rank_desc,EXD.EXD_DIST,EXD.EXD_NAME,EXD.EXD_MARKET,EXD.EXD_COUNTRY_CODE,
-dia.DIA_DIST,dia.DIA_NAME,dia.DIA_MARKET,dia.DIA_COUNTRY_CODE,a.rnk,
-count(dst.dist_id) enroller_cnt
-from
-(
-select DENSE_RANK() OVER(PARTITION BY d.uni_mkting_unit,d.country_code ORDER BY b.end_rank DESC,b.vol3 desc) as RNK ,b.pv_date,
-d.dist_id,d.roman_name_1,d.uni_mkting_unit,d.country_code,b.begin_rank,b.paid_rank,d.home_country
-from dw.dbo.bwt b inner join dw.dbo.dst d on b.dist_id=d.dist_id
-where d.uni_mkting_unit=49 and b.begin_rank &lt; b.paid_rank
-and cast(b.pv_date_date as date) = CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, @PV_Date)), 0) AS DATE)
-and d.country_code in (@CountryCode)
-)a left outer join dw.dbo.dst on dst.enroller_id=a.dist_id
-left outer join dw.dbo.DM_FIRST_DIAMOND_UPLINE dia on dia.dist_id=a.dist_id
-left outer join dw.dbo.DM_FIRST_EX_DIRECTOR_UPLINE EXD on EXD.dist_id=a.dist_id
-left outer join dw.dbo.rank brnk on brnk.rank=a.begin_rank and brnk.market=a.uni_mkting_unit
-left outer join dw.dbo.rank ernk on ernk.rank=a.paid_rank and ernk.market=a.uni_mkting_unit
-where a.rnk&lt;=10
-group by a.dist_id,a.roman_name_1,a.home_country,a.uni_mkting_unit,a.country_code,a.pv_date,a.begin_rank,brnk.title,a.paid_rank,ernk.title,
-dia.DIA_DIST,dia.DIA_NAME,dia.DIA_MARKET,dia.DIA_COUNTRY_CODE,
-EXD.EXD_DIST,EXD.EXD_NAME,EXD.EXD_MARKET,EXD.EXD_COUNTRY_CODE,a.rnk
-) x left outer join dw.dbo.bwt y on (x.dist_id=y.dist_id and cast(y.pv_date_date as date) between CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, @PV_Date))-11, 0) AS DATE) and
+  (
+   select 
+      a.dist_id,
+	  a.roman_name_1,
+	  a.home_country,
+	  a.uni_mkting_unit,
+	  a.country_code,
+	  a.pv_date,
+	  a.begin_rank,
+	  --brnk.title begin_rank_desc,
+	  dbo.fnGetRankName(bwt.MDIST,bwt.PV_DATE_DATE,a.begin_rank) As begin_rank_desc,
+	  a.paid_rank,
+      --ernk.title paid_rank_desc,
+	  dbo.fnGetRankName(bwt.MDIST,bwt.PV_DATE_DATE,a.paid_rank) As paid_rank_desc,
+	  EXD.EXD_DIST,
+	  EXD.EXD_NAME,
+	  EXD.EXD_MARKET,
+	  EXD.EXD_COUNTRY_CODE,
+      dia.DIA_DIST,
+	  dia.DIA_NAME,
+	  dia.DIA_MARKET,
+	  dia.DIA_COUNTRY_CODE,
+	  a.rnk,
+      count(dst.dist_id) enroller_cnt
+   from
+     (
+      select 
+	      DENSE_RANK() OVER(PARTITION BY d.uni_mkting_unit,d.country_code ORDER BY b.end_rank DESC,b.vol3 desc) as RNK ,
+		  b.pv_date_date as pv_date,
+          d.dist_id,
+		  d.roman_name_1,
+		  d.uni_mkting_unit,
+		  d.country_code,
+		  b.begin_rank,
+		  b.paid_rank,
+		  d.home_country
+      from 
+	      dw.dbo.bwt b inner join dw.dbo.dst d on b.dist_id = d.dist_id
+      where 
+	      d.uni_mkting_unit = 49 
+		  and 
+		  b.begin_rank &lt; b.paid_rank
+          and 
+		  cast(b.pv_date_date as date) = CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, @PV_Date)), 0) AS DATE)
+		  --cast(b.pv_date_date as date) = CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, '01-June-2019')), 0) AS DATE)
+          and 
+		  d.country_code in (@CountryCode)
+		  --d.country_code in ('DEU')
+     )a 
+	  left outer join dw.dbo.dst on dst.enroller_id = a.dist_id
+	  left outer join dw.dbo.bwt on bwt.dist_id = a.dist_id and bwt.pv_date_Date = a.pv_date
+      left outer join dw.dbo.DM_FIRST_DIAMOND_UPLINE dia on dia.dist_id = a.dist_id
+      left outer join dw.dbo.DM_FIRST_EX_DIRECTOR_UPLINE EXD on EXD.dist_id = a.dist_id
+      --left outer join dw.dbo.rank brnk on brnk.rank=a.begin_rank and brnk.market = a.uni_mkting_unit
+      --left outer join dw.dbo.rank ernk on ernk.rank=a.paid_rank and ernk.market = a.uni_mkting_unit
+   where 
+      a.rnk &lt;= 10
+   group by 
+      a.dist_id,
+	  a.roman_name_1,
+	  a.home_country,
+	  a.uni_mkting_unit,
+	  a.country_code,
+	  a.pv_date,
+	  a.begin_rank,
+	  --brnk.title,
+	  dbo.fnGetRankName(bwt.MDIST,bwt.PV_DATE_date,a.begin_rank),
+	  a.paid_rank,
+	  --ernk.title,
+	  dbo.fnGetRankName(bwt.MDIST,bwt.PV_DATE_DATE,a.paid_rank),
+      dia.DIA_DIST,
+	  dia.DIA_NAME,
+	  dia.DIA_MARKET,
+	  dia.DIA_COUNTRY_CODE,
+      EXD.EXD_DIST,
+	  EXD.EXD_NAME,
+	  EXD.EXD_MARKET,
+	  EXD.EXD_COUNTRY_CODE,
+	  a.rnk
+  ) x 
+   left outer join dw.dbo.bwt y on (x.dist_id = y.dist_id and cast(y.pv_date_date as date) between CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, @PV_Date))-11, 0) AS DATE) and
 CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, CONVERT(date, @PV_Date)), 0) AS DATE))
-left outer join dw.dbo.rank prnk on prnk.rank=y.paid_rank and prnk.market=y.marketing_unit
+   --left outer join dw.dbo.rank prnk on prnk.rank = y.paid_rank and prnk.market = y.marketing_unit
 --order by x.country_code,x.rnk,y.pv_date_date</CommandText>
       </Query>
       <Fields>
@@ -73,7 +136,7 @@ left outer join dw.dbo.rank prnk on prnk.rank=y.paid_rank and prnk.market=y.mark
         </Field>
         <Field Name="pv_date">
           <DataField>pv_date</DataField>
-          <rd:TypeName>System.String</rd:TypeName>
+          <rd:TypeName>System.DateTime</rd:TypeName>
         </Field>
         <Field Name="begin_rank">
           <DataField>begin_rank</DataField>
@@ -1575,7 +1638,6 @@ left outer join dw.dbo.rank prnk on prnk.rank=y.paid_rank and prnk.market=y.mark
                           <PaddingBottom>2pt</PaddingBottom>
                         </Style>
                       </Textbox>
-                      <rd:Selected>true</rd:Selected>
                     </CellContents>
                   </TablixHeader>
                   <TablixMembers>
@@ -2691,7 +2753,7 @@ left outer join dw.dbo.rank prnk on prnk.rank=y.paid_rank and prnk.market=y.mark
   <ReportParametersLayout>
     <GridLayoutDefinition>
       <NumberOfColumns>4</NumberOfColumns>
-      <NumberOfRows>2</NumberOfRows>
+      <NumberOfRows>1</NumberOfRows>
       <CellDefinitions>
         <CellDefinition>
           <ColumnIndex>0</ColumnIndex>
