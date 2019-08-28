@@ -18,50 +18,83 @@
             <Value>=Parameters!TopMSpon.Value</Value>
           </QueryParameter>
         </QueryParameters>
-        <CommandText>SELECT DISTINCT
-	GENIE.TOP_MSPON,
-	SAPDW_GENIE2.DIST_NAME as TOP_SPONSOR_NAME,
-	GENIE.GROUP_LEVEL,
-	GENIE.MDIST,
-	GENIE.DIST_NAME,
-	DST.DIST_STATUS,
-	DST.ADDR,
-	DST.EMAIL_ADDR,
-	DST.HOME_PHONE,
-	DST.ENTRY_DATE,
-	DST.ADDR_2,
-	DST.CITY,
-	DST.STATE,
-	DST.POSTAL_CODE,
-	DST.CELL_PHONE,
-	DST.ENROLLER_ID,
-	DST.MSPON,
-	SAPDW_DST_ENROLLER.ROMAN_NAME_1 as ENROLLER_NAME,
-	SAPDW_SPONSOR.ROMAN_NAME_1 as SPONSOR_NAME,
-	BWT_CURRENT.PAID_RANK,
-	Paid_Rank_Desc.TITLE as PAID_RANK_TITLE, 
-	BWT_CURRENT.END_RANK,
-	End_Rank_Desc_Current.TITLE as END_RANK_TITLE,
-	DST.COUNTRY_CODE,
-	DST.BIRTH_DATE, 
-	BWT.PV_DATE_DATE, 
-	BWT.VOL1, 
-	BWT.VOL3
-
-FROM
-	DW.DBO.GENIE GENIE INNER JOIN DW.DBO.GENIE  SAPDW_GENIE2 ON (GENIE.TOP_MSPON=SAPDW_GENIE2.MDIST)
-	INNER JOIN DW.DBO.DST DST ON (GENIE.MDIST=DST.MDIST)
-	INNER JOIN DW.DBO.DST  SAPDW_DST_ENROLLER ON (SAPDW_DST_ENROLLER.DIST_ID=DST.ENROLLER_ID)
-	INNER JOIN DW.DBO.BWT_CURRENT BWT_CURRENT ON (DST.MDIST=BWT_CURRENT.MDIST)
-	INNER JOIN DW.DBO.RANK  End_Rank_Desc_Current ON (BWT_CURRENT.END_RANK=End_Rank_Desc_Current.RANK AND BWT_CURRENT.MARKETING_UNIT=End_Rank_Desc_Current.MARKET)
-	INNER JOIN DW.dbo.RANK  Paid_Rank_Desc ON (BWT_CURRENT.PAID_RANK = Paid_Rank_Desc.RANK AND BWT_CURRENT.MARKETING_UNIT = Paid_Rank_Desc.MARKET)
-	LEFT OUTER JOIN DW.DBO.DST  SAPDW_SPONSOR ON (DST.SPONSOR_DIST_ID=SAPDW_SPONSOR.DIST_ID)
-	LEFT OUTER JOIN DW.DBO.BWT ON (BWT.MDIST = GENIE.MDIST) 
-
-WHERE	DST.DIST_STATUS NOT IN ( 'E','T','S')
-AND GENIE.TOP_MSPON  =  @TopMSpon
-AND BWT.PV_DATE_DATE &gt;= DATEADD(m,-7,GETDATE())
-AND BWT.VOL1 &gt; 0 </CommandText>
+        <CommandText>Select 
+   TOP_MSPON,
+   TOP_SPONSOR_NAME,
+   GROUP_LEVEL,
+   MDIST,
+   DIST_NAME,
+   DIST_STATUS,
+   ADDR,
+   EMAIL_ADDR,
+   HOME_PHONE,
+   ENTRY_DATE,
+   ADDR_2,
+   CITY,
+   STATE,
+   POSTAL_CODE,
+   CELL_PHONE,
+   ENROLLER_ID,
+   MSPON,
+   ENROLLER_NAME,
+   SPONSOR_NAME,
+   PAID_RANK,
+   dw.dbo.fnGetRankName(BWT_MDIST,BWT_PV_DATE,PAID_RANK) As PAID_RANK_TITLE,
+   END_RANK,
+   dw.dbo.fnGetRankName(BWT_MDIST,BWT_PV_DATE,END_RANK) as END_RANK_TITLE,
+   COUNTRY_CODE,
+   BIRTH_DATE, 
+   PV_DATE_DATE, 
+   VOL1, 
+   VOL3
+From
+  (
+   SELECT DISTINCT
+	  GENIE.TOP_MSPON,
+	  SAPDW_GENIE2.DIST_NAME as TOP_SPONSOR_NAME,
+	  GENIE.GROUP_LEVEL,
+	  GENIE.MDIST,
+	  GENIE.DIST_NAME,
+	  DST.DIST_STATUS,
+	  DST.ADDR,
+	  DST.EMAIL_ADDR,
+	  DST.HOME_PHONE,
+	  DST.ENTRY_DATE,
+	  DST.ADDR_2,
+	  DST.CITY,
+	  DST.STATE,
+	  DST.POSTAL_CODE,
+	  DST.CELL_PHONE,
+	  DST.ENROLLER_ID,
+	  DST.MSPON,
+	  SAPDW_DST_ENROLLER.ROMAN_NAME_1 as ENROLLER_NAME,
+	  SAPDW_SPONSOR.ROMAN_NAME_1 as SPONSOR_NAME,
+	  BWT_CURRENT.PAID_RANK,
+	  BWT_CURRENT.END_RANK,
+	  DST.COUNTRY_CODE,
+	  DST.BIRTH_DATE, 
+	  BWT.PV_DATE_DATE, 
+	  BWT.VOL1, 
+	  BWT.VOL3,
+	  BWT_CURRENT.MDIST BWT_MDIST,
+	  BWT_CURRENT.PV_DATE_DATE BWT_PV_DATE
+   FROM
+	  DW.DBO.GENIE GENIE 
+	  INNER JOIN DW.DBO.GENIE  SAPDW_GENIE2 ON (GENIE.TOP_MSPON=SAPDW_GENIE2.MDIST)
+	  INNER JOIN DW.DBO.DST DST ON (GENIE.MDIST=DST.MDIST)
+	  INNER JOIN DW.DBO.DST  SAPDW_DST_ENROLLER ON (SAPDW_DST_ENROLLER.DIST_ID=DST.ENROLLER_ID)
+	  INNER JOIN DW.DBO.BWT_CURRENT BWT_CURRENT ON (DST.MDIST=BWT_CURRENT.MDIST)
+	  LEFT OUTER JOIN DW.DBO.DST  SAPDW_SPONSOR ON (DST.SPONSOR_DIST_ID=SAPDW_SPONSOR.DIST_ID)
+	  LEFT OUTER JOIN DW.DBO.BWT ON (BWT.MDIST = GENIE.MDIST) 
+   WHERE	
+      DST.DIST_STATUS NOT IN ( 'E','T','S')
+      AND 
+	  GENIE.TOP_MSPON  = @TopMSpon
+      AND 
+	  BWT.PV_DATE_DATE &gt;= DATEADD(m,-7,GETDATE())
+      AND 
+	  BWT.VOL1 &gt; 0 
+   ) A</CommandText>
       </Query>
       <Fields>
         <Field Name="TOP_MSPON">
@@ -187,34 +220,34 @@ AND BWT.VOL1 &gt; 0 </CommandText>
             <TablixBody>
               <TablixColumns>
                 <TablixColumn>
-                  <Width>1.21875in</Width>
+                  <Width>1.09375in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>2.5625in</Width>
+                  <Width>1.8125in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>0.92708in</Width>
+                  <Width>0.75in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1.125in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>2.875in</Width>
+                  <Width>1.96875in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>0.89583in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>0.88542in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1in</Width>
+                  <Width>0.67708in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1in</Width>
-                </TablixColumn>
-                <TablixColumn>
-                  <Width>0.86458in</Width>
-                </TablixColumn>
-                <TablixColumn>
-                  <Width>2.94791in</Width>
+                  <Width>2.09374in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1.3125in</Width>
@@ -223,16 +256,16 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                   <Width>1.08333in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>2.95833in</Width>
+                  <Width>2.33333in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>2.96875in</Width>
+                  <Width>2.29167in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1.875in</Width>
+                  <Width>1.34375in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1in</Width>
+                  <Width>0.61458in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1.15625in</Width>
@@ -241,34 +274,34 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                   <Width>1.33334in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1.02083in</Width>
+                  <Width>0.76041in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1.28125in</Width>
+                  <Width>1.13542in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>2.28125in</Width>
+                  <Width>1.78125in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1.4375in</Width>
+                  <Width>1.08333in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>2.61459in</Width>
+                  <Width>1.80209in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>0.77083in</Width>
+                  <Width>0.63541in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1.5625in</Width>
+                  <Width>1.34375in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>0.67708in</Width>
+                  <Width>0.60416in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1.44791in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1.11458in</Width>
+                  <Width>0.94791in</Width>
                 </TablixColumn>
               </TablixColumns>
               <TablixRows>
@@ -1851,7 +1884,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="TOP_MSPON">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -1903,7 +1935,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="TOP_SPONSOR_NAME">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -1955,7 +1986,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="GROUP_LEVEL">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2007,7 +2037,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="MDIST">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2059,7 +2088,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="DIST_NAME">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2111,7 +2139,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="PV_DATE_DATE">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2121,7 +2148,7 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontSize>9pt</FontSize>
-                                    <Format>d</Format>
+                                    <Format>dd-MM-yyyy</Format>
                                   </Style>
                                 </TextRun>
                               </TextRuns>
@@ -2133,26 +2160,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                             <Border>
                               <Style>Solid</Style>
                             </Border>
-                            <TopBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </TopBorder>
-                            <BottomBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </BottomBorder>
-                            <LeftBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </LeftBorder>
-                            <RightBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </RightBorder>
                             <PaddingLeft>2pt</PaddingLeft>
                             <PaddingRight>2pt</PaddingRight>
                             <PaddingTop>2pt</PaddingTop>
@@ -2164,7 +2171,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="VOL1">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2217,7 +2223,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="VOL3">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2270,7 +2275,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="DIST_STATUS">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2322,7 +2326,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="EMAIL_ADDR">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2374,7 +2377,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="HOME_PHONE">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2426,7 +2428,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="ENTRY_DATE">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2436,7 +2437,7 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontSize>9pt</FontSize>
-                                    <Format>d</Format>
+                                    <Format>dd-MM-yyyy</Format>
                                   </Style>
                                 </TextRun>
                               </TextRuns>
@@ -2448,26 +2449,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                             <Border>
                               <Style>Solid</Style>
                             </Border>
-                            <TopBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </TopBorder>
-                            <BottomBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </BottomBorder>
-                            <LeftBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </LeftBorder>
-                            <RightBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </RightBorder>
                             <PaddingLeft>2pt</PaddingLeft>
                             <PaddingRight>2pt</PaddingRight>
                             <PaddingTop>2pt</PaddingTop>
@@ -2479,7 +2460,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="ADDR">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2531,7 +2511,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="ADDR_2">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2583,7 +2562,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="CITY">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2635,7 +2613,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="STATE">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2687,7 +2664,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="POSTAL_CODE">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2739,7 +2715,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="CELL_PHONE">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2791,7 +2766,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="COUNTRY_CODE">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2843,7 +2817,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="MSPON">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2895,7 +2868,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="SPONSOR_NAME">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2947,7 +2919,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="ENROLLER_ID">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -2999,7 +2970,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="ENROLLER_NAME">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -3051,7 +3021,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="PAID_RANK">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -3103,7 +3072,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="PAID_RANK_TITLE">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -3155,7 +3123,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="END_RANK">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -3207,7 +3174,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="END_RANK_TITLE">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -3259,7 +3225,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="BIRTH_DATE">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -3269,7 +3234,7 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontSize>9pt</FontSize>
-                                    <Format>d</Format>
+                                    <Format>dd-MM-yyyy</Format>
                                   </Style>
                                 </TextRun>
                               </TextRuns>
@@ -3281,26 +3246,6 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                             <Border>
                               <Style>Solid</Style>
                             </Border>
-                            <TopBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </TopBorder>
-                            <BottomBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </BottomBorder>
-                            <LeftBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </LeftBorder>
-                            <RightBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </RightBorder>
                             <PaddingLeft>2pt</PaddingLeft>
                             <PaddingRight>2pt</PaddingRight>
                             <PaddingTop>2pt</PaddingTop>
@@ -3362,7 +3307,7 @@ AND BWT.VOL1 &gt; 0 </CommandText>
             <PageName>Detail</PageName>
             <Top>1.21875in</Top>
             <Height>0.5in</Height>
-            <Width>43.41664in</Width>
+            <Width>35.31248in</Width>
             <Style>
               <Border>
                 <Style>None</Style>
@@ -3506,19 +3451,41 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                               <TextRun>
                                 <Value>MDIST</Value>
                                 <Style>
+                                  <FontSize>9pt</FontSize>
                                   <FontWeight>Bold</FontWeight>
                                 </Style>
                               </TextRun>
                             </TextRuns>
-                            <Style />
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
                           </Paragraph>
                         </Paragraphs>
                         <rd:DefaultName>Textbox42</rd:DefaultName>
                         <Style>
                           <Border>
-                            <Color>LightGrey</Color>
                             <Style>Solid</Style>
                           </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
                           <BackgroundColor>PaleTurquoise</BackgroundColor>
                           <PaddingLeft>2pt</PaddingLeft>
                           <PaddingRight>2pt</PaddingRight>
@@ -3539,19 +3506,41 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                               <TextRun>
                                 <Value>DIST NAME</Value>
                                 <Style>
+                                  <FontSize>9pt</FontSize>
                                   <FontWeight>Bold</FontWeight>
                                 </Style>
                               </TextRun>
                             </TextRuns>
-                            <Style />
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
                           </Paragraph>
                         </Paragraphs>
                         <rd:DefaultName>Textbox86</rd:DefaultName>
                         <Style>
                           <Border>
-                            <Color>LightGrey</Color>
                             <Style>Solid</Style>
                           </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
                           <BackgroundColor>PaleTurquoise</BackgroundColor>
                           <PaddingLeft>2pt</PaddingLeft>
                           <PaddingRight>2pt</PaddingRight>
@@ -3572,19 +3561,41 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                               <TextRun>
                                 <Value>END RANK</Value>
                                 <Style>
+                                  <FontSize>9pt</FontSize>
                                   <FontWeight>Bold</FontWeight>
                                 </Style>
                               </TextRun>
                             </TextRuns>
-                            <Style />
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
                           </Paragraph>
                         </Paragraphs>
                         <rd:DefaultName>Textbox92</rd:DefaultName>
                         <Style>
                           <Border>
-                            <Color>LightGrey</Color>
                             <Style>Solid</Style>
                           </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
                           <BackgroundColor>PaleTurquoise</BackgroundColor>
                           <PaddingLeft>2pt</PaddingLeft>
                           <PaddingRight>2pt</PaddingRight>
@@ -3605,19 +3616,41 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                               <TextRun>
                                 <Value>END RANK TITLE</Value>
                                 <Style>
+                                  <FontSize>9pt</FontSize>
                                   <FontWeight>Bold</FontWeight>
                                 </Style>
                               </TextRun>
                             </TextRuns>
-                            <Style />
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
                           </Paragraph>
                         </Paragraphs>
                         <rd:DefaultName>Textbox95</rd:DefaultName>
                         <Style>
                           <Border>
-                            <Color>LightGrey</Color>
                             <Style>Solid</Style>
                           </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
                           <BackgroundColor>PaleTurquoise</BackgroundColor>
                           <PaddingLeft>2pt</PaddingLeft>
                           <PaddingRight>2pt</PaddingRight>
@@ -3633,13 +3666,16 @@ AND BWT.VOL1 &gt; 0 </CommandText>
             <TablixBody>
               <TablixColumns>
                 <TablixColumn>
-                  <Width>1in</Width>
+                  <Width>0.82292in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1in</Width>
+                  <Width>0.82292in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1.34375in</Width>
                 </TablixColumn>
               </TablixColumns>
               <TablixRows>
@@ -3649,14 +3685,16 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="VOL11">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
                                   <Value>=Sum(Fields!VOL1.Value)</Value>
-                                  <Style />
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                  </Style>
                                 </TextRun>
                               </TextRuns>
                               <Style />
@@ -3665,9 +3703,28 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                           <rd:DefaultName>VOL11</rd:DefaultName>
                           <Style>
                             <Border>
-                              <Color>LightGrey</Color>
                               <Style>Solid</Style>
                             </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
                             <PaddingLeft>2pt</PaddingLeft>
                             <PaddingRight>2pt</PaddingRight>
                             <PaddingTop>2pt</PaddingTop>
@@ -3679,14 +3736,16 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="VOL31">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
                                   <Value>=Sum(Fields!VOL3.Value)</Value>
-                                  <Style />
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                  </Style>
                                 </TextRun>
                               </TextRuns>
                               <Style />
@@ -3695,9 +3754,28 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                           <rd:DefaultName>VOL31</rd:DefaultName>
                           <Style>
                             <Border>
-                              <Color>LightGrey</Color>
                               <Style>Solid</Style>
                             </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
                             <PaddingLeft>2pt</PaddingLeft>
                             <PaddingRight>2pt</PaddingRight>
                             <PaddingTop>2pt</PaddingTop>
@@ -3709,14 +3787,16 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="PAID_RANK1">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
                                   <Value>=Sum(Fields!PAID_RANK.Value)</Value>
-                                  <Style />
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                  </Style>
                                 </TextRun>
                               </TextRuns>
                               <Style>
@@ -3727,9 +3807,81 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                           <rd:DefaultName>PAID_RANK1</rd:DefaultName>
                           <Style>
                             <Border>
-                              <Color>LightGrey</Color>
                               <Style>Solid</Style>
                             </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="PAID_RANK_TITLE1">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!PAID_RANK_TITLE.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>PAID_RANK_TITLE1</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
                             <PaddingLeft>2pt</PaddingLeft>
                             <PaddingRight>2pt</PaddingRight>
                             <PaddingTop>2pt</PaddingTop>
@@ -3767,8 +3919,10 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                               <TextRun>
                                 <Value>=Fields!PV_DATE_DATE.Value</Value>
                                 <Style>
+                                  <FontFamily>Arial</FontFamily>
+                                  <FontSize>9pt</FontSize>
                                   <FontWeight>Bold</FontWeight>
-                                  <Format>d</Format>
+                                  <Format>dd-MM-yyyy</Format>
                                 </Style>
                               </TextRun>
                             </TextRuns>
@@ -3780,7 +3934,7 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                         <rd:DefaultName>PV_DATE_DATE1</rd:DefaultName>
                         <Style>
                           <Border>
-                            <Style>None</Style>
+                            <Style>Solid</Style>
                           </Border>
                           <BackgroundColor>LightGrey</BackgroundColor>
                           <PaddingLeft>2pt</PaddingLeft>
@@ -3789,6 +3943,7 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                           <PaddingBottom>2pt</PaddingBottom>
                         </Style>
                       </Textbox>
+                      <rd:Selected>true</rd:Selected>
                     </CellContents>
                   </TablixHeader>
                   <TablixMembers>
@@ -3805,6 +3960,8 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                                   <TextRun>
                                     <Value>PV</Value>
                                     <Style>
+                                      <FontFamily>Arial</FontFamily>
+                                      <FontSize>9pt</FontSize>
                                       <FontWeight>Bold</FontWeight>
                                     </Style>
                                   </TextRun>
@@ -3817,8 +3974,28 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                             <rd:DefaultName>Textbox38</rd:DefaultName>
                             <Style>
                               <Border>
-                                <Style>None</Style>
+                                <Style>Solid</Style>
                               </Border>
+                              <TopBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </TopBorder>
+                              <BottomBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </BottomBorder>
+                              <LeftBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </LeftBorder>
+                              <RightBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </RightBorder>
                               <BackgroundColor>LightSteelBlue</BackgroundColor>
                               <PaddingLeft>2pt</PaddingLeft>
                               <PaddingRight>2pt</PaddingRight>
@@ -3842,6 +4019,8 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                                   <TextRun>
                                     <Value>OV</Value>
                                     <Style>
+                                      <FontFamily>Arial</FontFamily>
+                                      <FontSize>9pt</FontSize>
                                       <FontWeight>Bold</FontWeight>
                                     </Style>
                                   </TextRun>
@@ -3854,8 +4033,28 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                             <rd:DefaultName>Textbox48</rd:DefaultName>
                             <Style>
                               <Border>
-                                <Style>None</Style>
+                                <Style>Solid</Style>
                               </Border>
+                              <TopBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </TopBorder>
+                              <BottomBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </BottomBorder>
+                              <LeftBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </LeftBorder>
+                              <RightBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </RightBorder>
                               <BackgroundColor>LightBlue</BackgroundColor>
                               <PaddingLeft>2pt</PaddingLeft>
                               <PaddingRight>2pt</PaddingRight>
@@ -3879,6 +4078,8 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                                   <TextRun>
                                     <Value>PAID RANK</Value>
                                     <Style>
+                                      <FontFamily>Arial</FontFamily>
+                                      <FontSize>9pt</FontSize>
                                       <FontWeight>Bold</FontWeight>
                                     </Style>
                                   </TextRun>
@@ -3891,8 +4092,87 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                             <rd:DefaultName>Textbox98</rd:DefaultName>
                             <Style>
                               <Border>
-                                <Style>None</Style>
+                                <Style>Solid</Style>
                               </Border>
+                              <TopBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </TopBorder>
+                              <BottomBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </BottomBorder>
+                              <LeftBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </LeftBorder>
+                              <RightBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </RightBorder>
+                              <BackgroundColor>CornflowerBlue</BackgroundColor>
+                              <PaddingLeft>2pt</PaddingLeft>
+                              <PaddingRight>2pt</PaddingRight>
+                              <PaddingTop>2pt</PaddingTop>
+                              <PaddingBottom>2pt</PaddingBottom>
+                            </Style>
+                          </Textbox>
+                        </CellContents>
+                      </TablixHeader>
+                    </TablixMember>
+                    <TablixMember>
+                      <TablixHeader>
+                        <Size>0.25in</Size>
+                        <CellContents>
+                          <Textbox Name="Textbox8">
+                            <CanGrow>true</CanGrow>
+                            <KeepTogether>true</KeepTogether>
+                            <Paragraphs>
+                              <Paragraph>
+                                <TextRuns>
+                                  <TextRun>
+                                    <Value>PAID RANK TITLE</Value>
+                                    <Style>
+                                      <FontFamily>Arial</FontFamily>
+                                      <FontSize>9pt</FontSize>
+                                      <FontWeight>Bold</FontWeight>
+                                    </Style>
+                                  </TextRun>
+                                </TextRuns>
+                                <Style>
+                                  <TextAlign>Center</TextAlign>
+                                </Style>
+                              </Paragraph>
+                            </Paragraphs>
+                            <rd:DefaultName>Textbox8</rd:DefaultName>
+                            <Style>
+                              <Border>
+                                <Style>Solid</Style>
+                              </Border>
+                              <TopBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </TopBorder>
+                              <BottomBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </BottomBorder>
+                              <LeftBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </LeftBorder>
+                              <RightBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </RightBorder>
                               <BackgroundColor>CornflowerBlue</BackgroundColor>
                               <PaddingLeft>2pt</PaddingLeft>
                               <PaddingRight>2pt</PaddingRight>
@@ -3921,17 +4201,19 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                     </SortExpression>
                   </SortExpressions>
                   <TablixHeader>
-                    <Size>1.43875in</Size>
+                    <Size>1.09375in</Size>
                     <CellContents>
                       <Textbox Name="MDIST1">
-                        <CanGrow>true</CanGrow>
                         <KeepTogether>true</KeepTogether>
                         <Paragraphs>
                           <Paragraph>
                             <TextRuns>
                               <TextRun>
                                 <Value>=Fields!MDIST.Value</Value>
-                                <Style />
+                                <Style>
+                                  <FontFamily>Arial</FontFamily>
+                                  <FontSize>9pt</FontSize>
+                                </Style>
                               </TextRun>
                             </TextRuns>
                             <Style />
@@ -3940,9 +4222,28 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                         <rd:DefaultName>MDIST1</rd:DefaultName>
                         <Style>
                           <Border>
-                            <Color>LightGrey</Color>
                             <Style>Solid</Style>
                           </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
                           <PaddingLeft>2pt</PaddingLeft>
                           <PaddingRight>2pt</PaddingRight>
                           <PaddingTop>2pt</PaddingTop>
@@ -3964,17 +4265,19 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                         </SortExpression>
                       </SortExpressions>
                       <TablixHeader>
-                        <Size>2.92708in</Size>
+                        <Size>1.8125in</Size>
                         <CellContents>
                           <Textbox Name="DIST_NAME1">
-                            <CanGrow>true</CanGrow>
                             <KeepTogether>true</KeepTogether>
                             <Paragraphs>
                               <Paragraph>
                                 <TextRuns>
                                   <TextRun>
                                     <Value>=Fields!DIST_NAME.Value</Value>
-                                    <Style />
+                                    <Style>
+                                      <FontFamily>Arial</FontFamily>
+                                      <FontSize>9pt</FontSize>
+                                    </Style>
                                   </TextRun>
                                 </TextRuns>
                                 <Style />
@@ -3983,9 +4286,28 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                             <rd:DefaultName>DIST_NAME1</rd:DefaultName>
                             <Style>
                               <Border>
-                                <Color>LightGrey</Color>
                                 <Style>Solid</Style>
                               </Border>
+                              <TopBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </TopBorder>
+                              <BottomBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </BottomBorder>
+                              <LeftBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </LeftBorder>
+                              <RightBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </RightBorder>
                               <PaddingLeft>2pt</PaddingLeft>
                               <PaddingRight>2pt</PaddingRight>
                               <PaddingTop>2pt</PaddingTop>
@@ -4007,17 +4329,19 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                             </SortExpression>
                           </SortExpressions>
                           <TablixHeader>
-                            <Size>1.125in</Size>
+                            <Size>0.75in</Size>
                             <CellContents>
                               <Textbox Name="END_RANK1">
-                                <CanGrow>true</CanGrow>
                                 <KeepTogether>true</KeepTogether>
                                 <Paragraphs>
                                   <Paragraph>
                                     <TextRuns>
                                       <TextRun>
                                         <Value>=Fields!END_RANK.Value</Value>
-                                        <Style />
+                                        <Style>
+                                          <FontFamily>Arial</FontFamily>
+                                          <FontSize>9pt</FontSize>
+                                        </Style>
                                       </TextRun>
                                     </TextRuns>
                                     <Style>
@@ -4028,16 +4352,34 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                                 <rd:DefaultName>END_RANK1</rd:DefaultName>
                                 <Style>
                                   <Border>
-                                    <Color>LightGrey</Color>
                                     <Style>Solid</Style>
                                   </Border>
+                                  <TopBorder>
+                                    <Color>Black</Color>
+                                    <Style>Solid</Style>
+                                    <Width>1pt</Width>
+                                  </TopBorder>
+                                  <BottomBorder>
+                                    <Color>Black</Color>
+                                    <Style>Solid</Style>
+                                    <Width>1pt</Width>
+                                  </BottomBorder>
+                                  <LeftBorder>
+                                    <Color>Black</Color>
+                                    <Style>Solid</Style>
+                                    <Width>1pt</Width>
+                                  </LeftBorder>
+                                  <RightBorder>
+                                    <Color>Black</Color>
+                                    <Style>Solid</Style>
+                                    <Width>1pt</Width>
+                                  </RightBorder>
                                   <PaddingLeft>2pt</PaddingLeft>
                                   <PaddingRight>2pt</PaddingRight>
                                   <PaddingTop>2pt</PaddingTop>
                                   <PaddingBottom>2pt</PaddingBottom>
                                 </Style>
                               </Textbox>
-                              <rd:Selected>true</rd:Selected>
                             </CellContents>
                           </TablixHeader>
                           <TablixMembers>
@@ -4053,17 +4395,19 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                                 </SortExpression>
                               </SortExpressions>
                               <TablixHeader>
-                                <Size>1.875in</Size>
+                                <Size>1.46875in</Size>
                                 <CellContents>
                                   <Textbox Name="END_RANK_TITLE1">
-                                    <CanGrow>true</CanGrow>
                                     <KeepTogether>true</KeepTogether>
                                     <Paragraphs>
                                       <Paragraph>
                                         <TextRuns>
                                           <TextRun>
                                             <Value>=Fields!END_RANK_TITLE.Value</Value>
-                                            <Style />
+                                            <Style>
+                                              <FontFamily>Arial</FontFamily>
+                                              <FontSize>9pt</FontSize>
+                                            </Style>
                                           </TextRun>
                                         </TextRuns>
                                         <Style />
@@ -4072,9 +4416,28 @@ AND BWT.VOL1 &gt; 0 </CommandText>
                                     <rd:DefaultName>END_RANK_TITLE1</rd:DefaultName>
                                     <Style>
                                       <Border>
-                                        <Color>LightGrey</Color>
                                         <Style>Solid</Style>
                                       </Border>
+                                      <TopBorder>
+                                        <Color>Black</Color>
+                                        <Style>Solid</Style>
+                                        <Width>1pt</Width>
+                                      </TopBorder>
+                                      <BottomBorder>
+                                        <Color>Black</Color>
+                                        <Style>Solid</Style>
+                                        <Width>1pt</Width>
+                                      </BottomBorder>
+                                      <LeftBorder>
+                                        <Color>Black</Color>
+                                        <Style>Solid</Style>
+                                        <Width>1pt</Width>
+                                      </LeftBorder>
+                                      <RightBorder>
+                                        <Color>Black</Color>
+                                        <Style>Solid</Style>
+                                        <Width>1pt</Width>
+                                      </RightBorder>
                                       <PaddingLeft>2pt</PaddingLeft>
                                       <PaddingRight>2pt</PaddingRight>
                                       <PaddingTop>2pt</PaddingTop>
@@ -4096,7 +4459,7 @@ AND BWT.VOL1 &gt; 0 </CommandText>
             <PageName>Summary</PageName>
             <Top>0.17583in</Top>
             <Height>0.75in</Height>
-            <Width>10.36583in</Width>
+            <Width>9.11458in</Width>
             <ZIndex>1</ZIndex>
             <Style>
               <Border>
