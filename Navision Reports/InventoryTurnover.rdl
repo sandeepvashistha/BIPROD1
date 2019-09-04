@@ -1,0 +1,564 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report MustUnderstand="df" xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition" xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner" xmlns:df="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition/defaultfontfamily">
+  <df:DefaultFontFamily>Segoe UI</df:DefaultFontFamily>
+  <AutoRefresh>0</AutoRefresh>
+  <DataSources>
+    <DataSource Name="BISQL01">
+      <DataSourceReference>BISQL01</DataSourceReference>
+      <rd:SecurityType>None</rd:SecurityType>
+      <rd:DataSourceID>a8a3f428-9e08-4cdf-aefb-d2179de79950</rd:DataSourceID>
+    </DataSource>
+  </DataSources>
+  <DataSets>
+    <DataSet Name="Query_1">
+      <Query>
+        <DataSourceName>BISQL01</DataSourceName>
+        <CommandText>SELECT INFOTRAX.YearMonth,INFOTRAX.MonthlySales,NAV.InvValue
+FROM
+(SELECT 
+CAST((CAST(YEAR(ODH.POST_DATE) AS VARCHAR)+RIGHT(REPLICATE('0',2) + CAST(DATEPART(MONTH,ODH.POST_DATE) AS VARCHAR),2)) AS NUMERIC) AS YearMonth,
+--SUM(CASE WHEN ODH.ODH_TYPE='C' THEN -1*ODL.QTY_ORDERED ELSE ODL.QTY_ORDERED END) AS QTY_ORDERED,
+--SUM(CASE WHEN ODH.ODH_TYPE='C' THEN -1*ODL.QTY_SHIPPED ELSE ODL.QTY_SHIPPED END) AS QTY_SHIPPED,
+--SUM(CASE WHEN ODH.ODH_TYPE='C' THEN -1*ODL.QTY_BO_FILLED ELSE ODL.QTY_BO_FILLED END) AS QTY_BO_FILLED,
+SUM((CASE WHEN ODH.ODH_TYPE='C' THEN -1*(ODL.QTY_ORDERED*ODL.price_1) ELSE (ODL.QTY_ORDERED*ODL.price_1) END) /  ISNULL(VW_NAV_CURRENCY_ALL_DSR_USD.Exchange_Rate_Amount,1)) AS MonthlySales
+FROM DW.DBO.ODH ODH INNER JOIN DW.DBO.ODL ODL ON (ODH.UNI_MKTING_UNIT=ODL.MKTING_UNIT AND ODH.ORDER_NUMBER=ODL.ORDER_NUMBER)
+LEFT OUTER JOIN DW.DBO.VW_NAV_CURRENCY_ALL_DSR  VW_NAV_CURRENCY_ALL_DSR_USD 
+ON (VW_NAV_CURRENCY_ALL_DSR_USD.TO_CURRENCY=ODH.CURRENCY_CODE 
+       AND ODH.ENTRY_DATE BETWEEN VW_NAV_CURRENCY_ALL_DSR_USD.STARTING_DATE and VW_NAV_CURRENCY_ALL_DSR_USD.END_DATE
+       AND   VW_NAV_CURRENCY_ALL_DSR_USD.from_currency='USD')
+WHERE ODH.STATUS IN (2,3,4,5) AND (ODL.FLAG_2 IS NULL OR LTRIM(RTRIM(ODL.FLAG_2))='' OR ODL.FLAG_2='C')
+GROUP BY CAST((CAST(YEAR(ODH.POST_DATE) AS VARCHAR)+RIGHT(REPLICATE('0',2) + CAST(DATEPART(MONTH,ODH.POST_DATE) AS VARCHAR),2)) AS NUMERIC)
+) INFOTRAX
+INNER JOIN 
+(
+select a.YearMonth,a.usd,sum(a.usd) OVER (ORDER BY a.yearMonth) InvValue
+from
+(
+select 
+                       --cast((cast(YEAR(b.[Posting Date]) as varchar)+right(replicate('0',2) + cast(DATEPART(month,b.[Posting Date]) as varchar),2)) as numeric) as yearMonth--,
+						(case 
+					when cast((cast(YEAR(b.[Posting Date]) as varchar)+right(replicate('0',2) + cast(DATEPART(month,b.[Posting Date]) as varchar),2)) as numeric)
+			   &lt;=cast((cast(YEAR(Dateadd(Month, Datediff(Month, 0, DATEADD(m, -24, current_timestamp)), 0)) as varchar)+right(replicate('0',2) + cast(DATEPART(month, Dateadd(Month, Datediff(Month, 0, DATEADD(m, -24, current_timestamp)), 0)) as varchar),2)) as numeric)	
+					then cast((cast(YEAR(Dateadd(Month, Datediff(Month, 0, DATEADD(m, -24, current_timestamp)), 0)) as varchar)+right(replicate('0',2) + cast(DATEPART(month, Dateadd(Month, Datediff(Month, 0, DATEADD(m, -24, current_timestamp)), 0)) as varchar),2)) as numeric)
+					else 
+					cast((cast(YEAR(b.[Posting Date]) as varchar)+right(replicate('0',2) + cast(DATEPART(month,b.[Posting Date]) as varchar),2)) as numeric)
+			   end) as YearMonth
+                        ,sum(b.on_hand * c.[Standard Cost] * i.exchange_rate_amount) as usd
+                        ,sum(b.on_hand) Qty_on_hand
+              from
+                     (
+                              select a.uni_company_name, a.[Item No_], a.[Location Code],a.[Posting Date], sum(a.[Quantity]) as on_hand
+                              from UNINAV.PROD_NAVISION.dbo.item_ledger_entry_nc_vw a
+                              where [Posting Date] &lt;= (getdate() + 1)
+                              group by a.uni_company_name, a.[Item No_], a.[Location Code],a.[Posting Date]
+                     ) as b
+                     join UNINAV.PROD_NAVISION.dbo.item_nc_vw c
+                     on 1=1
+                           and b.uni_company_name = c.uni_company_name
+                           and b.[Item No_] = c.[No_]
+                     join UNINAV.PROD_NAVISION.dbo.location_nc_vw d
+                     on 1=1
+                           and b.uni_company_name = d.uni_company_name
+                           and b.[Location Code] = d.[Code]
+                     join UNINAV.PROD_NAVISION.dbo.general_ledger_setup_nc_vw h
+                     on 1=1
+                           and b.uni_company_name = h.uni_company_name
+                     left outer join
+                     (
+                              select c.from_currency, c.to_currency, c.[Starting Date],c.exchange_rate_amount
+                              from UNINAV.PROD_NAVISION.dbo.currency_all_nc_vw c
+                              join
+                              (
+                                         select a.from_currency, a.to_currency, max(a.[Starting Date]) as latest_date
+                                         from UNINAV.PROD_NAVISION.dbo.currency_all_nc_vw a
+                                         where a.[Starting Date] &lt;= (getdate() + 1) --Filter out mistakes, which there aren't any currently. Plus today is tomorrow in most places at Unicity.
+                                         group by a.from_currency, a.to_currency
+                              ) b
+                              on 1=1
+                                         and c.from_currency = b.from_currency
+                                         and c.to_currency = b.to_currency
+                                         and c.[Starting Date] = b.latest_date
+                                         and b.to_currency='USD'
+                     ) i on h.[LCY Code] COLLATE DATABASE_DEFAULT=i.from_currency COLLATE DATABASE_DEFAULT
+              where 1=1
+              and d.[DSC Warehouse Flag] = 0 
+              group by
+              (case 
+					when cast((cast(YEAR(b.[Posting Date]) as varchar)+right(replicate('0',2) + cast(DATEPART(month,b.[Posting Date]) as varchar),2)) as numeric)
+			   &lt;=cast((cast(YEAR(Dateadd(Month, Datediff(Month, 0, DATEADD(m, -24, current_timestamp)), 0)) as varchar)+right(replicate('0',2) + cast(DATEPART(month, Dateadd(Month, Datediff(Month, 0, DATEADD(m, -24, current_timestamp)), 0)) as varchar),2)) as numeric)	
+					then cast((cast(YEAR(Dateadd(Month, Datediff(Month, 0, DATEADD(m, -24, current_timestamp)), 0)) as varchar)+right(replicate('0',2) + cast(DATEPART(month, Dateadd(Month, Datediff(Month, 0, DATEADD(m, -24, current_timestamp)), 0)) as varchar),2)) as numeric)
+					else 
+					cast((cast(YEAR(b.[Posting Date]) as varchar)+right(replicate('0',2) + cast(DATEPART(month,b.[Posting Date]) as varchar),2)) as numeric)
+			   end)
+) a
+) NAV ON (NAV.YearMonth=INFOTRAX.YearMonth)</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="YearMonth">
+          <DataField>YearMonth</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="MonthlySales">
+          <DataField>MonthlySales</DataField>
+          <rd:TypeName>System.Double</rd:TypeName>
+        </Field>
+        <Field Name="InvValue">
+          <DataField>InvValue</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="InventoryTurns">
+          <Value>=(Fields!MonthlySales.Value*12)/Fields!InvValue.Value</Value>
+        </Field>
+        <Field Name="test">
+          <Value>=cstr(Fields!YearMonth.Value)</Value>
+        </Field>
+      </Fields>
+    </DataSet>
+  </DataSets>
+  <ReportSections>
+    <ReportSection>
+      <Body>
+        <ReportItems>
+          <Tablix Name="Tablix1">
+            <TablixBody>
+              <TablixColumns>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+              </TablixColumns>
+              <TablixRows>
+                <TablixRow>
+                  <Height>0.25in</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox1">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Month</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox1</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox3">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Monthly Sales</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox3</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox5">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Inv Value</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox5</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox7">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Inventory Turns</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox7</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>0.25in</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="YearMonth">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!YearMonth.Value</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>YearMonth</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="MonthlySales">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!MonthlySales.Value</Value>
+                                  <Style>
+                                    <Format>0.00</Format>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>MonthlySales</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="InvValue">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!InvValue.Value</Value>
+                                  <Style>
+                                    <Format>0.00</Format>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>InvValue</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="InventoryTurns">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!InventoryTurns.Value</Value>
+                                  <Style>
+                                    <Format>0.00</Format>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>InventoryTurns</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+              </TablixRows>
+            </TablixBody>
+            <TablixColumnHierarchy>
+              <TablixMembers>
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
+              </TablixMembers>
+            </TablixColumnHierarchy>
+            <TablixRowHierarchy>
+              <TablixMembers>
+                <TablixMember>
+                  <KeepWithGroup>After</KeepWithGroup>
+                </TablixMember>
+                <TablixMember>
+                  <Group Name="Details" />
+                </TablixMember>
+              </TablixMembers>
+            </TablixRowHierarchy>
+            <DataSetName>Query_1</DataSetName>
+            <SortExpressions>
+              <SortExpression>
+                <Value>=Fields!YearMonth.Value</Value>
+                <Direction>Descending</Direction>
+              </SortExpression>
+            </SortExpressions>
+            <Height>0.5in</Height>
+            <Width>4in</Width>
+            <Style>
+              <Border>
+                <Style>None</Style>
+              </Border>
+            </Style>
+          </Tablix>
+        </ReportItems>
+        <Height>2.52083in</Height>
+        <Style />
+      </Body>
+      <Width>11.26042in</Width>
+      <Page>
+        <LeftMargin>1in</LeftMargin>
+        <RightMargin>1in</RightMargin>
+        <TopMargin>1in</TopMargin>
+        <BottomMargin>1in</BottomMargin>
+        <Style />
+      </Page>
+    </ReportSection>
+  </ReportSections>
+  <ReportParametersLayout>
+    <GridLayoutDefinition>
+      <NumberOfColumns>4</NumberOfColumns>
+      <NumberOfRows>2</NumberOfRows>
+    </GridLayoutDefinition>
+  </ReportParametersLayout>
+  <rd:ReportUnitType>Inch</rd:ReportUnitType>
+  <rd:ReportID>bcb7349d-ef94-4ab3-a5dc-ecd80fbbea7a</rd:ReportID>
+</Report>

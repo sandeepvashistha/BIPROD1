@@ -1,0 +1,1345 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report MustUnderstand="df" xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition" xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner" xmlns:df="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition/defaultfontfamily">
+  <df:DefaultFontFamily>Segoe UI</df:DefaultFontFamily>
+  <AutoRefresh>0</AutoRefresh>
+  <DataSources>
+    <DataSource Name="SQLPRODA">
+      <DataSourceReference>SQLPRODA</DataSourceReference>
+      <rd:SecurityType>None</rd:SecurityType>
+      <rd:DataSourceID>326144ea-bcbe-4690-ae75-6e3de2d85d84</rd:DataSourceID>
+    </DataSource>
+  </DataSources>
+  <DataSets>
+    <DataSet Name="Query_1">
+      <Query>
+        <DataSourceName>SQLPRODA</DataSourceName>
+        <QueryParameters>
+          <QueryParameter Name="@CompanyName">
+            <Value>=Parameters!CompanyName.Value</Value>
+          </QueryParameter>
+          <QueryParameter Name="@MarketUnit">
+            <Value>=Parameters!MarketUnit.Value</Value>
+          </QueryParameter>
+        </QueryParameters>
+        <CommandText>select 
+	a.BackOffice_Unit,
+	a.WH,
+	cast(getdate() as date) today,
+	cast(getdate()-1 as date) yesturday,
+	sum(a.ITX_Begin) ITX_Begin,
+	cast(sum(a.NAV_Shipment) as numeric(10,0)) NAV_Shipment,
+	sum(a.ITX_END) ITX_END,
+	(sum(a.ITX_Begin)+sum(a.NAV_Shipment))-sum(a.ITX_END) ITX_Sales,
+	sum(a.NAV_Sales) NAV_Sales,
+	cast(sum(a.NAV_Adjustment) as numeric(10,0)) NAV_Adjustment,
+	((sum(a.ITX_Begin)+sum(a.NAV_Shipment))-sum(a.ITX_END)) - (sum(a.NAV_Sales)-sum(a.NAV_Adjustment)) Different
+from
+(
+select 
+	[Actual BackOffice Unit] BackOffice_Unit, 
+	[Order Entry Warehouse Code] WH,
+	0 ITX_Begin,
+	0 NAV_Shipment,
+	0 ITX_END,
+	0 NAV_Sales,
+	0 NAV_Adjustment
+from UNINAV.PROD_NAVISION.DBO.location_nc_vw b
+join UNINAV.PROD_NAVISION.DBO.company_information_nc_vw c
+on b.uni_company_name = c.uni_company_name
+where [Order Entry Warehouse Code] &lt;&gt; '' --must connect to InfoTrax
+and b.[DSC Warehouse Flag] = 1 --dsc's only
+and b.uni_company_name = @CompanyName
+union
+select 
+	uni_mkting_unit BackOffice_Unit,
+	warehouse_number WH,
+	sum(quantity_on_hand) ITX_Begin,
+	0 NAV_Shipment,
+	0 ITX_END,
+	0 NAV_Sales,
+	0 NAV_Adjustment
+from dw.dbo.inv_yesterday
+where cast(warehouse_number as varchar) in 
+(select [order Entry Warehouse Code] from UNINAV.PROD_NAVISION.DBO.location_nc_vw where [DSC Warehouse Flag] = 1 and [order Entry Warehouse Code]&lt;&gt;'' and uni_company_name=@CompanyName)
+--in (305,306,307,308)
+and inv_yesterday.uni_mkting_unit=@MarketUnit
+group by uni_mkting_unit, warehouse_number
+union
+--NAV shipment field #2, same date as posting date.
+select 
+	[Actual BackOffice Unit] BackOffice_Unit, 
+	[Order Entry Warehouse Code] WH,
+	0 ITX_Begin,
+	sum(Quantity) NAV_Shipment,
+	0 ITX_END,
+	0 NAV_Sales,
+	0 NAV_Adjustment
+from UNINAV.PROD_NAVISION.DBO.item_ledger_entry_nc_vw a
+join UNINAV.PROD_NAVISION.DBO.location_nc_vw b
+on a.uni_company_name = b.uni_company_name
+and a.[Location Code] = b.[Code]
+join UNINAV.PROD_NAVISION.DBO.company_information_nc_vw c
+on b.uni_company_name = c.uni_company_name
+where [Order Entry Warehouse Code] &lt;&gt; ''
+and a.uni_company_name = @CompanyName --remove for final query
+and a.[Entry Type] = 1 --sales
+and a.[Document Type] = 1 --sales shipment
+and b.[DSC Warehouse Flag] = 1 --dsc's only
+and cast(a.[Posting Date] as date) = cast(getdate() as date) --'14-MAY-2018'--should be yesterday
+group by [Actual BackOffice Unit], [Order Entry Warehouse Code]
+union
+--ITX End, field #3
+select 
+	uni_mkting_unit BackOffice_Unit,
+	warehouse_number WH,
+	0 ITX_Begin,
+	0 NAV_Shipment,
+	sum(quantity_on_hand) ITX_END,
+	0 NAV_Sales,
+	0 NAV_Adjustment
+from dw.dbo.inv
+where cast(warehouse_number as varchar) in 
+(select [order Entry Warehouse Code] from UNINAV.PROD_NAVISION.DBO.location_nc_vw where [DSC Warehouse Flag] = 1 and [order Entry Warehouse Code]&lt;&gt;'' and uni_company_name=@CompanyName)
+--in (305,306,307,308)
+and inv.uni_mkting_unit=@MarketUnit
+group by uni_mkting_unit, warehouse_number
+union
+select 
+	[Market Number], 
+	[Warehouse ID],
+	0 ITX_Begin,
+	0 NAV_Shipment,
+	0 ITX_END, 
+	sum([Transaction Quantity]) NAV_Sales,
+	0 NAV_Adjustment
+from UNINAV.PROD_NAVISION.DBO.stg_depl_inv_depl_itrx_dk_nc_vw
+where 1=1
+and [Market Number] = @MarketUnit and [Warehouse ID] in 
+(select [order Entry Warehouse Code] from UNINAV.PROD_NAVISION.DBO.location_nc_vw where [DSC Warehouse Flag] = 1 and [order Entry Warehouse Code]&lt;&gt;'' and uni_company_name=@CompanyName)
+--(305,307,308) --remove for final query
+and cast([Transaction Date] as date) = cast(getdate()  as date) --'14-MAY-2018' --should be yesterday
+group by [Market Number], [Warehouse ID]
+union
+select 
+    [Actual BackOffice Unit] BackOffice_Unit,
+	[Order Entry Warehouse Code] WH,
+	0 ITX_Begin,
+	0 NAV_Shipment,
+	0 ITX_END,
+	0 NAV_Sales,
+	sum(Quantity) NAV_Adjustment
+from UNINAV.PROD_NAVISION.DBO.item_ledger_entry_nc_vw a
+join UNINAV.PROD_NAVISION.DBO.location_nc_vw b
+on a.uni_company_name = b.uni_company_name
+and a.[Location Code] = b.[Code]
+join UNINAV.PROD_NAVISION.DBO.company_information_nc_vw c
+on b.uni_company_name = c.uni_company_name
+where [Order Entry Warehouse Code] &lt;&gt; ''
+and a.uni_company_name = @CompanyName --remove for final query
+and a.[Entry Type] in (2,3) --Positive adjustments and Negative adjustments
+and b.[DSC Warehouse Flag] = 1 --dsc's only
+and cast(a.[Posting Date] as date) = cast(getdate()  as date)--should be yesterday
+group by [Actual BackOffice Unit], [Order Entry Warehouse Code]
+) a
+group by a.BackOffice_Unit,a.WH</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="BackOffice_Unit">
+          <DataField>BackOffice_Unit</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="WH">
+          <DataField>WH</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="today">
+          <DataField>today</DataField>
+          <rd:TypeName>System.DateTime</rd:TypeName>
+        </Field>
+        <Field Name="ITX_Begin">
+          <DataField>ITX_Begin</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="yesturday">
+          <DataField>yesturday</DataField>
+          <rd:TypeName>System.DateTime</rd:TypeName>
+        </Field>
+        <Field Name="NAV_Shipment">
+          <DataField>NAV_Shipment</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="ITX_END">
+          <DataField>ITX_END</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="ITX_Sales">
+          <DataField>ITX_Sales</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="NAV_Sales">
+          <DataField>NAV_Sales</DataField>
+          <rd:TypeName>System.Int32</rd:TypeName>
+        </Field>
+        <Field Name="NAV_Adjustment">
+          <DataField>NAV_Adjustment</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="Different">
+          <DataField>Different</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="CompanyName">
+      <Query>
+        <DataSourceName>SQLPRODA</DataSourceName>
+        <CommandText>select distinct dw_navision_market_name market_name from dw.dbo.dm_location_manager order by dw_navision_market_name</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="market_name">
+          <DataField>market_name</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="Query_0">
+      <Query>
+        <DataSourceName>SQLPRODA</DataSourceName>
+        <QueryParameters>
+          <QueryParameter Name="@CompanyName">
+            <Value>=Parameters!CompanyName.Value</Value>
+          </QueryParameter>
+          <QueryParameter Name="@MarketUnit">
+            <Value>=Parameters!MarketUnit.Value</Value>
+          </QueryParameter>
+        </QueryParameters>
+        <CommandText>select 
+	1/isnull((((sum(a.ITX_Begin)+sum(a.NAV_Shipment))-sum(a.ITX_END)) - (sum(a.NAV_Sales)-sum(a.NAV_Adjustment))),0) Different
+from
+(
+select 
+	[Actual BackOffice Unit] BackOffice_Unit, 
+	[Order Entry Warehouse Code] WH,
+	0 ITX_Begin,
+	0 NAV_Shipment,
+	0 ITX_END,
+	0 NAV_Sales,
+	0 NAV_Adjustment
+from UNINAV.PROD_NAVISION.DBO.location_nc_vw b
+join UNINAV.PROD_NAVISION.DBO.company_information_nc_vw c
+on b.uni_company_name = c.uni_company_name
+where [Order Entry Warehouse Code] &lt;&gt; '' --must connect to InfoTrax
+and b.[DSC Warehouse Flag] = 1 --dsc's only
+and b.uni_company_name = @CompanyName
+union
+select 
+	uni_mkting_unit BackOffice_Unit,
+	warehouse_number WH,
+	sum(quantity_on_hand) ITX_Begin,
+	0 NAV_Shipment,
+	0 ITX_END,
+	0 NAV_Sales,
+	0 NAV_Adjustment
+from dw.dbo.inv_yesterday
+where cast(warehouse_number as varchar) in 
+(select [order Entry Warehouse Code] from UNINAV.PROD_NAVISION.DBO.location_nc_vw where [DSC Warehouse Flag] = 1 and [order Entry Warehouse Code]&lt;&gt;'' and uni_company_name=@CompanyName)
+--in (305,306,307,308)
+and inv_yesterday.uni_mkting_unit=@MarketUnit
+group by uni_mkting_unit, warehouse_number
+union
+--NAV shipment field #2, same date as posting date.
+select 
+	[Actual BackOffice Unit] BackOffice_Unit, 
+	[Order Entry Warehouse Code] WH,
+	0 ITX_Begin,
+	sum(Quantity) NAV_Shipment,
+	0 ITX_END,
+	0 NAV_Sales,
+	0 NAV_Adjustment
+from UNINAV.PROD_NAVISION.DBO.item_ledger_entry_nc_vw a
+join UNINAV.PROD_NAVISION.DBO.location_nc_vw b
+on a.uni_company_name = b.uni_company_name
+and a.[Location Code] = b.[Code]
+join UNINAV.PROD_NAVISION.DBO.company_information_nc_vw c
+on b.uni_company_name = c.uni_company_name
+where [Order Entry Warehouse Code] &lt;&gt; ''
+and a.uni_company_name = @CompanyName --remove for final query
+and a.[Entry Type] = 1 --sales
+and a.[Document Type] = 1 --sales shipment
+and b.[DSC Warehouse Flag] = 1 --dsc's only
+and cast(a.[Posting Date] as date) = cast(getdate() as date) --'14-MAY-2018'--should be yesterday
+group by [Actual BackOffice Unit], [Order Entry Warehouse Code]
+union
+--ITX End, field #3
+select 
+	uni_mkting_unit BackOffice_Unit,
+	warehouse_number WH,
+	0 ITX_Begin,
+	0 NAV_Shipment,
+	sum(quantity_on_hand) ITX_END,
+	0 NAV_Sales,
+	0 NAV_Adjustment
+from dw.dbo.inv
+where cast(warehouse_number as varchar) in 
+(select [order Entry Warehouse Code] from UNINAV.PROD_NAVISION.DBO.location_nc_vw where [DSC Warehouse Flag] = 1 and [order Entry Warehouse Code]&lt;&gt;'' and uni_company_name=@CompanyName)
+--in (305,306,307,308)
+and inv.uni_mkting_unit=@MarketUnit
+group by uni_mkting_unit, warehouse_number
+union
+select 
+	[Market Number], 
+	[Warehouse ID],
+	0 ITX_Begin,
+	0 NAV_Shipment,
+	0 ITX_END, 
+	sum([Transaction Quantity]) NAV_Sales,
+	0 NAV_Adjustment
+from UNINAV.PROD_NAVISION.DBO.stg_depl_inv_depl_itrx_dk_nc_vw
+where 1=1
+and [Market Number] = @MarketUnit and [Warehouse ID] in 
+(select [order Entry Warehouse Code] from UNINAV.PROD_NAVISION.DBO.location_nc_vw where [DSC Warehouse Flag] = 1 and [order Entry Warehouse Code]&lt;&gt;'' and uni_company_name=@CompanyName)
+--(305,307,308) --remove for final query
+and cast([Transaction Date] as date) = cast(getdate()  as date) --'14-MAY-2018' --should be yesterday
+group by [Market Number], [Warehouse ID]
+union
+select 
+    [Actual BackOffice Unit] BackOffice_Unit,
+	[Order Entry Warehouse Code] WH,
+	0 ITX_Begin,
+	0 NAV_Shipment,
+	0 ITX_END,
+	0 NAV_Sales,
+	sum(Quantity) NAV_Adjustment
+from UNINAV.PROD_NAVISION.DBO.item_ledger_entry_nc_vw a
+join UNINAV.PROD_NAVISION.DBO.location_nc_vw b
+on a.uni_company_name = b.uni_company_name
+and a.[Location Code] = b.[Code]
+join UNINAV.PROD_NAVISION.DBO.company_information_nc_vw c
+on b.uni_company_name = c.uni_company_name
+where [Order Entry Warehouse Code] &lt;&gt; ''
+and a.uni_company_name = @CompanyName --remove for final query
+and a.[Entry Type] in (2,3) --Positive adjustments and Negative adjustments
+and b.[DSC Warehouse Flag] = 1 --dsc's only
+and cast(a.[Posting Date] as date) = cast(getdate()  as date)--should be yesterday
+group by [Actual BackOffice Unit], [Order Entry Warehouse Code]
+) a</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="Different">
+          <DataField>Different</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+      </Fields>
+    </DataSet>
+  </DataSets>
+  <ReportSections>
+    <ReportSection>
+      <Body>
+        <ReportItems>
+          <Textbox Name="Textbox1">
+            <CanGrow>true</CanGrow>
+            <KeepTogether>true</KeepTogether>
+            <Paragraphs>
+              <Paragraph>
+                <TextRuns>
+                  <TextRun>
+                    <Value>=Parameters!CompanyName.Value+" DSC Sales Report "+format(First(Fields!today.Value, "Query_1"),"yyyy-MM-dd")</Value>
+                    <Style>
+                      <FontWeight>Bold</FontWeight>
+                    </Style>
+                  </TextRun>
+                </TextRuns>
+                <Style>
+                  <TextAlign>Center</TextAlign>
+                </Style>
+              </Paragraph>
+            </Paragraphs>
+            <rd:DefaultName>Textbox1</rd:DefaultName>
+            <Left>1in</Left>
+            <Height>0.25in</Height>
+            <Width>5in</Width>
+            <Style>
+              <Border>
+                <Style>Solid</Style>
+              </Border>
+              <TopBorder>
+                <Color>Black</Color>
+                <Style>Solid</Style>
+                <Width>1pt</Width>
+              </TopBorder>
+              <BottomBorder>
+                <Color>Black</Color>
+                <Style>Solid</Style>
+                <Width>1pt</Width>
+              </BottomBorder>
+              <LeftBorder>
+                <Color>Black</Color>
+                <Style>Solid</Style>
+                <Width>1pt</Width>
+              </LeftBorder>
+              <RightBorder>
+                <Color>Black</Color>
+                <Style>Solid</Style>
+                <Width>1pt</Width>
+              </RightBorder>
+              <PaddingLeft>2pt</PaddingLeft>
+              <PaddingRight>2pt</PaddingRight>
+              <PaddingTop>2pt</PaddingTop>
+              <PaddingBottom>2pt</PaddingBottom>
+            </Style>
+          </Textbox>
+          <Tablix Name="Tablix1">
+            <TablixBody>
+              <TablixColumns>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+              </TablixColumns>
+              <TablixRows>
+                <TablixRow>
+                  <Height>0.25in</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox2">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>WH</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox2</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox4">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value EvaluationMode="Constant">ITX Begin</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox4</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox6">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>="+ NAV Shipment"</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox6</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox8">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>="- ITX End"</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox8</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox10">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>="= ITX Sales"</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox10</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox12">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>="- NAV Interfaces"</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox12</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox3">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>="+ NAV Adjustment"</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox3</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox14">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>="Different"</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox14</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>0.25in</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="WH">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!WH.Value</Value>
+                                  <Style>
+                                    <FontWeight>=iif(Fields!Different.Value=0,"Default","Bold")</FontWeight>
+                                    <Color>=iif(Fields!Different.Value=0,"Black","Red")</Color>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>WH</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="ITX_Begin">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!ITX_Begin.Value</Value>
+                                  <Style>
+                                    <FontWeight>=iif(Fields!Different.Value=0,"Default","Bold")</FontWeight>
+                                    <Color>=iif(Fields!Different.Value=0,"Black","Red")</Color>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>ITX_Begin</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="NAV_Shipment">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!NAV_Shipment.Value</Value>
+                                  <Style>
+                                    <FontWeight>=iif(Fields!Different.Value=0,"Default","Bold")</FontWeight>
+                                    <Color>=iif(Fields!Different.Value=0,"Black","Red")</Color>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>NAV_Shipment</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="ITX_END">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!ITX_END.Value</Value>
+                                  <Style>
+                                    <FontWeight>=iif(Fields!Different.Value=0,"Default","Bold")</FontWeight>
+                                    <Color>=iif(Fields!Different.Value=0,"Black","Red")</Color>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>ITX_END</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="ITX_Sales">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!ITX_Sales.Value</Value>
+                                  <Style>
+                                    <FontWeight>=iif(Fields!Different.Value=0,"Default","Bold")</FontWeight>
+                                    <Color>=iif(Fields!Different.Value=0,"Black","Red")</Color>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>ITX_Sales</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="NAV_Sales">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!NAV_Sales.Value</Value>
+                                  <Style>
+                                    <FontWeight>=iif(Fields!Different.Value=0,"Default","Bold")</FontWeight>
+                                    <Color>=iif(Fields!Different.Value=0,"Black","Red")</Color>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>NAV_Sales</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="NAV_Adjustment">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!NAV_Adjustment.Value</Value>
+                                  <Style>
+                                    <FontWeight>=iif(Fields!Different.Value=0,"Default","Bold")</FontWeight>
+                                    <Color>=iif(Fields!Different.Value=0,"Black","Red")</Color>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>NAV_Adjustment</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Different">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!Different.Value</Value>
+                                  <Style>
+                                    <FontWeight>=iif(Fields!Different.Value=0,"Default","Bold")</FontWeight>
+                                    <Color>=iif(Fields!Different.Value=0,"Black","Red")</Color>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Different</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+              </TablixRows>
+            </TablixBody>
+            <TablixColumnHierarchy>
+              <TablixMembers>
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
+              </TablixMembers>
+            </TablixColumnHierarchy>
+            <TablixRowHierarchy>
+              <TablixMembers>
+                <TablixMember>
+                  <KeepWithGroup>After</KeepWithGroup>
+                </TablixMember>
+                <TablixMember>
+                  <Group Name="Details" />
+                  <SortExpressions>
+                    <SortExpression>
+                      <Value>=Fields!Different.Value</Value>
+                    </SortExpression>
+                    <SortExpression>
+                      <Value>=Fields!WH.Value</Value>
+                    </SortExpression>
+                  </SortExpressions>
+                </TablixMember>
+              </TablixMembers>
+            </TablixRowHierarchy>
+            <DataSetName>Query_1</DataSetName>
+            <PageName>=Parameters!CompanyName.Value+" DSC Sales"</PageName>
+            <Top>0.25in</Top>
+            <Height>0.5in</Height>
+            <Width>8in</Width>
+            <ZIndex>1</ZIndex>
+            <Style>
+              <Border>
+                <Style>None</Style>
+              </Border>
+            </Style>
+          </Tablix>
+        </ReportItems>
+        <Height>0.75in</Height>
+        <Style />
+      </Body>
+      <Width>8in</Width>
+      <Page>
+        <LeftMargin>1in</LeftMargin>
+        <RightMargin>1in</RightMargin>
+        <TopMargin>1in</TopMargin>
+        <BottomMargin>1in</BottomMargin>
+        <Style />
+      </Page>
+    </ReportSection>
+  </ReportSections>
+  <ReportParameters>
+    <ReportParameter Name="MarketUnit">
+      <DataType>String</DataType>
+      <Prompt>Market Unit (XX)</Prompt>
+    </ReportParameter>
+    <ReportParameter Name="CompanyName">
+      <DataType>String</DataType>
+      <Prompt>Company Name</Prompt>
+      <ValidValues>
+        <DataSetReference>
+          <DataSetName>CompanyName</DataSetName>
+          <ValueField>market_name</ValueField>
+          <LabelField>market_name</LabelField>
+        </DataSetReference>
+      </ValidValues>
+    </ReportParameter>
+  </ReportParameters>
+  <ReportParametersLayout>
+    <GridLayoutDefinition>
+      <NumberOfColumns>4</NumberOfColumns>
+      <NumberOfRows>2</NumberOfRows>
+      <CellDefinitions>
+        <CellDefinition>
+          <ColumnIndex>1</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>CompanyName</ParameterName>
+        </CellDefinition>
+        <CellDefinition>
+          <ColumnIndex>0</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>MarketUnit</ParameterName>
+        </CellDefinition>
+      </CellDefinitions>
+    </GridLayoutDefinition>
+  </ReportParametersLayout>
+  <rd:ReportUnitType>Inch</rd:ReportUnitType>
+  <rd:ReportID>9eee7d27-be24-48c2-9295-cc7bffcd99df</rd:ReportID>
+</Report>
