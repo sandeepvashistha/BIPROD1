@@ -3,19 +3,14 @@
   <df:DefaultFontFamily>Segoe UI</df:DefaultFontFamily>
   <AutoRefresh>0</AutoRefresh>
   <DataSources>
-    <DataSource Name="SQLPRODA">
-      <DataSourceReference>SQLPRODA</DataSourceReference>
-      <rd:SecurityType>None</rd:SecurityType>
-      <rd:DataSourceID>f5418a1c-5573-4e4a-8a78-cccbc9a4bae7</rd:DataSourceID>
-    </DataSource>
     <DataSource Name="UnityDB">
       <DataSourceReference>UnityDB</DataSourceReference>
       <rd:SecurityType>None</rd:SecurityType>
-      <rd:DataSourceID>05e24e4f-ba38-48cd-827a-85edac7f9626</rd:DataSourceID>
+      <rd:DataSourceID>f89ead7c-357d-4fe0-a92e-35f554fb04a0</rd:DataSourceID>
     </DataSource>
   </DataSources>
   <DataSets>
-    <DataSet Name="CrossCountryMatrix">
+    <DataSet Name="Query1">
       <Query>
         <DataSourceName>UnityDB</DataSourceName>
         <QueryParameters>
@@ -25,11 +20,11 @@
           <QueryParameter Name="@BatchId">
             <Value>=Parameters!BatchId.Value</Value>
           </QueryParameter>
-          <QueryParameter Name="@SourceCountryCode">
-            <Value>=Parameters!SourceCountryCode.Value</Value>
+          <QueryParameter Name="@TargetCountry">
+            <Value>=Parameters!TargetCountry.Value</Value>
           </QueryParameter>
-          <QueryParameter Name="@TargetCountryCode">
-            <Value>=Parameters!TargetCountryCode.Value</Value>
+          <QueryParameter Name="@SourceCountry">
+            <Value>=Parameters!SourceCountry.Value</Value>
           </QueryParameter>
         </QueryParameters>
         <CommandText>IF OBJECT_ID('tempdb.dbo.#SourceTarget', 'U') IS NOT NULL
@@ -65,37 +60,36 @@ GROUP BY d.FromUnicityId --SourceUnicityId
 ,CASE WHEN d.IsNFR = 1 THEN d.SourceCountryCode+'N' ELSE d.SourceCountryCode END
 ,d.SourceCurrencyCode
 
-SELECT 'CrossCountryMatrixSummary' ReportName
+
+SELECT 'CrossCountryMatrixDetail' ReportName
 ,t.SourceCountryCode
-,ISNULL(sc.Name,t.SourceCountryCode) SourceCountryName
 ,t.SourceCurrencyCode
-,t.SourceRate
+,t.SourceUnicityId
 ,t.TargetCountryCode
-,ISNULL(tc.Name,t.TargetCountryCode) TargetCountryName
 ,t.TargetCurrencyCode
+,t.TargetUnicityId
+,SUM(t.ConvertedBonusValue) ConvertedBonusValue
 ,t.TargetRate
 ,SUM(t.BonusValue) BonusValue
-,t.TargetRate/SourceRate ConversionRate
-,SUM(t.ConvertedBonusValue) ConvertedBonusValue
-,SUM(ROUND(t.ConvertedBonusValue /t.TargetRate,2)) USD
+,t.SourceRate
+,SUM(t.ConvertedBonusValue /t.TargetRate) USD --ROUND(t.ConvertedBonusValue /t.TargetRate,2))USD
 ,t.NavRateToUSD
 ,SUM(t.ConvertedBonusValue * t.NavRateToUSD) NAVUSD
 FROM #SourceTarget t
-LEFT OUTER JOIN Country sc ON t.SourceCountryCode = sc.Alpha3
-LEFT OUTER JOIN Country tc ON t.TargetCountryCode = tc.Alpha3
-WHERE t.TargetCountryCode != t.SourceCountryCode
-AND t.SourceCountryCode IN (@SourceCountryCode) 
-AND t.TargetCountryCode IN (@TargetCountryCode) 
+WHERE t.TargetCountryCode IN (@TargetCountry)
+AND t.SourceCountryCode IN (@SourceCountry)
 GROUP BY t.SourceCountryCode
 ,t.SourceCurrencyCode
+,t.SourceUnicityId
 ,t.TargetCountryCode
 ,t.TargetCurrencyCode
+,t.TargetUnicityId
+--,SUM(t.ConvertedBonusValue) ConvertedBonusValue
 ,t.TargetRate
+--,SUM(t.BonusValue) BonusValue
 ,t.SourceRate
-,t.NavRateToUSD
-,sc.Name --SourceCountryName
-,tc.Name --TargetCountryName
-ORDER BY SourceCountryCode,TargetCountryCode</CommandText>
+--,ROUND(t.ConvertedBonusValue /t.TargetRate,2) --USD
+,t.NavRateToUSD </CommandText>
       </Query>
       <Fields>
         <Field Name="ReportName">
@@ -106,29 +100,29 @@ ORDER BY SourceCountryCode,TargetCountryCode</CommandText>
           <DataField>SourceCountryCode</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
-        <Field Name="SourceCountryName">
-          <DataField>SourceCountryName</DataField>
-          <rd:TypeName>System.String</rd:TypeName>
-        </Field>
         <Field Name="SourceCurrencyCode">
           <DataField>SourceCurrencyCode</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
-        <Field Name="SourceRate">
-          <DataField>SourceRate</DataField>
-          <rd:TypeName>System.Decimal</rd:TypeName>
+        <Field Name="SourceUnicityId">
+          <DataField>SourceUnicityId</DataField>
+          <rd:TypeName>System.Int64</rd:TypeName>
         </Field>
         <Field Name="TargetCountryCode">
           <DataField>TargetCountryCode</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
-        <Field Name="TargetCountryName">
-          <DataField>TargetCountryName</DataField>
-          <rd:TypeName>System.String</rd:TypeName>
-        </Field>
         <Field Name="TargetCurrencyCode">
           <DataField>TargetCurrencyCode</DataField>
           <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="TargetUnicityId">
+          <DataField>TargetUnicityId</DataField>
+          <rd:TypeName>System.Int64</rd:TypeName>
+        </Field>
+        <Field Name="ConvertedBonusValue">
+          <DataField>ConvertedBonusValue</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
         <Field Name="TargetRate">
           <DataField>TargetRate</DataField>
@@ -138,12 +132,8 @@ ORDER BY SourceCountryCode,TargetCountryCode</CommandText>
           <DataField>BonusValue</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
-        <Field Name="ConversionRate">
-          <DataField>ConversionRate</DataField>
-          <rd:TypeName>System.Decimal</rd:TypeName>
-        </Field>
-        <Field Name="ConvertedBonusValue">
-          <DataField>ConvertedBonusValue</DataField>
+        <Field Name="SourceRate">
+          <DataField>SourceRate</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
         <Field Name="USD">
@@ -190,18 +180,6 @@ ORDER BY 1</CommandText>
         </Field>
       </Fields>
     </DataSet>
-    <DataSet Name="BatchId">
-      <Query>
-        <DataSourceName>UnityDB</DataSourceName>
-        <CommandText>SELECT DISTINCT batchId FROM UNCBonusResults.dbo.BonusDetail ORDER BY 1</CommandText>
-      </Query>
-      <Fields>
-        <Field Name="batchId">
-          <DataField>batchId</DataField>
-          <rd:TypeName>System.Int32</rd:TypeName>
-        </Field>
-      </Fields>
-    </DataSet>
   </DataSets>
   <ReportSections>
     <ReportSection>
@@ -211,49 +189,46 @@ ORDER BY 1</CommandText>
             <TablixBody>
               <TablixColumns>
                 <TablixColumn>
-                  <Width>1.97916in</Width>
+                  <Width>2.44792in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1.51042in</Width>
+                  <Width>1.61458in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1.55208in</Width>
+                  <Width>1.63542in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1.64583in</Width>
+                  <Width>1.375in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1.8125in</Width>
+                  <Width>1.15625in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1.90625in</Width>
+                  <Width>1.42708in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1.59375in</Width>
+                  <Width>1.48958in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1.65625in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1.3125in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1.21875in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1.77083in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1.29167in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1.30208in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1.34375in</Width>
-                </TablixColumn>
-                <TablixColumn>
-                  <Width>1.54167in</Width>
-                </TablixColumn>
-                <TablixColumn>
-                  <Width>1.41667in</Width>
-                </TablixColumn>
-                <TablixColumn>
-                  <Width>1.69792in</Width>
-                </TablixColumn>
-                <TablixColumn>
-                  <Width>1.54167in</Width>
-                </TablixColumn>
-                <TablixColumn>
-                  <Width>1.33333in</Width>
-                </TablixColumn>
-                <TablixColumn>
-                  <Width>1.21875in</Width>
+                  <Width>1in</Width>
                 </TablixColumn>
               </TablixColumns>
               <TablixRows>
@@ -262,7 +237,7 @@ ORDER BY 1</CommandText>
                   <TablixCells>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="Textbox31">
+                        <Textbox Name="Textbox1">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
@@ -271,7 +246,6 @@ ORDER BY 1</CommandText>
                                 <TextRun>
                                   <Value>Report Name</Value>
                                   <Style>
-                                    <FontFamily>Arial</FontFamily>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
                                 </TextRun>
@@ -279,41 +253,7 @@ ORDER BY 1</CommandText>
                               <Style />
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>Textbox31</rd:DefaultName>
-                          <Style>
-                            <Border>
-                              <Color>LightGrey</Color>
-                              <Style>Solid</Style>
-                            </Border>
-                            <BackgroundColor>PaleTurquoise</BackgroundColor>
-                            <PaddingLeft>2pt</PaddingLeft>
-                            <PaddingRight>2pt</PaddingRight>
-                            <PaddingTop>2pt</PaddingTop>
-                            <PaddingBottom>2pt</PaddingBottom>
-                          </Style>
-                        </Textbox>
-                      </CellContents>
-                    </TablixCell>
-                    <TablixCell>
-                      <CellContents>
-                        <Textbox Name="Textbox29">
-                          <CanGrow>true</CanGrow>
-                          <KeepTogether>true</KeepTogether>
-                          <Paragraphs>
-                            <Paragraph>
-                              <TextRuns>
-                                <TextRun>
-                                  <Value>Source Country Code</Value>
-                                  <Style>
-                                    <FontFamily>Arial</FontFamily>
-                                    <FontWeight>Bold</FontWeight>
-                                  </Style>
-                                </TextRun>
-                              </TextRuns>
-                              <Style />
-                            </Paragraph>
-                          </Paragraphs>
-                          <rd:DefaultName>Textbox29</rd:DefaultName>
+                          <rd:DefaultName>Textbox1</rd:DefaultName>
                           <Style>
                             <Border>
                               <Color>LightGrey</Color>
@@ -337,7 +277,7 @@ ORDER BY 1</CommandText>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Source Country Name</Value>
+                                  <Value>Source Country Code</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontWeight>Bold</FontWeight>
@@ -398,6 +338,40 @@ ORDER BY 1</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="Textbox23">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Source Unicity Id</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox23</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Color>LightGrey</Color>
+                              <Style>Solid</Style>
+                            </Border>
+                            <BackgroundColor>PaleTurquoise</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="Textbox21">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
@@ -405,7 +379,7 @@ ORDER BY 1</CommandText>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Target Country Code</Value>
+                                  <Value>Bonus Value</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontWeight>Bold</FontWeight>
@@ -439,7 +413,7 @@ ORDER BY 1</CommandText>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Target Country Name</Value>
+                                  <Value>Source Rate</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontWeight>Bold</FontWeight>
@@ -473,7 +447,7 @@ ORDER BY 1</CommandText>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Target Currency Code</Value>
+                                  <Value>Target Country Code</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontWeight>Bold</FontWeight>
@@ -500,40 +474,6 @@ ORDER BY 1</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="Textbox23">
-                          <CanGrow>true</CanGrow>
-                          <KeepTogether>true</KeepTogether>
-                          <Paragraphs>
-                            <Paragraph>
-                              <TextRuns>
-                                <TextRun>
-                                  <Value>Source Rate</Value>
-                                  <Style>
-                                    <FontFamily>Arial</FontFamily>
-                                    <FontWeight>Bold</FontWeight>
-                                  </Style>
-                                </TextRun>
-                              </TextRuns>
-                              <Style />
-                            </Paragraph>
-                          </Paragraphs>
-                          <rd:DefaultName>Textbox23</rd:DefaultName>
-                          <Style>
-                            <Border>
-                              <Color>LightGrey</Color>
-                              <Style>Solid</Style>
-                            </Border>
-                            <BackgroundColor>PaleTurquoise</BackgroundColor>
-                            <PaddingLeft>2pt</PaddingLeft>
-                            <PaddingRight>2pt</PaddingRight>
-                            <PaddingTop>2pt</PaddingTop>
-                            <PaddingBottom>2pt</PaddingBottom>
-                          </Style>
-                        </Textbox>
-                      </CellContents>
-                    </TablixCell>
-                    <TablixCell>
-                      <CellContents>
                         <Textbox Name="Textbox15">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
@@ -541,7 +481,7 @@ ORDER BY 1</CommandText>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Target Rate</Value>
+                                  <Value>Target Currency Code</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontWeight>Bold</FontWeight>
@@ -575,7 +515,7 @@ ORDER BY 1</CommandText>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Bonus Value</Value>
+                                  <Value>Target Unicity Id</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontWeight>Bold</FontWeight>
@@ -609,7 +549,7 @@ ORDER BY 1</CommandText>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Conversion Rate</Value>
+                                  <Value>Target Rate</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontWeight>Bold</FontWeight>
@@ -670,7 +610,7 @@ ORDER BY 1</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="Textbox1">
+                        <Textbox Name="Textbox7">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
@@ -679,6 +619,7 @@ ORDER BY 1</CommandText>
                                 <TextRun>
                                   <Value>USD</Value>
                                   <Style>
+                                    <FontFamily>Arial</FontFamily>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
                                 </TextRun>
@@ -686,7 +627,7 @@ ORDER BY 1</CommandText>
                               <Style />
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>Textbox1</rd:DefaultName>
+                          <rd:DefaultName>Textbox7</rd:DefaultName>
                           <Style>
                             <Border>
                               <Color>LightGrey</Color>
@@ -782,9 +723,7 @@ ORDER BY 1</CommandText>
                               <TextRuns>
                                 <TextRun>
                                   <Value>=Fields!ReportName.Value</Value>
-                                  <Style>
-                                    <FontFamily>Arial</FontFamily>
-                                  </Style>
+                                  <Style />
                                 </TextRun>
                               </TextRuns>
                               <Style />
@@ -838,38 +777,6 @@ ORDER BY 1</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="SourceCountryName">
-                          <CanGrow>true</CanGrow>
-                          <KeepTogether>true</KeepTogether>
-                          <Paragraphs>
-                            <Paragraph>
-                              <TextRuns>
-                                <TextRun>
-                                  <Value>=Fields!SourceCountryName.Value</Value>
-                                  <Style>
-                                    <FontFamily>Arial</FontFamily>
-                                  </Style>
-                                </TextRun>
-                              </TextRuns>
-                              <Style />
-                            </Paragraph>
-                          </Paragraphs>
-                          <rd:DefaultName>SourceCountryName</rd:DefaultName>
-                          <Style>
-                            <Border>
-                              <Color>LightGrey</Color>
-                              <Style>Solid</Style>
-                            </Border>
-                            <PaddingLeft>2pt</PaddingLeft>
-                            <PaddingRight>2pt</PaddingRight>
-                            <PaddingTop>2pt</PaddingTop>
-                            <PaddingBottom>2pt</PaddingBottom>
-                          </Style>
-                        </Textbox>
-                      </CellContents>
-                    </TablixCell>
-                    <TablixCell>
-                      <CellContents>
                         <Textbox Name="SourceCurrencyCode">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
@@ -887,6 +794,104 @@ ORDER BY 1</CommandText>
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>SourceCurrencyCode</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Color>LightGrey</Color>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="SourceUnicityId">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!SourceUnicityId.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>SourceUnicityId</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Color>LightGrey</Color>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="BonusValue">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!BonusValue.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <Format>0.00;(0.00)</Format>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>BonusValue</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Color>LightGrey</Color>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="SourceRate">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!SourceRate.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <Format>0.00;(0.00)</Format>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>SourceRate</rd:DefaultName>
                           <Style>
                             <Border>
                               <Color>LightGrey</Color>
@@ -934,38 +939,6 @@ ORDER BY 1</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="TargetCountryName">
-                          <CanGrow>true</CanGrow>
-                          <KeepTogether>true</KeepTogether>
-                          <Paragraphs>
-                            <Paragraph>
-                              <TextRuns>
-                                <TextRun>
-                                  <Value>=Fields!TargetCountryName.Value</Value>
-                                  <Style>
-                                    <FontFamily>Arial</FontFamily>
-                                  </Style>
-                                </TextRun>
-                              </TextRuns>
-                              <Style />
-                            </Paragraph>
-                          </Paragraphs>
-                          <rd:DefaultName>TargetCountryName</rd:DefaultName>
-                          <Style>
-                            <Border>
-                              <Color>LightGrey</Color>
-                              <Style>Solid</Style>
-                            </Border>
-                            <PaddingLeft>2pt</PaddingLeft>
-                            <PaddingRight>2pt</PaddingRight>
-                            <PaddingTop>2pt</PaddingTop>
-                            <PaddingBottom>2pt</PaddingBottom>
-                          </Style>
-                        </Textbox>
-                      </CellContents>
-                    </TablixCell>
-                    <TablixCell>
-                      <CellContents>
                         <Textbox Name="TargetCurrencyCode">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
@@ -998,24 +971,23 @@ ORDER BY 1</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="SourceRate">
+                        <Textbox Name="TargetUnicityId">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!SourceRate.Value</Value>
+                                  <Value>=Fields!TargetUnicityId.Value</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
-                                    <Format>#,0.00;(#,0.00)</Format>
                                   </Style>
                                 </TextRun>
                               </TextRuns>
                               <Style />
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>SourceRate</rd:DefaultName>
+                          <rd:DefaultName>TargetUnicityId</rd:DefaultName>
                           <Style>
                             <Border>
                               <Color>LightGrey</Color>
@@ -1041,7 +1013,7 @@ ORDER BY 1</CommandText>
                                   <Value>=Fields!TargetRate.Value</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
-                                    <Format>#,0.00;(#,0.00)</Format>
+                                    <Format>0.00;(0.00)</Format>
                                   </Style>
                                 </TextRun>
                               </TextRuns>
@@ -1049,72 +1021,6 @@ ORDER BY 1</CommandText>
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>TargetRate</rd:DefaultName>
-                          <Style>
-                            <Border>
-                              <Color>LightGrey</Color>
-                              <Style>Solid</Style>
-                            </Border>
-                            <PaddingLeft>2pt</PaddingLeft>
-                            <PaddingRight>2pt</PaddingRight>
-                            <PaddingTop>2pt</PaddingTop>
-                            <PaddingBottom>2pt</PaddingBottom>
-                          </Style>
-                        </Textbox>
-                      </CellContents>
-                    </TablixCell>
-                    <TablixCell>
-                      <CellContents>
-                        <Textbox Name="BonusValue">
-                          <CanGrow>true</CanGrow>
-                          <KeepTogether>true</KeepTogether>
-                          <Paragraphs>
-                            <Paragraph>
-                              <TextRuns>
-                                <TextRun>
-                                  <Value>=Fields!BonusValue.Value</Value>
-                                  <Style>
-                                    <FontFamily>Arial</FontFamily>
-                                    <Format>#,0.00;(#,0.00)</Format>
-                                  </Style>
-                                </TextRun>
-                              </TextRuns>
-                              <Style />
-                            </Paragraph>
-                          </Paragraphs>
-                          <rd:DefaultName>BonusValue</rd:DefaultName>
-                          <Style>
-                            <Border>
-                              <Color>LightGrey</Color>
-                              <Style>Solid</Style>
-                            </Border>
-                            <PaddingLeft>2pt</PaddingLeft>
-                            <PaddingRight>2pt</PaddingRight>
-                            <PaddingTop>2pt</PaddingTop>
-                            <PaddingBottom>2pt</PaddingBottom>
-                          </Style>
-                        </Textbox>
-                      </CellContents>
-                    </TablixCell>
-                    <TablixCell>
-                      <CellContents>
-                        <Textbox Name="ConversionRate">
-                          <CanGrow>true</CanGrow>
-                          <KeepTogether>true</KeepTogether>
-                          <Paragraphs>
-                            <Paragraph>
-                              <TextRuns>
-                                <TextRun>
-                                  <Value>=Fields!ConversionRate.Value</Value>
-                                  <Style>
-                                    <FontFamily>Arial</FontFamily>
-                                    <Format>#,0.00;(#,0.00)</Format>
-                                  </Style>
-                                </TextRun>
-                              </TextRuns>
-                              <Style />
-                            </Paragraph>
-                          </Paragraphs>
-                          <rd:DefaultName>ConversionRate</rd:DefaultName>
                           <Style>
                             <Border>
                               <Color>LightGrey</Color>
@@ -1140,7 +1046,7 @@ ORDER BY 1</CommandText>
                                   <Value>=Fields!ConvertedBonusValue.Value</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
-                                    <Format>#,0.00;(#,0.00)</Format>
+                                    <Format>0.00;(0.00)</Format>
                                   </Style>
                                 </TextRun>
                               </TextRuns>
@@ -1172,7 +1078,8 @@ ORDER BY 1</CommandText>
                                 <TextRun>
                                   <Value>=Fields!USD.Value</Value>
                                   <Style>
-                                    <Format>#,0.00;(#,0.00)</Format>
+                                    <FontFamily>Arial</FontFamily>
+                                    <Format>0.00;(0.00)</Format>
                                   </Style>
                                 </TextRun>
                               </TextRuns>
@@ -1204,7 +1111,7 @@ ORDER BY 1</CommandText>
                                 <TextRun>
                                   <Value>=Fields!NavRateToUSD.Value</Value>
                                   <Style>
-                                    <Format>#,0.00;(#,0.00)</Format>
+                                    <Format>0.00;(0.00)</Format>
                                   </Style>
                                 </TextRun>
                               </TextRuns>
@@ -1236,7 +1143,7 @@ ORDER BY 1</CommandText>
                                 <TextRun>
                                   <Value>=Fields!NAVUSD.Value</Value>
                                   <Style>
-                                    <Format>#,0.00;(#,0.00)</Format>
+                                    <Format>0.00;(0.00)</Format>
                                   </Style>
                                 </TextRun>
                               </TextRuns>
@@ -1277,7 +1184,6 @@ ORDER BY 1</CommandText>
                 <TablixMember />
                 <TablixMember />
                 <TablixMember />
-                <TablixMember />
               </TablixMembers>
             </TablixColumnHierarchy>
             <TablixRowHierarchy>
@@ -1290,13 +1196,9 @@ ORDER BY 1</CommandText>
                 </TablixMember>
               </TablixMembers>
             </TablixRowHierarchy>
-            <DataSetName>CrossCountryMatrix</DataSetName>
-            <PageBreak>
-              <BreakLocation>End</BreakLocation>
-            </PageBreak>
-            <PageName>CrossCountryMatrix</PageName>
+            <DataSetName>Query1</DataSetName>
             <Height>0.5in</Height>
-            <Width>23.39583in</Width>
+            <Width>20.69792in</Width>
             <Style>
               <Border>
                 <Style>None</Style>
@@ -1304,10 +1206,10 @@ ORDER BY 1</CommandText>
             </Style>
           </Tablix>
         </ReportItems>
-        <Height>3.76042in</Height>
+        <Height>2in</Height>
         <Style />
       </Body>
-      <Width>23.39583in</Width>
+      <Width>20.69792in</Width>
       <Page>
         <LeftMargin>1in</LeftMargin>
         <RightMargin>1in</RightMargin>
@@ -1326,9 +1228,9 @@ ORDER BY 1</CommandText>
       <DataType>String</DataType>
       <Prompt>Batch Id</Prompt>
     </ReportParameter>
-    <ReportParameter Name="SourceCountryCode">
+    <ReportParameter Name="SourceCountry">
       <DataType>String</DataType>
-      <Prompt>Source Country Code</Prompt>
+      <Prompt>Source Country</Prompt>
       <ValidValues>
         <DataSetReference>
           <DataSetName>pSourceCountry</DataSetName>
@@ -1338,9 +1240,9 @@ ORDER BY 1</CommandText>
       </ValidValues>
       <MultiValue>true</MultiValue>
     </ReportParameter>
-    <ReportParameter Name="TargetCountryCode">
+    <ReportParameter Name="TargetCountry">
       <DataType>String</DataType>
-      <Prompt>Target Country Code</Prompt>
+      <Prompt>Target Country</Prompt>
       <ValidValues>
         <DataSetReference>
           <DataSetName>pTargetCountry</DataSetName>
@@ -1357,28 +1259,28 @@ ORDER BY 1</CommandText>
       <NumberOfRows>2</NumberOfRows>
       <CellDefinitions>
         <CellDefinition>
-          <ColumnIndex>1</ColumnIndex>
-          <RowIndex>0</RowIndex>
-          <ParameterName>BatchId</ParameterName>
-        </CellDefinition>
-        <CellDefinition>
           <ColumnIndex>0</ColumnIndex>
           <RowIndex>0</RowIndex>
           <ParameterName>CommissionMonth</ParameterName>
         </CellDefinition>
         <CellDefinition>
-          <ColumnIndex>2</ColumnIndex>
+          <ColumnIndex>1</ColumnIndex>
           <RowIndex>0</RowIndex>
-          <ParameterName>SourceCountryCode</ParameterName>
+          <ParameterName>BatchId</ParameterName>
         </CellDefinition>
         <CellDefinition>
           <ColumnIndex>3</ColumnIndex>
           <RowIndex>0</RowIndex>
-          <ParameterName>TargetCountryCode</ParameterName>
+          <ParameterName>TargetCountry</ParameterName>
+        </CellDefinition>
+        <CellDefinition>
+          <ColumnIndex>2</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>SourceCountry</ParameterName>
         </CellDefinition>
       </CellDefinitions>
     </GridLayoutDefinition>
   </ReportParametersLayout>
   <rd:ReportUnitType>Inch</rd:ReportUnitType>
-  <rd:ReportID>8e38cc25-18a8-44b5-981f-793e10ceeef3</rd:ReportID>
+  <rd:ReportID>33efeeee-082e-4556-83e1-c1c1cf608397</rd:ReportID>
 </Report>
