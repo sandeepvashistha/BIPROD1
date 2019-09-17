@@ -419,24 +419,34 @@ Customer_nc_vw.Name,
 Customer_nc_vw.Address,
 Customer_nc_vw.[Address 2],
 Customer_nc_vw.County,
+Location_nc_vw.County AS [Supplier State],
 Customer_nc_vw.[customer price group],
-[VAT Prod_ Posting Group],
+Customer_nc_vw.uni_company_name cus_uni_company_name,
+Customer_nc_vw.No_,
+G_L_Entry_nc_vw.[VAT Prod_ Posting Group],
 G_L_Entry_nc_vw.[VAT Bus_ Posting Group],
-MAX(CASE WHEN G_L_Entry_nc_vw.[G_L Account No_]='4125' THEN [VAT Prod_ Posting Group] ELSE '' END) AS [Rate Of Tax],
-CAST(SUM(CASE WHEN G_L_Entry_nc_vw.[G_L Account No_]='4125' THEN ((-1*G_L_Entry_nc_vw.amount)-(-1*G_L_Entry_nc_vw.[VAT Amount])) ELSE 0 END) as NUMERIC(20,2)) AS [Net Amount before tax],
+MAX(CASE WHEN G_L_Entry_nc_vw.[G_L Account No_]='4125' THEN G_L_Entry_nc_vw.[VAT Prod_ Posting Group] ELSE '' END) AS [Rate Of Tax],
+CAST(SUM(CASE WHEN G_L_Entry_nc_vw.[G_L Account No_]='4125' THEN ((-1*G_L_Entry_nc_vw.amount)) ELSE 0 END) as NUMERIC(20,2)) AS [Net Amount before tax],
   (case when G_L_Entry_nc_vw.[VAT Bus_ Posting Group]='C+SGST' then ((cast(max(-1*G_L_Entry_nc_vw.[VAT Amount]) as numeric(20,2))))/2 else 0 end) SGST,
   (case when G_L_Entry_nc_vw.[VAT Bus_ Posting Group]='C+SGST' then ((cast(max(-1*G_L_Entry_nc_vw.[VAT Amount]) as numeric(20,2))))/2 else 0 end) CGST,
   (case when G_L_Entry_nc_vw.[VAT Bus_ Posting Group]='IGST' then ((cast(max(-1*G_L_Entry_nc_vw.[VAT Amount]) as numeric(20,2)))) else 0 end) IGST,
-CAST(SUM(CASE WHEN G_L_Entry_nc_vw.[G_L Account No_]='4125' THEN -1*G_L_Entry_nc_vw.amount ELSE 0 END) as NUMERIC(20,2)) AS Amount,
+CAST(SUM(CASE WHEN G_L_Entry_nc_vw.[G_L Account No_]='4125' THEN -1*(G_L_Entry_nc_vw.amount+G_L_Entry_nc_vw.[VAT Amount]) ELSE 0 END) as NUMERIC(20,2)) AS Amount,
 CAST(SUM(CASE WHEN G_L_Entry_nc_vw.[G_L Account No_]='4125' THEN -1*G_L_Entry_nc_vw.[VAT Amount] ELSE 0 END) as NUMERIC(20,2)) AS VAT
 
 from 
 UNINAV.Prod_Navision.dbo.Customer_nc_vw INNER JOIN UNINAV.Prod_Navision.dbo.G_L_Entry_nc_vw 
 on Customer_nc_vw.uni_company_name=G_L_Entry_nc_vw.uni_company_name and
 Customer_nc_vw.No_=G_L_Entry_nc_vw.[source no_]
+LEFT OUTER JOIN UNINAV.Prod_Navision.dbo.Sales_Invoice_Header_nc_vw
+on Sales_Invoice_Header_nc_vw.uni_company_name=G_L_Entry_nc_vw.uni_company_name and
+Sales_Invoice_Header_nc_vw.No_=G_L_Entry_nc_vw.[document no_]
+LEFT OUTER JOIN UNINAV.Prod_Navision.dbo.Location_nc_vw ON (Location_nc_vw.uni_company_name=[Sales_Invoice_Header_nc_vw].uni_company_name and
+  Location_nc_vw.code=[Sales_Invoice_Header_nc_vw].[Location Code])
  where G_L_Entry_nc_vw.uni_company_name='India' 
-and G_L_Entry_nc_vw.[G_L Account No_] in (4125) AND
-G_L_Entry_nc_vw."Posting Date"  BETWEEN  @StartDate AND @EndDate
+and G_L_Entry_nc_vw.[G_L Account No_] in (4125) 
+AND G_L_Entry_nc_vw."Posting Date"  BETWEEN  @StartDate AND @EndDate
+--G_L_Entry_nc_vw."Posting Date"  BETWEEN  '2019-08-01' and '2019-08-30'
+--AND G_L_Entry_nc_vw.[document no_]='PS1017866'
 GROUP BY
 G_L_Entry_nc_vw.uni_company_name,
 G_L_Entry_nc_vw.[Posting Date],
@@ -446,8 +456,11 @@ Customer_nc_vw.Name,
 Customer_nc_vw.Address,
 Customer_nc_vw.[Address 2],
 Customer_nc_vw.County,
+Location_nc_vw.County,
 Customer_nc_vw.[customer price group],
-[VAT Prod_ Posting Group],
+G_L_Entry_nc_vw.[VAT Prod_ Posting Group],
+Customer_nc_vw.uni_company_name,
+Customer_nc_vw.No_,
 G_L_Entry_nc_vw.[VAT Bus_ Posting Group]</CommandText>
       </Query>
       <Fields>
@@ -483,6 +496,10 @@ G_L_Entry_nc_vw.[VAT Bus_ Posting Group]</CommandText>
           <DataField>County</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
+        <Field Name="Supplier_State">
+          <DataField>Supplier State</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
         <Field Name="customer_price_group">
           <DataField>customer price group</DataField>
           <rd:TypeName>System.String</rd:TypeName>
@@ -491,12 +508,20 @@ G_L_Entry_nc_vw.[VAT Bus_ Posting Group]</CommandText>
           <DataField>VAT Prod_ Posting Group</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
+        <Field Name="cus_uni_company_name">
+          <DataField>cus_uni_company_name</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
         <Field Name="Amount">
           <DataField>Amount</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
         <Field Name="VAT_Bus__Posting_Group">
           <DataField>VAT Bus_ Posting Group</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="No_">
+          <DataField>No_</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
         <Field Name="VAT">
@@ -545,7 +570,8 @@ G_L_Entry_nc_vw.[VAT Bus_ Posting Group]</CommandText>
 	Customer_nc_vw.Address,
 	Customer_nc_vw.[Address 2],
 	Customer_nc_vw.County,
-	'' AS [Supplier State],
+	Location_nc_vw.County AS [Supplier State],
+	[Sales_Cr_Memo_Header_nc_vw].[Applies-to Doc_ No_],
 	Customer_nc_vw.County Place_Of_Supply,
 	[VAT Prod_ Posting Group] AS [Rate Of Tax],	
 	CAST(G_L_Entry_nc_vw.amount as NUMERIC(20,2)) AS [Net Amount before tax],
@@ -565,6 +591,11 @@ FROM
   UNINAV.Prod_Navision.dbo.Customer_nc_vw INNER JOIN UNINAV.Prod_Navision.dbo.G_L_Entry_nc_vw 
 on Customer_nc_vw.uni_company_name=G_L_Entry_nc_vw.uni_company_name and
 Customer_nc_vw.No_=G_L_Entry_nc_vw.[source no_]
+LEFT OUTER JOIN UNINAV.Prod_Navision.[dbo].[Sales_Cr_Memo_Header_nc_vw]
+on G_L_Entry_nc_vw.uni_company_name=[Sales_Cr_Memo_Header_nc_vw].uni_company_name and
+G_L_Entry_nc_vw."Document No_"=[Sales_Cr_Memo_Header_nc_vw].No_
+LEFT OUTER JOIN UNINAV.Prod_Navision.dbo.Location_nc_vw ON (Location_nc_vw.uni_company_name=[Sales_Cr_Memo_Header_nc_vw].uni_company_name and
+  Location_nc_vw.code=[Sales_Cr_Memo_Header_nc_vw].[Location Code])
 
 WHERE
   (
@@ -609,6 +640,10 @@ WHERE
         <Field Name="Amount">
           <DataField>Amount</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="Applies_to_Doc__No_">
+          <DataField>Applies-to Doc_ No_</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
         </Field>
         <Field Name="Address_2">
           <DataField>Address 2</DataField>
@@ -50010,6 +50045,9 @@ WHERE
                 <TablixColumn>
                   <Width>1in</Width>
                 </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
               </TablixColumns>
               <TablixRows>
                 <TablixRow>
@@ -50407,6 +50445,59 @@ WHERE
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox774</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox780">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Supplier State</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox780</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -51130,6 +51221,54 @@ WHERE
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="Supplier_State21">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!Supplier_State.Value</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Supplier_State21</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="customer_price_group">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
@@ -51719,6 +51858,55 @@ WHERE
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="Textbox793">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value />
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox793</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="Textbox792">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
@@ -51947,6 +52135,7 @@ WHERE
                 <TablixMember />
                 <TablixMember />
                 <TablixMember />
+                <TablixMember />
               </TablixMembers>
             </TablixColumnHierarchy>
             <TablixRowHierarchy>
@@ -51974,7 +52163,7 @@ WHERE
             <PageName>Freight</PageName>
             <Top>24.88719in</Top>
             <Height>0.74739in</Height>
-            <Width>17.5in</Width>
+            <Width>18.5in</Width>
             <ZIndex>12</ZIndex>
             <Style>
               <Border>
@@ -52037,6 +52226,9 @@ WHERE
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1.5in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1in</Width>
@@ -52639,6 +52831,59 @@ WHERE
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox1211</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox794">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Applies to Doc No </Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox794</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -53983,6 +54228,54 @@ WHERE
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="Applies_to_Doc__No_">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!Applies_to_Doc__No_.Value</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Applies_to_Doc__No_</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="Rate_Of_Tax10">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
@@ -54733,6 +55026,7 @@ WHERE
                 <TablixMember />
                 <TablixMember />
                 <TablixMember />
+                <TablixMember />
               </TablixMembers>
             </TablixColumnHierarchy>
             <TablixRowHierarchy>
@@ -54757,7 +55051,7 @@ WHERE
             <PageName>Credit Memo</PageName>
             <Top>25.63895in</Top>
             <Height>0.4974in</Height>
-            <Width>31.5in</Width>
+            <Width>32.5in</Width>
             <ZIndex>13</ZIndex>
             <Style>
               <Border>
@@ -86574,7 +86868,7 @@ WHERE
         <Height>26.13635in</Height>
         <Style />
       </Body>
-      <Width>31.5in</Width>
+      <Width>32.5in</Width>
       <Page>
         <LeftMargin>1in</LeftMargin>
         <RightMargin>1in</RightMargin>
