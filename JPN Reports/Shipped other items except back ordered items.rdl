@@ -13,39 +13,29 @@
     <DataSet Name="Query_1">
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
-        <CommandText>select odh.ORDER_NUMBER, 
+        <CommandText>select odl.ORDER_NUMBER, 
 	odl.ITEM_CODE, 
 	Sum(odl.QTY_SHIPPED) AS [QTY_SHIPPEDの合計], 
 	Sum(odl.QTY_BO_FILLED) AS [QTY_BACK_ORDERの合計]
 FROM dw.dbo.odh_live odh 
 inner join dw.dbo.odl_live odl on odh.morder=odl.morder
-inner join 
+inner join
 (
-SELECT DISTINCT a.uni_mkting_unit,a.ORDER_NUMBER
-from
-(
-SELECT 
-	odh.uni_mkting_unit,
-	odh.ORDER_NUMBER, 
-	odl.ITEM_CODE, 
-	Sum(odl.QTY_SHIPPED) AS [QTY_SHIPPEDの合計], 
-	Sum(odl.QTY_BO_FILLED) AS [QTY_BACK_ORDERの合計]
+select odl.MORDER, 
+	--odl.ITEM_CODE, 
+	Sum(odl.QTY_SHIPPED) AS [QTY_SHIPPED 合計], 
+	Sum(odl.QTY_BO_FILLED) AS [QTY_BACK_ORDER 合計]
 FROM dw.dbo.odh_live odh 
 inner join dw.dbo.odl_live odl on odh.morder=odl.morder
-WHERE odh.UNI_MKTING_UNIT=81 and odh.status in (1,2,3,4,5) AND odh.odh_type&lt;&gt;'C' 
---AND tbl_osl.ORDER_NUMBER=416084007
-AND (ODL.FLAG_2 IS NULL OR ODL.FLAG_2='C')
---and odh.ENTRY_DATE&gt;='2019-08-01'
-GROUP BY odh.uni_mkting_unit,odh.ORDER_NUMBER, odl.ITEM_CODE
-HAVING (Sum(odl.QTY_BO_FILLED)&lt;&gt;0 and Sum(odl.QTY_BO_FILLED)&gt;Sum(odl.QTY_SHIPPED))
-) a
-) backorder on odl.mkting_unit=backorder.uni_mkting_unit and odl.ORDER_NUMBER=backorder.ORDER_NUMBER
-WHERE odh.UNI_MKTING_UNIT=81 and odh.status in (2,3,4,5) AND odh.odh_type&lt;&gt;'C' 
+where 
+odh.UNI_MKTING_UNIT=81 and odh.status in (2,3,4,5) AND odh.odh_type&lt;&gt;'C' 
 AND (ODL.FLAG_2 IS NULL OR ODL.FLAG_2='C')
 --and odh.order_number=414956827
-group by odh.ORDER_NUMBER,odl.ITEM_CODE
-HAVING (Sum(odl.QTY_SHIPPED)&gt;Sum(odl.QTY_BO_FILLED))
-ORDER BY odh.ORDER_NUMBER,odl.ITEM_CODE;</CommandText>
+group by odl.MORDER--,odl.ITEM_CODE
+HAVING (Sum(odl.QTY_SHIPPED)&lt;=0 and Sum(odl.QTY_BO_FILLED)&gt;0)
+) backorder on odl.morder=backorder.morder
+group by odl.ORDER_NUMBER,odl.ITEM_CODE
+ORDER BY odl.ORDER_NUMBER,odl.ITEM_CODE;</CommandText>
       </Query>
       <Fields>
         <Field Name="ORDER_NUMBER">
