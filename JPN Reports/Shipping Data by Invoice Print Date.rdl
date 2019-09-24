@@ -21,19 +21,60 @@
             <Value>=Parameters!EndInvoiceDate.Value</Value>
           </QueryParameter>
         </QueryParameters>
-        <CommandText>SELECT ODH_LIVE.INVOICE_PRINT_DATE,ODH_LIVE.ORDER_NUMBER [Order #],ODH_LIVE.DIST_ID [Distributor#],ODH_LIVE.PV_DATE [Comission Period],ODH_LIVE.BCH_NUM [Batch #],
-ODH_LIVE.ENTRY_INIT [Entered],'' Blank1,ODH_LIVE.RELEASED_INIT [Released],'' Blank2,format(OSP.PACKAGE_SHIP_DATE,'yyyy/M/d') [shipped date (Blank=Today)],
-format(ODH_LIVE.INVOICE_PRINT_DATE,'yyyy/M/d') [Invoice Print Date],ODH_LIVE.SHIP_TO_NAME [Name],'' Blank3,ODH_LIVE.SHIP_TO_ADDR_1 [Zip Code],ODH_LIVE.SHIP_TO_ADDR_2 [Ship to Adress 1],
-ODH_LIVE.SHIP_TO_ADDR_3 [Ship to Adress 2],ODH_LIVE.SHIP_TO_ADDR_4 [Ship to Adress 3],ODH_LIVE.SHIP_TO_PHONE [Phone#],
-ODH_LIVE.EMAIL_ADDRESS [mail adress],ODH_LIVE.PRICE_1 [sub total of orderd items],ODH_LIVE.PRICE_2 [Total PV],
-ODH_LIVE.SALES_TAX [amount of tax],ODH_LIVE.FREIGHT_AMOUNT [Shipping fee],ODH_LIVE.TOT_INVCE_AMOUNT [Total amount],'11111' Barcode1,'A11111A' Barcode2,
-DST.REAL_NATIVE_NAME_1 [Bill to Name],DST.ADDR [Bill to Zip Code],DST.ADDR_2 [Bill to Adress 1],DST.ADDR_3 [Bill to Adress 2],
-DST.ADDR_4 [Bill to Adress 3],DST.HOME_PHONE [Bill to Phone Number],DST.WORK_PHONE [Bill to Phone Number 2],
-OSH.SHIPMENT_NUMBER [Shipmnet#],1 [Number of ctn],'NEEDS TO CHECK' [Carton#],OSP.BOX_ID [Carton size],
-'none' Blank4,'none' Blank5,ODH_LIVE.DELIVERY_TIME [Time Zone],ODL_LIVE.ORDER_LINE [Line number],ODL_LIVE.ITEM_CODE [Item Code],
-ODL_LIVE.ITEM_NAME_1 [Item Name],ODL_LIVE.QTY_ORDERED [Order Qty],'' Blank6,ODL_LIVE.QTY_SHIPPED [Shipped Qty],
-ODL_LIVE.QTY_BO_FILLED [Backorder qty],ODL_LIVE.TAXABLE_PRICE [amount total w/O tax],ODL_LIVE.SALES_PRICE [amount total w tax],
-ODL_LIVE.PRICE_2 PV,'none' [Pick Location]
+        <CommandText>SELECT 
+	ODH_LIVE.INVOICE_PRINT_DATE,
+	ODH_LIVE.ORDER_NUMBER [Order #],
+	ODH_LIVE.DIST_ID [Distributor#],
+	ODH_LIVE.PV_DATE [Comission Period],
+	ODH_LIVE.BCH_NUM [Batch #],
+	ODH_LIVE.ENTRY_INIT [Entered],
+	'' Blank1,
+	ODH_LIVE.RELEASED_INIT [Released],
+	'' Blank2,
+	format(OSP.PACKAGE_SHIP_DATE,'yyyy/M/d') [shipped date (Blank=Today)],
+	format(ODH_LIVE.INVOICE_PRINT_DATE,'yyyy/M/d') [Invoice Print Date],
+	ODH_LIVE.SHIP_TO_NAME [Name],
+	'' Blank3,
+	ODH_LIVE.SHIP_TO_ADDR_1 [Zip Code],
+	ODH_LIVE.SHIP_TO_ADDR_2 [Ship to Adress 1],
+	ODH_LIVE.SHIP_TO_ADDR_3 [Ship to Adress 2],
+	ODH_LIVE.SHIP_TO_ADDR_4 [Ship to Adress 3],
+	ODH_LIVE.SHIP_TO_PHONE [Phone#],
+	ODH_LIVE.EMAIL_ADDRESS [mail adress],
+	ODH_LIVE.PRICE_1 [sub total of orderd items],
+	ODH_LIVE.PRICE_2 [Total PV],
+	ODH_LIVE.SALES_TAX [amount of tax],
+	ODH_LIVE.FREIGHT_AMOUNT [Shipping fee],
+	ODH_LIVE.TOT_INVCE_AMOUNT [Total amount],
+	'11111' Barcode1,
+	'A11111A' Barcode2,
+	DST.REAL_NATIVE_NAME_1 [Bill to Name],
+	DST.ADDR [Bill to Zip Code],
+	DST.ADDR_2 [Bill to Adress 1],
+	DST.ADDR_3 [Bill to Adress 2],
+	DST.ADDR_4 [Bill to Adress 3],
+	DST.HOME_PHONE [Bill to Phone Number],
+	DST.WORK_PHONE [Bill to Phone Number 2],
+	OSH.SHIPMENT_NUMBER [Shipmnet#],
+	1 [Number of ctn],
+	'NEEDS TO CHECK' [Carton#],
+	OSP.BOX_ID [Carton size],
+	'none' Blank4,
+	'none' Blank5,
+	ODH_LIVE.DELIVERY_TIME [Time Zone],
+	ODL_LIVE.ORDER_LINE [Line number],
+	ODL_LIVE.ITEM_CODE [Item Code],
+	ODL_LIVE.ITEM_NAME_1 [Item Name],
+	ODL_LIVE.QTY_ORDERED [Order Qty],
+	'' Blank6,ODL_LIVE.QTY_SHIPPED [Shipped Qty],
+	ODL_LIVE.QTY_BO_FILLED [Backorder qty],
+	ODL_LIVE.TAXABLE_PRICE [amount total w/O tax],
+	ODL_LIVE.SALES_PRICE [amount total w tax],
+	ODL_LIVE.PRICE_2 PV,
+	'none' [Pick Location],
+	cast((case when ODL_LIVE.TAXABLE_PRICE=0 then 0 else (ODL_LIVE.SALES_PRICE-ODL_LIVE.TAXABLE_PRICE)/ODL_LIVE.TAXABLE_PRICE end)*100 as numeric(5,0)) Tax_Rate,
+sum(case when cast((case when ODL_LIVE.TAXABLE_PRICE=0 then 0 else (ODL_LIVE.SALES_PRICE-ODL_LIVE.TAXABLE_PRICE)/ODL_LIVE.TAXABLE_PRICE end)*100 as numeric(5,0))=8 then ODL_LIVE.QTY_ORDERED*ODL_LIVE.SALES_PRICE ELSE 0 end) over(partition by ODH_LIVE.ORDER_NUMBER) [Order Total 8%],
+sum(case when cast((case when ODL_LIVE.TAXABLE_PRICE=0 then 0 else (ODL_LIVE.SALES_PRICE-ODL_LIVE.TAXABLE_PRICE)/ODL_LIVE.TAXABLE_PRICE end)*100 as numeric(5,0))=10 then ODL_LIVE.QTY_ORDERED*ODL_LIVE.SALES_PRICE ELSE 0 end) over(partition by ODH_LIVE.ORDER_NUMBER) [Order Total 10%]
 FROM
  DW.DBO.ODH_LIVE
  INNER JOIN DW.DBO.ODL_LIVE ON ODH_LIVE.MORDER=ODL_LIVE.MORDER
@@ -253,6 +294,18 @@ ORDER BY ODH_LIVE.ORDER_NUMBER,ODL_LIVE.ORDER_LINE DESC</CommandText>
           <DataField>Pick Location</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
+        <Field Name="Tax_Rate">
+          <DataField>Tax_Rate</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="Order_Total_8_">
+          <DataField>Order Total 8%</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="Order_Total_10_">
+          <DataField>Order Total 10%</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
       </Fields>
     </DataSet>
   </DataSets>
@@ -291,9 +344,6 @@ ORDER BY ODH_LIVE.ORDER_NUMBER,ODL_LIVE.ORDER_LINE DESC</CommandText>
                   <Width>1in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1in</Width>
-                </TablixColumn>
-                <TablixColumn>
                   <Width>2in</Width>
                 </TablixColumn>
                 <TablixColumn>
@@ -388,6 +438,9 @@ ORDER BY ODH_LIVE.ORDER_NUMBER,ODL_LIVE.ORDER_LINE DESC</CommandText>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>2.5in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1in</Width>
@@ -666,20 +719,20 @@ ORDER BY ODH_LIVE.ORDER_NUMBER,ODL_LIVE.ORDER_LINE DESC</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="Blank1">
+                        <Textbox Name="Invoice_Print_Date">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!Blank1.Value</Value>
+                                  <Value>=Fields!Invoice_Print_Date.Value</Value>
                                   <Style />
                                 </TextRun>
                               </TextRuns>
                               <Style />
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>Blank1</rd:DefaultName>
+                          <rd:DefaultName>Invoice_Print_Date</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -790,20 +843,20 @@ ORDER BY ODH_LIVE.ORDER_NUMBER,ODL_LIVE.ORDER_LINE DESC</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="Invoice_Print_Date">
+                        <Textbox Name="Blank21">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!Invoice_Print_Date.Value</Value>
+                                  <Value>=Fields!Blank2.Value</Value>
                                   <Style />
                                 </TextRun>
                               </TextRuns>
                               <Style />
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>Invoice_Print_Date</rd:DefaultName>
+                          <rd:DefaultName>Blank21</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -828,36 +881,6 @@ ORDER BY ODH_LIVE.ORDER_NUMBER,ODL_LIVE.ORDER_LINE DESC</CommandText>
                               <Style>Solid</Style>
                               <Width>1pt</Width>
                             </RightBorder>
-                            <PaddingLeft>2pt</PaddingLeft>
-                            <PaddingRight>2pt</PaddingRight>
-                            <PaddingTop>2pt</PaddingTop>
-                            <PaddingBottom>2pt</PaddingBottom>
-                          </Style>
-                        </Textbox>
-                      </CellContents>
-                    </TablixCell>
-                    <TablixCell>
-                      <CellContents>
-                        <Textbox Name="shipped_date__Blank_Today_">
-                          <KeepTogether>true</KeepTogether>
-                          <Paragraphs>
-                            <Paragraph>
-                              <TextRuns>
-                                <TextRun>
-                                  <Value>=Fields!shipped_date__Blank_Today_.Value</Value>
-                                  <Style>
-                                    <Format>MM/dd/yyyy</Format>
-                                  </Style>
-                                </TextRun>
-                              </TextRuns>
-                              <Style />
-                            </Paragraph>
-                          </Paragraphs>
-                          <rd:DefaultName>shipped_date__Blank_Today_</rd:DefaultName>
-                          <Style>
-                            <Border>
-                              <Style>Solid</Style>
-                            </Border>
                             <PaddingLeft>2pt</PaddingLeft>
                             <PaddingRight>2pt</PaddingRight>
                             <PaddingTop>2pt</PaddingTop>
@@ -2452,54 +2475,6 @@ ORDER BY ODH_LIVE.ORDER_NUMBER,ODL_LIVE.ORDER_LINE DESC</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="Blank6">
-                          <KeepTogether>true</KeepTogether>
-                          <Paragraphs>
-                            <Paragraph>
-                              <TextRuns>
-                                <TextRun>
-                                  <Value>=Fields!Blank6.Value</Value>
-                                  <Style />
-                                </TextRun>
-                              </TextRuns>
-                              <Style />
-                            </Paragraph>
-                          </Paragraphs>
-                          <rd:DefaultName>Blank6</rd:DefaultName>
-                          <Style>
-                            <Border>
-                              <Style>Solid</Style>
-                            </Border>
-                            <TopBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </TopBorder>
-                            <BottomBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </BottomBorder>
-                            <LeftBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </LeftBorder>
-                            <RightBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </RightBorder>
-                            <PaddingLeft>2pt</PaddingLeft>
-                            <PaddingRight>2pt</PaddingRight>
-                            <PaddingTop>2pt</PaddingTop>
-                            <PaddingBottom>2pt</PaddingBottom>
-                          </Style>
-                        </Textbox>
-                      </CellContents>
-                    </TablixCell>
-                    <TablixCell>
-                      <CellContents>
                         <Textbox Name="Shipped_Qty">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
@@ -2514,54 +2489,6 @@ ORDER BY ODH_LIVE.ORDER_NUMBER,ODL_LIVE.ORDER_LINE DESC</CommandText>
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Shipped_Qty</rd:DefaultName>
-                          <Style>
-                            <Border>
-                              <Style>Solid</Style>
-                            </Border>
-                            <TopBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </TopBorder>
-                            <BottomBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </BottomBorder>
-                            <LeftBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </LeftBorder>
-                            <RightBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </RightBorder>
-                            <PaddingLeft>2pt</PaddingLeft>
-                            <PaddingRight>2pt</PaddingRight>
-                            <PaddingTop>2pt</PaddingTop>
-                            <PaddingBottom>2pt</PaddingBottom>
-                          </Style>
-                        </Textbox>
-                      </CellContents>
-                    </TablixCell>
-                    <TablixCell>
-                      <CellContents>
-                        <Textbox Name="Blank61">
-                          <KeepTogether>true</KeepTogether>
-                          <Paragraphs>
-                            <Paragraph>
-                              <TextRuns>
-                                <TextRun>
-                                  <Value>=Fields!Blank6.Value</Value>
-                                  <Style />
-                                </TextRun>
-                              </TextRuns>
-                              <Style />
-                            </Paragraph>
-                          </Paragraphs>
-                          <rd:DefaultName>Blank61</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -2850,6 +2777,150 @@ ORDER BY ODH_LIVE.ORDER_NUMBER,ODL_LIVE.ORDER_LINE DESC</CommandText>
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Pick_Location</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Tax_Rate">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!Tax_Rate.Value</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Tax_Rate</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Order_Total_8_">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!Order_Total_8_.Value</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Order_Total_8_</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Order_Total_10_">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!Order_Total_10_.Value</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Order_Total_10_</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
