@@ -14,6 +14,9 @@
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
         <QueryParameters>
+          <QueryParameter Name="@Dates">
+            <Value>=Parameters!Dates.Value</Value>
+          </QueryParameter>
           <QueryParameter Name="@StartPVDate">
             <Value>=Parameters!StartPVDate.Value</Value>
           </QueryParameter>
@@ -21,7 +24,7 @@
             <Value>=Parameters!EndPVDate.Value</Value>
           </QueryParameter>
         </QueryParameters>
-        <CommandText>SELECT ODH.PV_DATE_DATE,ODL.ITEM_CODE [Code],ITD.ITEM_NAME_1 [Product Name],IPL.PRICE_3 [WP (SGD)],--ODH.ORDER_SOURCE,ODL.FLAG_2,
+        <CommandText>SELECT (CASE WHEN 1=@Dates THEN ODH.PV_DATE_DATE ELSE CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, ODH.INVOICE_PRINT_DATE), 0) AS DATE) END) PV_DATE_DATE,ODL.ITEM_CODE [Code],ITD.ITEM_NAME_1 [Product Name],IPL.PRICE_3 [WP (SGD)],--ODH.ORDER_SOURCE,ODL.FLAG_2,
 sum(CASE WHEN (ODH.ORDER_SOURCE=915 OR (ODH.ORDER_SOURCE=904 AND ODH.COUNTRY_CODE='AUS')) THEN (CASE WHEN ODH.ODH_TYPE='C' THEN -1*ODL.QTY_ORDERED ELSE ODL.QTY_ORDERED END) ELSE 0 END) [AU NFR],
 sum(CASE WHEN (ODH.ORDER_SOURCE=913 OR (ODH.ORDER_SOURCE=904 AND ODH.COUNTRY_CODE='IDN')) THEN (CASE WHEN ODH.ODH_TYPE='C' THEN -1*ODL.QTY_ORDERED ELSE ODL.QTY_ORDERED END) ELSE 0 END) [IDN NFR],
 sum(CASE WHEN (ODH.ORDER_SOURCE  IN  (900,901,906,904) AND ODH.CURRENCY_CODE  IN ('USD','JPN')) THEN (CASE WHEN ODH.ODH_TYPE='C' THEN -1*ODL.QTY_ORDERED ELSE ODL.QTY_ORDERED END) ELSE 0 END) [JPN NFR],
@@ -38,7 +41,7 @@ FROM
 	LEFT OUTER JOIN DW.DBO.ODS ON (ODS.MKTING_UNIT=ODH.UNI_MKTING_UNIT AND ODS.ODS_NUMBER=ODH.ORDER_SOURCE)
 	LEFT OUTER JOIN DW.DBO.IPL ON (ODL.MITEM=IPL.MITEM AND IPL.PRICE_LEVEL=1 AND IPL.COUNTRY_CODE='SGP')
 WHERE
-	ODH.PV_DATE_DATE between @StartPVDate and @EndPVDate
+	((1=@Dates AND ODH.PV_DATE_DATE between @StartPVDate and @EndPVDate) OR (2=@Dates AND CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, ODH.INVOICE_PRINT_DATE), 0) AS DATE) between @StartPVDate and @EndPVDate))
 	AND ODH.UNI_MKTING_UNIT = 65 AND ODH.STATUS  IN  (2,3,4,5)
 	--AND ODH.COUNTRY_CODE in ('AUS','AUSN','IDNN','MYSN','PHLN','JPNN','SGP','JPN','USA','NZLN')
 	AND 
@@ -50,7 +53,7 @@ WHERE
 	--AND ODL.ITEM_CODE='30405' --AND ODH.SHIP_TO_COUNTRY &lt;&gt; 'SGP'--ODH.ORDER_SOURCE=906
 	--AND ODH.ODH_TYPE='I'
 GROUP BY
-	ODH.PV_DATE_DATE,ODL.ITEM_CODE,ITD.ITEM_NAME_1,IPL.PRICE_3</CommandText>
+	(CASE WHEN 1=@Dates THEN ODH.PV_DATE_DATE ELSE CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, ODH.INVOICE_PRINT_DATE), 0) AS DATE) END),ODL.ITEM_CODE,ITD.ITEM_NAME_1,IPL.PRICE_3</CommandText>
       </Query>
       <Fields>
         <Field Name="PV_DATE_DATE">
@@ -1554,6 +1557,22 @@ GROUP BY
     </ReportSection>
   </ReportSections>
   <ReportParameters>
+    <ReportParameter Name="Dates">
+      <DataType>String</DataType>
+      <Prompt>Date Selection</Prompt>
+      <ValidValues>
+        <ParameterValues>
+          <ParameterValue>
+            <Value>1</Value>
+            <Label>PV Month</Label>
+          </ParameterValue>
+          <ParameterValue>
+            <Value>2</Value>
+            <Label>Invoice Month</Label>
+          </ParameterValue>
+        </ParameterValues>
+      </ValidValues>
+    </ReportParameter>
     <ReportParameter Name="StartPVDate">
       <DataType>DateTime</DataType>
       <Prompt>Start PV Date</Prompt>
@@ -1569,14 +1588,19 @@ GROUP BY
       <NumberOfRows>2</NumberOfRows>
       <CellDefinitions>
         <CellDefinition>
-          <ColumnIndex>0</ColumnIndex>
+          <ColumnIndex>1</ColumnIndex>
           <RowIndex>0</RowIndex>
           <ParameterName>StartPVDate</ParameterName>
         </CellDefinition>
         <CellDefinition>
-          <ColumnIndex>1</ColumnIndex>
+          <ColumnIndex>2</ColumnIndex>
           <RowIndex>0</RowIndex>
           <ParameterName>EndPVDate</ParameterName>
+        </CellDefinition>
+        <CellDefinition>
+          <ColumnIndex>0</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>Dates</ParameterName>
         </CellDefinition>
       </CellDefinitions>
     </GridLayoutDefinition>
