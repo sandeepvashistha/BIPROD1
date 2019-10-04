@@ -43,6 +43,10 @@ select c.WAREHOUSE,(case when c.WAREHOUSE in (1,106) then 'A' else 'B' end) as W
 c.post_date,sum(c.unit_count) unit_count, sum(isnull(d.scan_count,0)) as scan_count
 from
 (
+select a.order_number, a.warehouse,a.wh_name,a.item_code, a.post_date,
+sum(a.unit_count) unit_count
+from
+(
 select odl.order_number, odh.warehouse,whs.wh_name,odl.item_code, odh.post_date,
 sum(odl.qty_shipped) as unit_count
 from dw.dbo.odl odl
@@ -55,7 +59,7 @@ and odh.WAREHOUSE=@WarehouseNo
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE not in ('C','R')
 group by odl.order_number, odl.item_code,odh.warehouse,whs.wh_name, odh.post_date
-union
+union all
 select odl.order_number, odh.warehouse,whs.wh_name,es.item_child as item_code, odh.post_date,
 sum(odl.qty_shipped*es.quantity_per) as unit_count
 from dw.dbo.odl odl
@@ -68,6 +72,8 @@ and odh.WAREHOUSE=@WarehouseNo
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE not in ('C','R')
 group by odl.order_number, es.item_child,odh.warehouse,whs.wh_name, odh.post_date
+) a
+group by a.order_number, a.warehouse,a.wh_name,a.item_code, a.post_date
 ) c
 left outer join
 (
@@ -160,7 +166,7 @@ and odh.WAREHOUSE = @WarehouseNo
 and odh.[status] in (2,3,4,5)
 and odh.ODH_TYPE not in ('C','R')
 group by odl.order_number, odl.item_code,odh.warehouse,whs.wh_name, odh.post_date
-union
+union all
 select odl.order_number, odh.warehouse,whs.wh_name,es.item_child as item_code, odh.post_date,sum(odl.qty_shipped*es.quantity_per) as unit_count
 from dw.dbo.odl odl
 join dw.dbo.odh odh on odl.morder = odh.morder
