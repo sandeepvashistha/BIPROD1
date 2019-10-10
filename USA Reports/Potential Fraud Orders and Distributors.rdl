@@ -25,10 +25,11 @@
 , Flag_ExpiditedShipping 
 	+ Flag_BelongsToSponsor 
 	+ Flag_LargeOrder 
-	+ Flag_RetailCust 
+	--+ Flag_RetailCust 
 	+ Flag_InvalidGovernmentId	
 	+ Flag_InvalidEmail	
 	+ Flag_BillingShippingZipMismatch
+	+ Flag_LargeRetailCustOrder
  as Score 
 
 FROM 
@@ -46,6 +47,7 @@ FROM
 	CASE WHEN DST.SPONSOR_DIST_ID IN (3978608,218835066,96676502,2) THEN 1 ELSE 0 END as Flag_BelongsToSponsor,
 	CASE WHEN ODH.TOT_INVCE_AMOUNT &gt; 1000 THEN 1 ELSE 0 END as Flag_LargeOrder,
 	CASE WHEN DST.DIST_STATUS = 'C' THEN 1 ELSE 0 END as Flag_RetailCust, 
+	CASE WHEN ODH.TOT_INVCE_AMOUNT &gt; 1000 AND DST.DIST_STATUS = 'C' THEN 1 ELSE 0 END as Flag_LargeRetailCustOrder,
 	CASE WHEN LEN(REPLACE(DST.GOVERNMENT_ID,'-','')) != 9 THEN 1 ELSE 0 END as Flag_InvalidGovernmentId,
 	CASE WHEN (NOT DST.EMAIL_ADDR LIKE '%_@__%.__%' AND PATINDEX('%[^a-z,0-9,@,.,_,\-]%', DST.EMAIL_ADDR) = 0) THEN 1 ELSE 0 END as Flag_InvalidEmail,
 	CASE WHEN LEFT(DW.dbo.NumericOnly(ODH.SHIP_TO_ZIP),5) != LEFT(DW.dbo.NumericOnly(Payments.BillingZipAddress),5) THEN 1 ELSE 0 END as Flag_BillingShippingZipMismatch
@@ -62,13 +64,14 @@ FROM
 		OR DST.SPONSOR_DIST_ID IN (3978608,218835066,96676502,2)--Belongs to any one of these sponsors 
 		OR ODH.TOT_INVCE_AMOUNT &gt; 1000--A large order
 		OR DST.DIST_STATUS = 'C' --Retail Customers 
+		OR (ODH.TOT_INVCE_AMOUNT &gt; 1000 AND DST.DIST_STATUS = 'C') --Retail Customers w/lLarge Order
 		OR LEN(REPLACE(DST.GOVERNMENT_ID,'-','')) != 9 --Valid Government ID 
 		OR (NOT DST.EMAIL_ADDR LIKE '%_@__%.__%' AND PATINDEX('%[^a-z,0-9,@,.,_,\-]%', DST.EMAIL_ADDR) = 0)--Valid Email Address 
 		OR LEFT(DW.dbo.NumericOnly(ODH.SHIP_TO_ZIP),5) != LEFT(DW.dbo.NumericOnly(Payments.BillingZipAddress),5)--BillingAddressShipToMismatch 
 		)
 ) a 
 WHERE 1=1 
-AND Flag_ExpiditedShipping + Flag_BelongsToSponsor + Flag_LargeOrder + Flag_RetailCust + Flag_InvalidGovernmentId + Flag_InvalidEmail + Flag_BillingShippingZipMismatch &gt;= @ScoreOutOf7 </CommandText>
+AND Flag_ExpiditedShipping + Flag_BelongsToSponsor + Flag_LargeOrder + Flag_LargeRetailCustOrder + Flag_InvalidGovernmentId + Flag_InvalidEmail + Flag_BillingShippingZipMismatch &gt;= @ScoreOutOf7</CommandText>
       </Query>
       <Fields>
         <Field Name="DIST_ID">
@@ -121,6 +124,10 @@ AND Flag_ExpiditedShipping + Flag_BelongsToSponsor + Flag_LargeOrder + Flag_Reta
         </Field>
         <Field Name="Flag_RetailCust">
           <DataField>Flag_RetailCust</DataField>
+          <rd:TypeName>System.Int32</rd:TypeName>
+        </Field>
+        <Field Name="Flag_LargeRetailCustOrder">
+          <DataField>Flag_LargeRetailCustOrder</DataField>
           <rd:TypeName>System.Int32</rd:TypeName>
         </Field>
         <Field Name="Flag_InvalidGovernmentId">
