@@ -21,7 +21,7 @@
             <Value>=Parameters!EndInvoiceDate.Value</Value>
           </QueryParameter>
         </QueryParameters>
-        <CommandText>SELECT 
+        <CommandText>SELECT
 	ODH_LIVE.INVOICE_PRINT_DATE,
 	ODH_LIVE.ORDER_NUMBER [Order #],
 	ODH_LIVE.DIST_ID [Distributor#],
@@ -31,7 +31,9 @@
 	'' Blank1,
 	ODH_LIVE.RELEASED_INIT [Released],
 	'' Blank2,
-	format(OSP.PACKAGE_SHIP_DATE,'yyyy/M/d') [shipped date (Blank=Today)],
+	(SELECT format(Max(OSP_LIVE.PACKAGE_SHIP_DATE),'yyyy/M/d') 
+	FROM DW.DBO.OSP_LIVE
+    WHERE OSP_LIVE.morder=OSH.MORDER) as [shipped date (Blank=Today)],
 	format(ODH_LIVE.INVOICE_PRINT_DATE,'yyyy/M/d') [Invoice Print Date],
 	ODH_LIVE.SHIP_TO_NAME [Name],
 	'' Blank3,
@@ -58,7 +60,13 @@
 	OSH.SHIPMENT_NUMBER [Shipmnet#],
 	1 [Number of ctn],
 	'NEEDS TO CHECK' [Carton#],
-	OSP.BOX_ID [Carton size],
+	--OSP.BOX_ID [Carton size],
+	stuff( (SELECT '&amp;'+OSP_LIVE.BOX_ID
+               FROM DW.DBO.OSP_LIVE
+               WHERE OSP_LIVE.morder=OSH.MORDER
+               ORDER BY OSP_LIVE.BOX_ID
+			   FOR XML PATH(''), TYPE).value('.', 'varchar(max)')
+			    ,1,1,'') AS [Carton size],
 	'none' Blank4,
 	'none' Blank5,
 	ODH_LIVE.DELIVERY_TIME [Time Zone],
@@ -82,12 +90,12 @@ FROM
  --INNER JOIN DW.DBO.ITD ON ITD.MITEM COLLATE DATABASE_DEFAULT=ODL_LIVE.MITEM removed the database default collation in the above join
  LEFT OUTER JOIN DW.DBO.DST ON ODH_LIVE.DIST_ID=DST.DIST_ID
  LEFT OUTER JOIN DW.DBO.OSH_LIVE OSH ON ODH_LIVE.MORDER=OSH.MORDER
- LEFT OUTER JOIN DW.DBO.OSP_LIVE OSP ON OSH.MORDER=OSP.MORDER
+ --LEFT OUTER JOIN DW.DBO.OSP_LIVE OSP ON OSH.MORDER=OSP.MORDER
 WHERE ODH_LIVE.UNI_MKTING_UNIT=81 AND ODH_LIVE.STATUS IN (2,3,4,5) AND (ODL_LIVE.FLAG_2 IS NULL OR ODL_LIVE.FLAG_2='C')
 AND ODH_LIVE.ODH_TYPE&lt;&gt;'C' AND (ITD.SALES_CATEGORY&lt;&gt;'S' OR ODL_LIVE.ITEM_CODE='19261') AND ODH_LIVE.WAREHOUSE=1
 AND (ODH_LIVE.INVOICE_PRINT_DATE BETWEEN @BeginInvoiceDate AND @EndInvoiceDate) 
 --OR (ODH_LIVE.INVOICE_PRINT_DATE IS NULL AND (ODH_LIVE.ENTRY_DATE BETWEEN @BeginInvoiceDate AND @EndInvoiceDate)))
---AND ODH_LIVE.ORDER_NUMBER=416730085
+--AND ODH_LIVE.ORDER_NUMBER=416730358
 ORDER BY ODH_LIVE.ORDER_NUMBER,ODL_LIVE.ORDER_LINE DESC</CommandText>
       </Query>
       <Fields>
