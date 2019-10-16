@@ -25,7 +25,8 @@
           </QueryParameter>
         </QueryParameters>
         <CommandText>select a.ship_to_addr_1,a.ship_to_addr_2,a.ship_to_addr_3,a.ship_to_name,a.dist_id,a.ship_to_spouse,
-a.ship_to_phone,a.real_native_name_1,a.last_renew_date,a.next_renew_date,a.package_ship_date,
+a.ship_to_phone,a.real_native_name_1,isnull(a.last_renew_date,a.fsb_entry) last_renew_date,
+isnull(a.next_renew_date,format(DATEADD(year, 1, a.fsb_entry),'yyyy/M/d')) next_renew_date,a.package_ship_date,
 a.order_number,a.ship_via_code,a.ship_via_desc,a.fsb_entry,a.fsb_end
 from
 (
@@ -42,8 +43,9 @@ format(odh_live.invoice_print_date,'yyyy/M/d') fsb_end
  left outer join dw.dbo.osp_live on osp_live.morder=odh_live.morder
  where 
  odh_live.uni_mkting_unit=81  and odh_live.invoice_print_date between @InvoiceDateBegin and @InvoiceDateEnd
- and odh_live.warehouse=1 and odh_live.pv_date_date=@PVDate
-and odh_live.ship_via_code in (1,5) and odh_live.status=4 
+ and odh_live.warehouse=1 and odh_live.pv_date_date=CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, @PVDate), 0) AS DATE)
+ and (dst.entry_pv_date_date=CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, @PVDate), 0) AS DATE) or dst.entry_pv_date_date is null)
+and odh_live.ship_via_code in (1,5) --and odh_live.status=4 
 group by
 ship_to_addr_1,ship_to_addr_2,ship_to_addr_3,odh_live.ship_to_name,odh_live.dist_id,odh_live.ship_to_spouse,
 odh_live.ship_to_phone,spo.real_native_name_1,format(osp_live.package_ship_date,'yyyy/M/d'),
