@@ -13,40 +13,50 @@
     <DataSet Name="Summary">
       <Query>
         <DataSourceName>ProdNavision</DataSourceName>
-        <CommandText>select uni_company_name,[G_L Account No_],[Document No_], min([Posting Date]) as postmin, max([Posting Date]) as postmax, count(*) as num_trans, cast(sum([Amount]) as numeric(24,2)) as net1201
+        <CommandText>select b.[Document No_],b.[Posting Date],b.[Entry No_],b.num_trans,b.net1201,
+sum(b.net1201) over(order by b.[Posting Date],b.[Entry No_]) running_net1201,b.entry_type
+from
+(
+select a.[Document No_],a.[Posting Date],min(a.[Entry No_]) [Entry No_],m.num_trans,cast(sum(a.[Amount]) as numeric(24,2)) as net1201,
+max(case when len(a.[Document No_]) = 9 and left(a.[Document No_],1) = '4' then 'InfoTrax' else 'Manual' end) as entry_type
+from
+prod_navision.dbo.g_l_entry_nc_vw a
+inner join
+(
+select uni_company_name,[G_L Account No_],[Document No_], min([Posting Date]) as postmin, max([Posting Date]) as postmax, count(*) as num_trans, cast(sum([Amount]) as numeric(24,2)) as net1201
 , max(case when len([Document No_]) = 9 and left([Document No_],1) = '4' then 'InfoTrax' else 'Manual' end) as entry_type
 from prod_navision.dbo.g_l_entry_nc_vw
 where uni_company_name = 'Japan'
 and [G_L Account No_] = '1201'
+and year([Posting Date])&gt;=2014
 --and [Journal batch name] in ('ORDERS','PAYMENT')
 group by uni_company_name,[G_L Account No_],[Document No_]
 having sum([Amount]) &lt;&gt; 0
-order by 6, 2</CommandText>
+) m on a.uni_company_name=m.uni_company_name and a.[G_L Account No_]=m.[G_L Account No_] and a.[Document No_]=m.[Document No_]
+group by a.[Document No_],a.[Posting Date],m.num_trans
+) b
+order by b.[Posting Date],b.[Entry No_]</CommandText>
       </Query>
       <Fields>
-        <Field Name="uni_company_name">
-          <DataField>uni_company_name</DataField>
-          <rd:TypeName>System.String</rd:TypeName>
-        </Field>
-        <Field Name="G_L_Account_No_">
-          <DataField>G_L Account No_</DataField>
-          <rd:TypeName>System.String</rd:TypeName>
+        <Field Name="Posting_Date">
+          <DataField>Posting Date</DataField>
+          <rd:TypeName>System.DateTime</rd:TypeName>
         </Field>
         <Field Name="Document_No_">
           <DataField>Document No_</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
-        <Field Name="postmin">
-          <DataField>postmin</DataField>
-          <rd:TypeName>System.DateTime</rd:TypeName>
-        </Field>
-        <Field Name="postmax">
-          <DataField>postmax</DataField>
-          <rd:TypeName>System.DateTime</rd:TypeName>
+        <Field Name="Entry_No_">
+          <DataField>Entry No_</DataField>
+          <rd:TypeName>System.Int32</rd:TypeName>
         </Field>
         <Field Name="num_trans">
           <DataField>num_trans</DataField>
           <rd:TypeName>System.Int32</rd:TypeName>
+        </Field>
+        <Field Name="running_net1201">
+          <DataField>running_net1201</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
         <Field Name="net1201">
           <DataField>net1201</DataField>
@@ -70,6 +80,7 @@ select uni_company_name,[G_L Account No_],[Document No_], min([Posting Date]) as
 from prod_navision.dbo.g_l_entry_nc_vw
 where uni_company_name = 'Japan'
 and [G_L Account No_] = '1201'
+and year([Posting Date])&gt;=2014
 --and [Journal batch name] in ('ORDERS','PAYMENT')
 group by uni_company_name,[G_L Account No_],[Document No_]
 having sum([Amount]) &lt;&gt; 0
@@ -213,7 +224,7 @@ having sum([Amount]) &lt;&gt; 0
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>First Post Date</Value>
+                                  <Value>Posting Date</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -225,60 +236,6 @@ having sum([Amount]) &lt;&gt; 0
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox3</rd:DefaultName>
-                          <Style>
-                            <Border>
-                              <Style>Solid</Style>
-                            </Border>
-                            <TopBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </TopBorder>
-                            <BottomBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </BottomBorder>
-                            <LeftBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </LeftBorder>
-                            <RightBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </RightBorder>
-                            <BackgroundColor>LightBlue</BackgroundColor>
-                            <PaddingLeft>2pt</PaddingLeft>
-                            <PaddingRight>2pt</PaddingRight>
-                            <PaddingTop>2pt</PaddingTop>
-                            <PaddingBottom>2pt</PaddingBottom>
-                          </Style>
-                        </Textbox>
-                      </CellContents>
-                    </TablixCell>
-                    <TablixCell>
-                      <CellContents>
-                        <Textbox Name="Textbox5">
-                          <CanGrow>true</CanGrow>
-                          <KeepTogether>true</KeepTogether>
-                          <Paragraphs>
-                            <Paragraph>
-                              <TextRuns>
-                                <TextRun>
-                                  <Value>Last Post Date</Value>
-                                  <Style>
-                                    <FontWeight>Bold</FontWeight>
-                                  </Style>
-                                </TextRun>
-                              </TextRuns>
-                              <Style>
-                                <TextAlign>Center</TextAlign>
-                              </Style>
-                            </Paragraph>
-                          </Paragraphs>
-                          <rd:DefaultName>Textbox5</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -424,6 +381,60 @@ having sum([Amount]) &lt;&gt; 0
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="Textbox4">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Running Total 1201</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox4</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="Textbox11">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
@@ -532,13 +543,13 @@ having sum([Amount]) &lt;&gt; 0
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="postmin">
+                        <Textbox Name="Posting_Date1">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!postmin.Value</Value>
+                                  <Value>=Fields!Posting_Date.Value</Value>
                                   <Style>
                                     <Format>M/d/yyyy</Format>
                                   </Style>
@@ -547,37 +558,7 @@ having sum([Amount]) &lt;&gt; 0
                               <Style />
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>postmin</rd:DefaultName>
-                          <Style>
-                            <Border>
-                              <Style>Solid</Style>
-                            </Border>
-                            <PaddingLeft>2pt</PaddingLeft>
-                            <PaddingRight>2pt</PaddingRight>
-                            <PaddingTop>2pt</PaddingTop>
-                            <PaddingBottom>2pt</PaddingBottom>
-                          </Style>
-                        </Textbox>
-                      </CellContents>
-                    </TablixCell>
-                    <TablixCell>
-                      <CellContents>
-                        <Textbox Name="postmax">
-                          <KeepTogether>true</KeepTogether>
-                          <Paragraphs>
-                            <Paragraph>
-                              <TextRuns>
-                                <TextRun>
-                                  <Value>=Fields!postmax.Value</Value>
-                                  <Style>
-                                    <Format>M/d/yyyy</Format>
-                                  </Style>
-                                </TextRun>
-                              </TextRuns>
-                              <Style />
-                            </Paragraph>
-                          </Paragraphs>
-                          <rd:DefaultName>postmax</rd:DefaultName>
+                          <rd:DefaultName>Posting_Date1</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -692,6 +673,56 @@ having sum([Amount]) &lt;&gt; 0
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="running_net1201">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!running_net1201.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>running_net1201</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="entry_type">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
@@ -768,7 +799,10 @@ having sum([Amount]) &lt;&gt; 0
             <PageName>Summary</PageName>
             <SortExpressions>
               <SortExpression>
-                <Value>=Fields!Document_No_.Value</Value>
+                <Value>=Fields!Posting_Date.Value</Value>
+              </SortExpression>
+              <SortExpression>
+                <Value>=Fields!Entry_No_.Value</Value>
               </SortExpression>
             </SortExpressions>
             <Height>0.5in</Height>
