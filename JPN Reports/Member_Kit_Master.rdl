@@ -20,9 +20,6 @@
           <QueryParameter Name="@InvoiceDateEnd">
             <Value>=Parameters!InvoiceDateEnd.Value</Value>
           </QueryParameter>
-          <QueryParameter Name="@PVDate">
-            <Value>=Parameters!PVDate.Value</Value>
-          </QueryParameter>
         </QueryParameters>
         <CommandText>select a.ship_to_addr_1,a.ship_to_addr_2,a.ship_to_addr_3,a.ship_to_name,a.dist_id,a.ship_to_spouse,
 a.ship_to_phone,a.real_native_name_1,isnull(a.last_renew_date,a.fsb_entry) last_renew_date,
@@ -37,15 +34,19 @@ odh_live.order_number,row_number() over(partition by odh_live.dist_id order by o
 odh_live.ship_via_code,odh_live.ship_via_desc,
 format(odh_live.invoice_print_date,'yyyy/M/d') fsb_entry,
 format(odh_live.invoice_print_date,'yyyy/M/d') fsb_end
- from dw.dbo.odh_live left outer join dw.dbo.dst on odh_live.dist_id=dst.dist_id
+ from dw.dbo.odh_live 
+ inner join dw.dbo.odl_live on odh_live.morder=odl_live.morder
+ left outer join dw.dbo.dst on odh_live.dist_id=dst.dist_id
  left outer join dw.dbo.dst spo on spo.dist_id=dst.sponsor_dist_id
  left outer join dw.dbo.rnw on dst.mdist=rnw.mdist
  left outer join dw.dbo.osp_live on osp_live.morder=odh_live.morder
  where 
  odh_live.uni_mkting_unit=81  and odh_live.invoice_print_date between @InvoiceDateBegin and @InvoiceDateEnd
- and odh_live.warehouse=1 and odh_live.pv_date_date=CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, @PVDate), 0) AS DATE)
- and (dst.entry_pv_date_date=CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, @PVDate), 0) AS DATE) or dst.entry_pv_date_date is null)
-and odh_live.ship_via_code in (1,5) and odh_live.status=4--and odh_live.order_source&lt;&gt;906 
+ and odh_live.warehouse=1 --and odh_live.pv_date_date=CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, @PVDate), 0) AS DATE)
+ --and (dst.entry_pv_date_date=CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, @PVDate), 0) AS DATE) or dst.entry_pv_date_date is null)
+--and odh_live.ship_via_code in (1,5) 
+and odh_live.status=4--and odh_live.order_source&lt;&gt;906 
+and odl_live.item_code='21514'
 group by
 ship_to_addr_1,ship_to_addr_2,ship_to_addr_3,odh_live.ship_to_name,odh_live.dist_id,odh_live.ship_to_spouse,
 odh_live.ship_to_phone,spo.real_native_name_1,format(osp_live.package_ship_date,'yyyy/M/d'),
@@ -1928,10 +1929,6 @@ format(odh_live.invoice_print_date,'yyyy/M/d')
       <DataType>DateTime</DataType>
       <Prompt>Invoice Date End</Prompt>
     </ReportParameter>
-    <ReportParameter Name="PVDate">
-      <DataType>DateTime</DataType>
-      <Prompt>PV Date</Prompt>
-    </ReportParameter>
   </ReportParameters>
   <ReportParametersLayout>
     <GridLayoutDefinition>
@@ -1947,11 +1944,6 @@ format(odh_live.invoice_print_date,'yyyy/M/d')
           <ColumnIndex>1</ColumnIndex>
           <RowIndex>0</RowIndex>
           <ParameterName>InvoiceDateEnd</ParameterName>
-        </CellDefinition>
-        <CellDefinition>
-          <ColumnIndex>2</ColumnIndex>
-          <RowIndex>0</RowIndex>
-          <ParameterName>PVDate</ParameterName>
         </CellDefinition>
       </CellDefinitions>
     </GridLayoutDefinition>
