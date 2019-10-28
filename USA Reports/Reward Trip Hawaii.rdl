@@ -179,7 +179,63 @@ END)  as INITIAL_ORDER_PTS,
     <DataSet Name="QueryDetail">
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
-        <CommandText>SELECT * FROM ##InitialOrder 
+        <CommandText>DROP TABLE IF EXISTS  ##InitialOrder 
+
+DROP TABLE IF EXISTS ##InitialOrderOpen 
+
+--Get Initial Orders 
+SELECT ENROLLER_DIST_ID, 
+SPONSOR_DIST_ID, 
+DIST_ID,
+STATUS, 
+PV_DATE, 
+PV_DATE_DATE,
+DATEDIFF(m,ENTRY_DATE, PV_DATE_DATE) as TENURE,   
+VOL1, 
+CASE 
+	WHEN VOL1 &gt; 49 AND VOL1 &lt; 100 THEN 1 
+	WHEN VOL1 &gt;= 100 AND VOL1 &lt; 250 THEN 2 
+	WHEN VOL1 &gt;= 250 AND VOL1 &lt; 1000 THEN 3 
+	WHEN VOL1 &gt;= 1000 THEN 5
+	ELSE 0 
+END as INITIAL_ORDER_PTS
+	INTO ##InitialOrder 
+FROM DW.dbo.BWT 
+WHERE MARKETING_UNIT IN (1,2,58) 
+--AND PV_DATE &gt;= '201901' AND PV_DATE &lt;= '201905' hypothetical scenario 
+AND PV_DATE &gt;= '201909' AND PV_DATE &lt;= '202001' 
+AND VOL1 &gt;  0 
+AND DATEDIFF(m,ENTRY_DATE, PV_DATE_DATE) = 0  
+
+
+--Get Initial Orders for Open Period 
+SELECT DST.ENROLLER_ID, 
+DST.SPONSOR_DIST_ID, 
+DST.DIST_ID,
+DST.DIST_STATUS, 
+UnityCustomerResults.CommissionMonth, 
+CONVERT(DATE,CAST(UnityCustomerResults.CommissionMonth as VARCHAR(6)) + '01') as CommissionDate,
+DATEDIFF(m,DST.ENTRY_DATE, CONVERT(DATE,CAST(UnityCustomerResults.CommissionMonth as VARCHAR(6)) + '01')) as TENURE,   
+UnityCustomerResults.QualificationVolume, 
+CASE 
+	WHEN UnityCustomerResults.QualificationVolume &gt; 49 AND UnityCustomerResults.QualificationVolume &lt; 100 THEN 1 
+	WHEN UnityCustomerResults.QualificationVolume &gt;= 100 AND UnityCustomerResults.QualificationVolume &lt; 250 THEN 2 
+	WHEN UnityCustomerResults.QualificationVolume &gt;= 250 AND UnityCustomerResults.QualificationVolume &lt; 1000 THEN 3 
+	WHEN UnityCustomerResults.QualificationVolume &gt;= 1000 THEN 5
+	ELSE 0 
+END as INITIAL_ORDER_PTS
+	INTO ##InitialOrderOpen  
+FROM DW.dbo.UnityCustomerResults 
+INNER JOIN DW.dbo.DST ON DST.DIST_ID = UnityCustomerResults.UnicityId
+WHERE UnityCustomerResults.Spokeid IN (1,2,58) 
+--AND PV_DATE &gt;= '201901' AND PV_DATE &lt;= '201905' hypothetical scenario 
+AND UnityCustomerResults.Commissionmonth &gt;= '201909' AND UnityCustomerResults.Commissionmonth &lt;= '202001' 
+AND UnityCustomerResults.QualificationVolume &gt;  0 
+AND DATEDIFF(m,DST.ENTRY_DATE, CONVERT(DATE,CAST(UnityCustomerResults.CommissionMonth as VARCHAR(6)) + '01')) = 0  
+
+
+
+SELECT * FROM ##InitialOrder 
 
  UNION ALL 
 
