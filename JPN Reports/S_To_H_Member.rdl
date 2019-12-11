@@ -14,35 +14,33 @@
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
         <CommandText>SELECT
-  DW.dbo.DST.DIST_ID,
-  ISNULL(DW.dbo.DST.REAL_NATIVE_NAME_1,DW.dbo.DST.NATIVE_NAME_1) as Native_Name,
-  DW.dbo.DST.ENTRY_DATE,
-  MAX(ISNULL(DW.dbo.RNW.NEXT_RENEW_DATE,DW.dbo.DST.NEXT_RENEW_DATE)) as Next_Renew_Date,
-  MAX(ISNULL(DW.dbo.RNW.LAST_RENEW_DATE,DW.dbo.DST.LAST_RENEW_DATE)) as Last_Renew_Date,
-  DW.dbo.DST.DIST_STATUS,
-  SAPDW_DST_SPONSOR.DIST_ID as Sponsor_ID,
-  SAPDW_DST_SPONSOR.COUNTRY_CODE
+  DST.DIST_ID,
+  ISNULL(DST.REAL_NATIVE_NAME_1,DST.NATIVE_NAME_1) as Native_Name,
+  DST.ENTRY_DATE,
+  MAX(ISNULL(RNW.NEXT_RENEW_DATE,DST.NEXT_RENEW_DATE)) as Next_Renew_Date,
+  MAX(ISNULL(RNW.LAST_RENEW_DATE,DST.LAST_RENEW_DATE)) as Last_Renew_Date,
+  DST.DIST_STATUS,
+  DSS.STATUS_DESC,
+  BWT.VOL3 [ORGANIZATIONAL_VOLUME],
+  BWT.END_RANK
 FROM
   DW.dbo.DST
-  LEFT OUTER JOIN DW.dbo.DST  SAPDW_DST_SPONSOR ON ( DW.dbo.DST.SPONSOR_DIST_ID = SAPDW_DST_SPONSOR.DIST_ID )
-  LEFT OUTER JOIN DW.dbo.RNW ON ( DW.dbo.DST.MDIST = DW.dbo.RNW.MDIST )
+  --LEFT OUTER JOIN DW.dbo.DST  SAPDW_DST_SPONSOR ON ( DST.SPONSOR_DIST_ID = SAPDW_DST_SPONSOR.DIST_ID )
+  LEFT OUTER JOIN DW.dbo.RNW ON ( DST.MDIST = RNW.MDIST )
+  LEFT OUTER JOIN DW.dbo.DSS ON ( DST.UNI_MKTING_UNIT=DSS.MKTING_UNIT AND DST.DIST_STATUS = DSS.STATUS_CODE )
+  LEFT OUTER JOIN DW.dbo.BWT_CURRENT BWT ON (BWT.DIST_ID=DST.DIST_ID)
 WHERE
-  ( (DW.dbo.DST.UNI_MKTING_UNIT = 81 OR DW.dbo.DST.HFLAG_2 = 'X') )
-  AND  
-  (
-   DW.dbo.DST.UNI_MKTING_UNIT  =  81
-   And
-   DW.dbo.DST.Country_Code = 'JPN'
-   AND
-   DW.dbo.DST.DIST_STATUS  &lt;&gt;  'T'
-  )
+   DST.UNI_MKTING_UNIT = 81 AND DST.COUNTRY_CODE = 'JPN'
+   AND DST.DIST_STATUS='S' 
+   --and dst.dist_id=22327281 --47127881
 GROUP BY
-  DW.dbo.DST.DIST_ID, 
-  ISNULL(DW.dbo.DST.REAL_NATIVE_NAME_1,DW.dbo.DST.NATIVE_NAME_1), 
-  DW.dbo.DST.ENTRY_DATE, 
-  DW.dbo.DST.DIST_STATUS, 
-  SAPDW_DST_SPONSOR.DIST_ID, 
-  SAPDW_DST_SPONSOR.COUNTRY_CODE</CommandText>
+  DST.DIST_ID, 
+  ISNULL(DST.REAL_NATIVE_NAME_1,DST.NATIVE_NAME_1), 
+  DST.ENTRY_DATE, 
+  DST.DIST_STATUS, 
+  DSS.STATUS_DESC,
+  BWT.VOL3,
+  BWT.END_RANK</CommandText>
       </Query>
       <Fields>
         <Field Name="DIST_ID">
@@ -69,13 +67,17 @@ GROUP BY
           <DataField>DIST_STATUS</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
-        <Field Name="Sponsor_ID">
-          <DataField>Sponsor_ID</DataField>
+        <Field Name="STATUS_DESC">
+          <DataField>STATUS_DESC</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="ORGANIZATIONAL_VOLUME">
+          <DataField>ORGANIZATIONAL_VOLUME</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
-        <Field Name="COUNTRY_CODE">
-          <DataField>COUNTRY_CODE</DataField>
-          <rd:TypeName>System.String</rd:TypeName>
+        <Field Name="END_RANK">
+          <DataField>END_RANK</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
       </Fields>
     </DataSet>
@@ -106,10 +108,13 @@ GROUP BY
                   <Width>0.6875in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1.01042in</Width>
+                  <Width>1.5in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>0.71875in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
                 </TablixColumn>
               </TablixColumns>
               <TablixRows>
@@ -125,7 +130,7 @@ GROUP BY
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>DIST ID</Value>
+                                  <Value>Dist ID</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontSize>9pt</FontSize>
@@ -237,7 +242,7 @@ GROUP BY
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>ENTRY DATE</Value>
+                                  <Value>Entry Date</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontSize>9pt</FontSize>
@@ -405,7 +410,7 @@ GROUP BY
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>DIST STATUS</Value>
+                                  <Value>Dist Status</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontSize>9pt</FontSize>
@@ -461,7 +466,7 @@ GROUP BY
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Sponsor ID</Value>
+                                  <Value>Dist Status Description</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontSize>9pt</FontSize>
@@ -517,7 +522,7 @@ GROUP BY
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Sponsor Country</Value>
+                                  <Value>Organizational Volume</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontSize>9pt</FontSize>
@@ -564,6 +569,62 @@ GROUP BY
                         </Textbox>
                       </CellContents>
                     </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox2">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>End Rank</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox2</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>CornflowerBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
                   </TablixCells>
                 </TablixRow>
                 <TablixRow>
@@ -572,7 +633,6 @@ GROUP BY
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="DIST_ID">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -626,7 +686,6 @@ GROUP BY
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="Native_Name">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -680,7 +739,6 @@ GROUP BY
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="ENTRY_DATE">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -735,7 +793,6 @@ GROUP BY
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="Next_Renew_Date">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -790,7 +847,6 @@ GROUP BY
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="Last_Renew_Date">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -845,7 +901,6 @@ GROUP BY
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="DIST_STATUS">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -898,14 +953,13 @@ GROUP BY
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="Sponsor_ID">
-                          <CanGrow>true</CanGrow>
+                        <Textbox Name="STATUS_DESC">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!Sponsor_ID.Value</Value>
+                                  <Value>=Fields!STATUS_DESC.Value</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontSize>9pt</FontSize>
@@ -917,7 +971,7 @@ GROUP BY
                               </Style>
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>Sponsor_ID</rd:DefaultName>
+                          <rd:DefaultName>STATUS_DESC</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -952,14 +1006,13 @@ GROUP BY
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="COUNTRY_CODE">
-                          <CanGrow>true</CanGrow>
+                        <Textbox Name="ORGANIZATIONAL_VOLUME">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!COUNTRY_CODE.Value</Value>
+                                  <Value>=Fields!ORGANIZATIONAL_VOLUME.Value</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontSize>9pt</FontSize>
@@ -971,7 +1024,60 @@ GROUP BY
                               </Style>
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>COUNTRY_CODE</rd:DefaultName>
+                          <rd:DefaultName>ORGANIZATIONAL_VOLUME</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="END_RANK">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!END_RANK.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Left</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>END_RANK</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -1018,6 +1124,7 @@ GROUP BY
                 <TablixMember />
                 <TablixMember />
                 <TablixMember />
+                <TablixMember />
               </TablixMembers>
             </TablixColumnHierarchy>
             <TablixRowHierarchy>
@@ -1031,8 +1138,14 @@ GROUP BY
               </TablixMembers>
             </TablixRowHierarchy>
             <DataSetName>BISQL01</DataSetName>
+            <SortExpressions>
+              <SortExpression>
+                <Value>=Fields!Last_Renew_Date.Value</Value>
+                <Direction>Descending</Direction>
+              </SortExpression>
+            </SortExpressions>
             <Height>0.5in</Height>
-            <Width>8.28125in</Width>
+            <Width>9.77083in</Width>
             <Style>
               <Border>
                 <Style>None</Style>
@@ -1040,10 +1153,10 @@ GROUP BY
             </Style>
           </Tablix>
         </ReportItems>
-        <Height>2in</Height>
+        <Height>0.5in</Height>
         <Style />
       </Body>
-      <Width>8.5625in</Width>
+      <Width>9.77083in</Width>
       <Page>
         <LeftMargin>1in</LeftMargin>
         <RightMargin>1in</RightMargin>
