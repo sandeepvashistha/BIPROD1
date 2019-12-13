@@ -346,11 +346,43 @@ group by w.warehouse,w.wh_name,w.odh_type,w.order_number,w.item_code,w.item_name
           <QueryParameter Name="@PostDateStart">
             <Value>=Parameters!PostDateStart.Value</Value>
           </QueryParameter>
+          <QueryParameter Name="@PostDateEnd">
+            <Value>=Parameters!PostDateEnd.Value</Value>
+          </QueryParameter>
         </QueryParameters>
-        <CommandText>select [user],order_id,item_code,barcode_id,stamp_created,is_deleted
+        <CommandText>select th_scan1_barcode.[user],th_scan1_barcode.order_id,th_scan1_barcode.item_code,th_scan1_barcode.barcode_id,th_scan1_barcode.stamp_created,th_scan1_barcode.is_deleted
 from barcode.dbo.th_scan1_barcode 
-where is_deleted=0 and cast(stamp_created as date)&gt;=@PostDateStart
-order by stamp_created,order_id,item_code</CommandText>
+inner join
+(
+select distinct b.order_number order_number
+from
+(
+select distinct odl.order_number order_number
+from dw.dbo.odl odl
+join dw.dbo.odh odh on odl.morder = odh.morder
+left outer join dw.dbo.whs on (odh.uni_mkting_unit=whs.mkting_unit and odh.warehouse=whs.wh_number)
+where item_code in (select distinct item_no from barcode.dbo.th_required_items)
+and cast(odh.entry_date as date) between @PostDateStart and @PostDateEnd
+and odh.uni_mkting_unit = 66
+and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+and odh.[status] in (2,3,4,5)
+and odh.ODH_TYPE not in ('C','R')
+union all
+select distinct odl.order_number order_number
+from dw.dbo.odl odl
+join dw.dbo.odh odh on odl.morder = odh.morder
+join barcode.dbo.easyship_all es on es.item_parent=odl.item_code and es.country_code='TH' and es.item_child in (select distinct item_no from barcode.dbo.th_required_items)
+left outer join dw.dbo.whs on (odh.uni_mkting_unit=whs.mkting_unit and odh.warehouse=whs.wh_number)
+where cast(odh.entry_date as date) between @PostDateStart and @PostDateEnd
+and odh.uni_mkting_unit = 66
+and odh.WAREHOUSE in (1,4,12,16,18,19,20,24,25,26,28,30,35,36,38,40,41,47,50,51,53,54,55,61,67,70,72,75,78,79,80,83,85,88,89,97,100,101,102,103,104,105,106,107,108)
+and odh.[status] in (2,3,4,5)
+and odh.ODH_TYPE not in ('C','R')
+) b
+) a on convert(varchar,a.ORDER_NUMBER)=th_scan1_barcode.order_id
+where th_scan1_barcode.is_deleted=0 and cast(th_scan1_barcode.stamp_created as date)&gt;=@PostDateStart
+--and th_scan1_barcode.order_id in ('422767387','422767384','422767389')
+order by th_scan1_barcode.stamp_created,th_scan1_barcode.order_id,th_scan1_barcode.item_code</CommandText>
       </Query>
       <Fields>
         <Field Name="user">
