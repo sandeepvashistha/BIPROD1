@@ -1,0 +1,1622 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report MustUnderstand="df" xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition" xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner" xmlns:df="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition/defaultfontfamily">
+  <df:DefaultFontFamily>Segoe UI</df:DefaultFontFamily>
+  <AutoRefresh>0</AutoRefresh>
+  <DataSources>
+    <DataSource Name="SQLPRODA">
+      <DataSourceReference>SQLPRODA</DataSourceReference>
+      <rd:SecurityType>None</rd:SecurityType>
+      <rd:DataSourceID>5bc965b4-ca17-468c-adb8-1e6b1bd0eb0c</rd:DataSourceID>
+    </DataSource>
+  </DataSources>
+  <DataSets>
+    <DataSet Name="QuerySummary">
+      <Query>
+        <DataSourceName>SQLPRODA</DataSourceName>
+        <CommandText>DROP TABLE IF EXISTS  ##InitialOrder 
+
+DROP TABLE IF EXISTS ##InitialOrderOpen 
+
+--Get Initial Orders 
+SELECT ENROLLER_DIST_ID, 
+SPONSOR_DIST_ID, 
+DIST_ID,
+STATUS, 
+PV_DATE, 
+PV_DATE_DATE,
+DATEDIFF(m,ENTRY_DATE, PV_DATE_DATE) as TENURE,   
+VOL1, 
+CASE 
+	WHEN VOL1 &gt; 49 AND VOL1 &lt; 100 THEN 1 
+	WHEN VOL1 &gt;= 100 AND VOL1 &lt; 250 THEN 2 
+	WHEN VOL1 &gt;= 250 AND VOL1 &lt; 1000 THEN 3 
+	WHEN VOL1 &gt;= 1000 THEN 5
+	ELSE 0 
+END as INITIAL_ORDER_PTS
+	INTO ##InitialOrder 
+FROM DW.dbo.BWT 
+WHERE MARKETING_UNIT IN (1,2,58) 
+--AND PV_DATE &gt;= '201901' AND PV_DATE &lt;= '201905' hypothetical scenario 
+AND PV_DATE &gt;= '201909' AND PV_DATE &lt;= '202001' 
+AND VOL1 &gt;  0 
+AND DATEDIFF(d,ENTRY_DATE, PV_DATE_DATE) &lt; 32  
+--AND ENTRY_DATE &gt;= '2019-09-01' 
+--AND ENROLLER_DIST_ID = 7544108
+
+
+
+
+--Get Initial Orders for Open Period 
+SELECT DST.ENROLLER_ID, 
+DST.SPONSOR_DIST_ID, 
+DST.DIST_ID,
+DST.DIST_STATUS, 
+UnityTBI.CommissionMonth, 
+CONVERT(DATE,CAST(UnityTBI.CommissionMonth as VARCHAR(6)) + '01') as CommissionDate,
+DATEDIFF(m,DST.ENTRY_DATE, CONVERT(DATE,CAST(UnityTBI.CommissionMonth as VARCHAR(6)) + '01')) as TENURE,   
+UnityTBI.QualificationVolume, 
+CASE 
+	WHEN UnityTBI.QualificationVolume &gt; 49 AND UnityTBI.QualificationVolume &lt; 100 THEN 1 
+	WHEN UnityTBI.QualificationVolume &gt;= 100 AND UnityTBI.QualificationVolume &lt; 250 THEN 2 
+	WHEN UnityTBI.QualificationVolume &gt;= 250 AND UnityTBI.QualificationVolume &lt; 1000 THEN 3 
+	WHEN UnityTBI.QualificationVolume &gt;= 1000 THEN 5
+	ELSE 0 
+END as INITIAL_ORDER_PTS
+	INTO ##InitialOrderOpen  
+FROM DW.dbo.UnityTBI 
+INNER JOIN DW.dbo.DST ON DST.DIST_ID = UnityTBI.UnicityId
+WHERE UnityTBI.Spokeid IN (1,2,58) 
+--AND PV_DATE &gt;= '201901' AND PV_DATE &lt;= '201905' hypothetical scenario 
+AND UnityTBI.Commissionmonth &gt;= '201909' AND UnityTBI.Commissionmonth &lt;= '202001' 
+AND UnityTBI.QualificationVolume &gt;  0 
+AND DATEDIFF(d,DST.ENTRY_DATE, CONVERT(DATE,CAST(UnityTBI.CommissionMonth as VARCHAR(6)) + '01')) &lt; 32  
+AND UnityTBI.UnicityId NOT IN (SELECT DISTINCT DIST_ID FROM ##InitialOrder) 
+AND DST.ENTRY_DATE &gt;= '2019-09-01' --added
+
+
+
+
+
+SELECT b.ENROLLER_DIST_ID
+--, b.SPONSOR_DIST_ID
+, DST.ROMAN_NAME_1
+, DST.EMAIL_ADDR
+, c.INITIAL_ORDER_PTS
+, ISNULL(ap.ADD_PTS,0) as ADD_PTS 
+, SUM(b.RETENTION_PV_PTS) as RETENTION_PTS 
+--, b.QualificationVolume as OPEN_PERIOD_VOLUME 
+, ISNULL(d.INITIAL_ORDER_PTS,0) as INITIAL_ORDER_PTS_OPEN 
+, SUM(b.RETENTION_PV_PTS_OPEN) as RETENTION_PTS_OPEN
+FROM 
+( 	
+	SELECT a.ENROLLER_DIST_ID, 
+	a.SPONSOR_DIST_ID, 
+	a.DIST_ID,
+	a.STATUS, 
+	a.PV_DATE, 
+	a.PV_DATE_DATE, 
+	a.TENURE,
+	ROW_NUMBER() OVER(PARTITION BY a.dist_id ORDER BY BWT.PV_DATE) as RW, 
+	BWT.PV_DATE as RETENTION_PV_DATE,
+	BWT.VOL1 as RETENTION_PV, 
+	--CASE WHEN BWT.VOL1 &gt; 99 THEN 2 ELSE 0 END as RETENTION_PV_PTS  original for the Cody hypothetical 
+	CASE 
+		WHEN BWT.VOL1 &gt; 49 AND BWT.VOL1 &lt; 100 THEN 1 
+		WHEN BWT.VOL1 &gt;= 100 AND BWT.VOL1 &lt; 250 THEN 2 
+		WHEN BWT.VOL1 &gt;= 250 AND BWT.VOL1 &lt; 1000 THEN 3 
+		WHEN BWT.VOL1 &gt;= 1000 THEN 5
+		ELSE 0 
+	END as RETENTION_PV_PTS, 
+	UnityTBI.QualificationVolume, 
+	CASE 
+		WHEN UnityTBI.QualificationVolume &gt; 49 AND UnityTBI.QualificationVolume &lt; 100 AND UnityTBI.Commissionmonth &gt; a.PV_DATE  THEN 1 --changed BWT.PV_DATE to a.PV_DATE
+		WHEN UnityTBI.QualificationVolume &gt;= 100 AND UnityTBI.QualificationVolume &lt; 250 AND UnityTBI.Commissionmonth &gt; a.PV_DATE THEN 2 --changed BWT.PV_DATE to a.PV_DATE
+		WHEN UnityTBI.QualificationVolume &gt;= 250 AND UnityTBI.QualificationVolume &lt; 1000 AND UnityTBI.Commissionmonth &gt; a.PV_DATE THEN 3 --changed BWT.PV_DATE to a.PV_DATE
+		WHEN UnityTBI.QualificationVolume &gt;= 1000 AND UnityTBI.Commissionmonth &gt; a.PV_DATE THEN 5 --changed BWT.PV_DATE to a.PV_DATE
+		ELSE 0  
+	END as RETENTION_PV_PTS_OPEN 
+	FROM ##InitialOrder a 
+	LEFT OUTER JOIN DW.dbo.BWT ON BWT.DIST_ID = a.DIST_ID AND BWT.PV_DATE &gt; a.PV_DATE
+	LEFT OUTER JOIN DW.dbo.UnityTBI ON UnityTBI.UnicityId = a.DIST_ID AND UnityTBI.Commissionmonth &gt; a.PV_DATE
+	--WHERE a.ENROLLER_DIST_ID = 194501201
+	--AND a.dist_id = 7903908 
+) b 
+INNER JOIN (SELECT ENROLLER_DIST_ID, SUM(INITIAL_ORDER_PTS) as INITIAL_ORDER_PTS FROM ##InitialOrder GROUP BY ENROLLER_DIST_ID) c ON c.ENROLLER_DIST_ID = b.ENROLLER_DIST_ID 
+INNER JOIN DW.dbo.DST ON DST.DIST_ID = b.ENROLLER_DIST_ID 
+LEFT OUTER JOIN (SELECT ENROLLER_ID, SUM(INITIAL_ORDER_PTS) as INITIAL_ORDER_PTS FROM ##InitialOrderOpen GROUP BY ENROLLER_ID) d ON d.ENROLLER_ID = b.ENROLLER_DIST_ID 
+LEFT OUTER JOIN DW.dbo.DM_HAWAII_ADD_PTS ap ON ap.[ENROLLER DIST ID] = b.ENROLLER_DIST_ID 
+WHERE b.SPONSOR_DIST_ID NOT IN (2,3,4) 
+--AND b.enroller_dist_id = 4196908
+GROUP BY c.INITIAL_ORDER_PTS
+, DST.ROMAN_NAME_1
+--, b.QualificationVolume
+, d.INITIAL_ORDER_PTS
+, b.ENROLLER_DIST_ID 
+, DST.EMAIL_ADDR
+, ap.ADD_PTS
+
+
+UNION ALL 
+
+/***Added this for enrollers who are new enrollers and have enrolled during the open period***/ 
+
+SELECT b.ENROLLER_DIST_ID
+--, b.SPONSOR_DIST_ID
+, DST.ROMAN_NAME_1
+, DST.EMAIL_ADDR
+, ISNULL(c.INITIAL_ORDER_PTS,0)
+, ISNULL(ap.ADD_PTS,0) as ADD_PTS 
+, SUM(b.RETENTION_PV_PTS) as RETENTION_PTS 
+--, b.QualificationVolume as OPEN_PERIOD_VOLUME 
+, ISNULL(d.INITIAL_ORDER_PTS,0) as INITIAL_ORDER_PTS_OPEN 
+, SUM(b.RETENTION_PV_PTS_OPEN) as RETENTION_PTS_OPEN
+FROM 
+( 	
+	SELECT a.ENROLLER_ID as ENROLLER_DIST_ID, 
+	a.SPONSOR_DIST_ID, 
+	a.DIST_ID,
+	--a.STATUS, 
+	a.CommissionMonth, 
+	a.CommissionDate, 
+	a.TENURE,
+	ROW_NUMBER() OVER(PARTITION BY a.dist_id ORDER BY BWT.PV_DATE) as RW, 
+	BWT.PV_DATE as RETENTION_PV_DATE,
+	BWT.VOL1 as RETENTION_PV, 
+	--CASE WHEN BWT.VOL1 &gt; 99 THEN 2 ELSE 0 END as RETENTION_PV_PTS  original for the Cody hypothetical 
+	CASE 
+		WHEN BWT.VOL1 &gt; 49 AND BWT.VOL1 &lt; 100 THEN 1 
+		WHEN BWT.VOL1 &gt;= 100 AND BWT.VOL1 &lt; 250 THEN 2 
+		WHEN BWT.VOL1 &gt;= 250 AND BWT.VOL1 &lt; 1000 THEN 3 
+		WHEN BWT.VOL1 &gt;= 1000 THEN 5
+		ELSE 0 
+	END as RETENTION_PV_PTS, 
+	UnityTBI.QualificationVolume, 
+	CASE 
+		WHEN UnityTBI.QualificationVolume &gt; 49 AND UnityTBI.QualificationVolume &lt; 100 AND UnityTBI.Commissionmonth &gt; a.CommissionMonth  THEN 1 --changed BWT.PV_DATE to a.PV_DATE
+		WHEN UnityTBI.QualificationVolume &gt;= 100 AND UnityTBI.QualificationVolume &lt; 250 AND UnityTBI.Commissionmonth &gt; a.CommissionMonth THEN 2 --changed BWT.PV_DATE to a.PV_DATE
+		WHEN UnityTBI.QualificationVolume &gt;= 250 AND UnityTBI.QualificationVolume &lt; 1000 AND UnityTBI.Commissionmonth &gt; a.CommissionMonth THEN 3 --changed BWT.PV_DATE to a.PV_DATE
+		WHEN UnityTBI.QualificationVolume &gt;= 1000 AND UnityTBI.Commissionmonth &gt; a.CommissionMonth THEN 5 --changed BWT.PV_DATE to a.PV_DATE
+		ELSE 0  
+	END as RETENTION_PV_PTS_OPEN 
+	FROM ##InitialOrderOpen a 
+	LEFT OUTER JOIN DW.dbo.BWT ON BWT.DIST_ID = a.DIST_ID AND BWT.PV_DATE &gt; a.CommissionMonth
+	LEFT OUTER JOIN DW.dbo.UnityTBI ON UnityTBI.UnicityId = a.DIST_ID AND UnityTBI.Commissionmonth &gt; a.CommissionMonth
+	--WHERE a.ENROLLER_DIST_ID = 194501201
+	--AND a.dist_id = 7903908 
+) b 
+LEFT OUTER JOIN (SELECT ENROLLER_DIST_ID, SUM(INITIAL_ORDER_PTS) as INITIAL_ORDER_PTS FROM ##InitialOrder GROUP BY ENROLLER_DIST_ID) c ON c.ENROLLER_DIST_ID = b.ENROLLER_DIST_ID 
+INNER JOIN DW.dbo.DST ON DST.DIST_ID = b.ENROLLER_DIST_ID 
+LEFT OUTER JOIN (SELECT ENROLLER_ID, SUM(INITIAL_ORDER_PTS) as INITIAL_ORDER_PTS FROM ##InitialOrderOpen GROUP BY ENROLLER_ID) d ON d.ENROLLER_ID = b.ENROLLER_DIST_ID 
+LEFT OUTER JOIN DW.dbo.DM_HAWAII_ADD_PTS ap ON ap.[ENROLLER DIST ID] = b.ENROLLER_DIST_ID 
+WHERE b.SPONSOR_DIST_ID NOT IN (2,3,4) 
+--AND b.enroller_dist_id = 4196908
+AND b.enroller_dist_id NOT IN (SELECT ENROLLER_DIST_ID FROM ##InitialOrder) 
+GROUP BY c.INITIAL_ORDER_PTS
+, DST.ROMAN_NAME_1
+--, b.QualificationVolume
+, d.INITIAL_ORDER_PTS
+, b.ENROLLER_DIST_ID 
+, DST.EMAIL_ADDR
+, ap.ADD_PTS</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="ENROLLER_DIST_ID">
+          <DataField>ENROLLER_DIST_ID</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="ROMAN_NAME_1">
+          <DataField>ROMAN_NAME_1</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="EMAIL_ADDR">
+          <DataField>EMAIL_ADDR</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="INITIAL_ORDER_PTS">
+          <DataField>INITIAL_ORDER_PTS</DataField>
+          <rd:TypeName>System.Int32</rd:TypeName>
+        </Field>
+        <Field Name="ADD_PTS">
+          <DataField>ADD_PTS</DataField>
+          <rd:TypeName>System.Double</rd:TypeName>
+        </Field>
+        <Field Name="RETENTION_PTS">
+          <DataField>RETENTION_PTS</DataField>
+          <rd:TypeName>System.Int32</rd:TypeName>
+        </Field>
+        <Field Name="INITIAL_ORDER_PTS_OPEN">
+          <DataField>INITIAL_ORDER_PTS_OPEN</DataField>
+          <rd:TypeName>System.Int32</rd:TypeName>
+        </Field>
+        <Field Name="RETENTION_PTS_OPEN">
+          <DataField>RETENTION_PTS_OPEN</DataField>
+          <rd:TypeName>System.Int32</rd:TypeName>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="QueryDetail">
+      <Query>
+        <DataSourceName>SQLPRODA</DataSourceName>
+        <CommandText>DROP TABLE IF EXISTS  ##InitialOrderDetail
+
+DROP TABLE IF EXISTS ##InitialOrderOpenDetail
+
+--Get Initial Orders 
+SELECT ENROLLER_DIST_ID, 
+SPONSOR_DIST_ID, 
+DIST_ID,
+STATUS, 
+PV_DATE, 
+PV_DATE_DATE,
+DATEDIFF(m,ENTRY_DATE, PV_DATE_DATE) as TENURE,   
+VOL1, 
+CASE 
+	WHEN VOL1 &gt; 49 AND VOL1 &lt; 100 THEN 1 
+	WHEN VOL1 &gt;= 100 AND VOL1 &lt; 250 THEN 2 
+	WHEN VOL1 &gt;= 250 AND VOL1 &lt; 1000 THEN 3 
+	WHEN VOL1 &gt;= 1000 THEN 5
+	ELSE 0 
+END as INITIAL_ORDER_PTS
+	INTO ##InitialOrderDetail
+FROM DW.dbo.BWT 
+WHERE MARKETING_UNIT IN (1,2,58) 
+--AND PV_DATE &gt;= '201901' AND PV_DATE &lt;= '201905' hypothetical scenario 
+AND PV_DATE &gt;= '201909' AND PV_DATE &lt;= '202001' 
+AND VOL1 &gt;  0 
+AND DATEDIFF(d,ENTRY_DATE, PV_DATE_DATE) &lt; 32
+--AND ENTRY_DATE &gt;= '2019-09-01' 
+
+
+--Get Initial Orders for Open Period 
+SELECT DST.ENROLLER_ID, 
+DST.SPONSOR_DIST_ID, 
+DST.DIST_ID,
+DST.DIST_STATUS, 
+UnityTBI.CommissionMonth, 
+CONVERT(DATE,CAST(UnityTBI.CommissionMonth as VARCHAR(6)) + '01') as CommissionDate,
+DATEDIFF(m,DST.ENTRY_DATE, CONVERT(DATE,CAST(UnityTBI.CommissionMonth as VARCHAR(6)) + '01')) as TENURE,   
+UnityTBI.QualificationVolume, 
+CASE 
+	WHEN UnityTBI.QualificationVolume &gt; 49 AND UnityTBI.QualificationVolume &lt; 100 THEN 1 
+	WHEN UnityTBI.QualificationVolume &gt;= 100 AND UnityTBI.QualificationVolume &lt; 250 THEN 2 
+	WHEN UnityTBI.QualificationVolume &gt;= 250 AND UnityTBI.QualificationVolume &lt; 1000 THEN 3 
+	WHEN UnityTBI.QualificationVolume &gt;= 1000 THEN 5
+	ELSE 0 
+END as INITIAL_ORDER_PTS
+	INTO ##InitialOrderOpenDetail
+FROM DW.dbo.UnityTBI 
+INNER JOIN DW.dbo.DST ON DST.DIST_ID = UnityTBI.UnicityId
+WHERE UnityTBI.Spokeid IN (1,2,58) 
+--AND PV_DATE &gt;= '201901' AND PV_DATE &lt;= '201905' hypothetical scenario 
+AND UnityTBI.Commissionmonth &gt;= '201909' AND UnityTBI.Commissionmonth &lt;= '202001' 
+AND UnityTBI.QualificationVolume &gt;  0 
+AND DATEDIFF(d,DST.ENTRY_DATE, CONVERT(DATE,CAST(UnityTBI.CommissionMonth as VARCHAR(6)) + '01')) &lt; 32 
+AND UnityTBI.UnicityId NOT IN (SELECT DISTINCT DIST_ID FROM ##InitialOrderDetail) 
+AND ENTRY_DATE &gt;= '2019-09-01' 
+
+
+
+SELECT * FROM ##InitialOrderDetail --WHERE ENROLLER_DIST_ID = 194501201
+
+ UNION ALL 
+
+SELECT * FROM ##InitialOrderOpenDetail --WHERE ENROLLER_ID = 194501201</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="ENROLLER_DIST_ID">
+          <DataField>ENROLLER_DIST_ID</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="SPONSOR_DIST_ID">
+          <DataField>SPONSOR_DIST_ID</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="DIST_ID">
+          <DataField>DIST_ID</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="STATUS">
+          <DataField>STATUS</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="PV_DATE">
+          <DataField>PV_DATE</DataField>
+          <rd:TypeName>System.Int32</rd:TypeName>
+        </Field>
+        <Field Name="PV_DATE_DATE">
+          <DataField>PV_DATE_DATE</DataField>
+          <rd:TypeName>System.DateTime</rd:TypeName>
+        </Field>
+        <Field Name="TENURE">
+          <DataField>TENURE</DataField>
+          <rd:TypeName>System.Int32</rd:TypeName>
+        </Field>
+        <Field Name="VOL1">
+          <DataField>VOL1</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="INITIAL_ORDER_PTS">
+          <DataField>INITIAL_ORDER_PTS</DataField>
+          <rd:TypeName>System.Int32</rd:TypeName>
+        </Field>
+      </Fields>
+    </DataSet>
+  </DataSets>
+  <ReportSections>
+    <ReportSection>
+      <Body>
+        <ReportItems>
+          <Tablix Name="Tablix2">
+            <TablixBody>
+              <TablixColumns>
+                <TablixColumn>
+                  <Width>1.41792in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1.6875in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1.44917in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1.41667in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1.60417in</Width>
+                </TablixColumn>
+              </TablixColumns>
+              <TablixRows>
+                <TablixRow>
+                  <Height>0.25in</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox15">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>ENROLLER DIST ID</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox15</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>PaleTurquoise</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox17">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>SPONSOR DIST ID</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox17</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>PaleTurquoise</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox19">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>DIST ID</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox19</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>PaleTurquoise</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox21">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>STATUS</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox21</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>PaleTurquoise</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox23">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>PV DATE</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox23</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>PaleTurquoise</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox25">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>PV DATE DATE</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox25</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>PaleTurquoise</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox27">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>TENURE</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox27</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>PaleTurquoise</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox29">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>VOL1</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox29</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>PaleTurquoise</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox31">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>INITIAL ORDER PTS</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox31</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>PaleTurquoise</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>0.25in</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="ENROLLER_DIST_ID1">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!ENROLLER_DIST_ID.Value</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>ENROLLER_DIST_ID1</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="SPONSOR_DIST_ID">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!SPONSOR_DIST_ID.Value</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>SPONSOR_DIST_ID</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="DIST_ID">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!DIST_ID.Value</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>DIST_ID</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="STATUS">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!STATUS.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>STATUS</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="PV_DATE">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!PV_DATE.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>PV_DATE</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="PV_DATE_DATE">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!PV_DATE_DATE.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <Format>d</Format>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>PV_DATE_DATE</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="TENURE">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!TENURE.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>TENURE</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="VOL1">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!VOL1.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>VOL1</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="INITIAL_ORDER_PTS1">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!INITIAL_ORDER_PTS.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>INITIAL_ORDER_PTS1</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+              </TablixRows>
+            </TablixBody>
+            <TablixColumnHierarchy>
+              <TablixMembers>
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
+              </TablixMembers>
+            </TablixColumnHierarchy>
+            <TablixRowHierarchy>
+              <TablixMembers>
+                <TablixMember>
+                  <KeepWithGroup>After</KeepWithGroup>
+                </TablixMember>
+                <TablixMember>
+                  <Group Name="Details" />
+                </TablixMember>
+              </TablixMembers>
+            </TablixRowHierarchy>
+            <DataSetName>QueryDetail</DataSetName>
+            <PageBreak>
+              <BreakLocation>Start</BreakLocation>
+            </PageBreak>
+            <PageName>Detail</PageName>
+            <Top>0.83208in</Top>
+            <Left>0.16792in</Left>
+            <Height>0.5in</Height>
+            <Width>11.57543in</Width>
+            <Style>
+              <Border>
+                <Style>None</Style>
+              </Border>
+            </Style>
+          </Tablix>
+          <Tablix Name="Tablix6">
+            <TablixBody>
+              <TablixColumns>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+              </TablixColumns>
+              <TablixRows>
+                <TablixRow>
+                  <Height>0.25in</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox38">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>ROMAN NAME 1</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox38</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Color>LightGrey</Color>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox40">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>INITIAL ORDER PTS</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox40</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Color>LightGrey</Color>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox42">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value />
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox42</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Color>LightGrey</Color>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>0.25in</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="ROMAN_NAME_1">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!ROMAN_NAME_1.Value</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>ROMAN_NAME_1</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Color>LightGrey</Color>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="INITIAL_ORDER_PTS">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!INITIAL_ORDER_PTS.Value</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>INITIAL_ORDER_PTS</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Color>LightGrey</Color>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox43">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value />
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox43</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Color>LightGrey</Color>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+              </TablixRows>
+            </TablixBody>
+            <TablixColumnHierarchy>
+              <TablixMembers>
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
+              </TablixMembers>
+            </TablixColumnHierarchy>
+            <TablixRowHierarchy>
+              <TablixMembers>
+                <TablixMember>
+                  <KeepWithGroup>After</KeepWithGroup>
+                </TablixMember>
+                <TablixMember>
+                  <Group Name="Details1" />
+                </TablixMember>
+              </TablixMembers>
+            </TablixRowHierarchy>
+            <DataSetName>QuerySummary</DataSetName>
+            <SortExpressions>
+              <SortExpression>
+                <Value>=Fields!INITIAL_ORDER_PTS.Value</Value>
+                <Direction>Descending</Direction>
+              </SortExpression>
+            </SortExpressions>
+            <Top>0.19667in</Top>
+            <Left>0.55083in</Left>
+            <Height>0.5in</Height>
+            <Width>3in</Width>
+            <ZIndex>1</ZIndex>
+            <Style>
+              <Border>
+                <Style>None</Style>
+              </Border>
+            </Style>
+          </Tablix>
+        </ReportItems>
+        <Height>2in</Height>
+        <Style />
+      </Body>
+      <Width>15.89293in</Width>
+      <Page>
+        <LeftMargin>1in</LeftMargin>
+        <RightMargin>1in</RightMargin>
+        <TopMargin>1in</TopMargin>
+        <BottomMargin>1in</BottomMargin>
+        <Style />
+      </Page>
+    </ReportSection>
+  </ReportSections>
+  <ReportParametersLayout>
+    <GridLayoutDefinition>
+      <NumberOfColumns>4</NumberOfColumns>
+      <NumberOfRows>2</NumberOfRows>
+    </GridLayoutDefinition>
+  </ReportParametersLayout>
+  <rd:ReportUnitType>Inch</rd:ReportUnitType>
+  <rd:ReportID>74529562-d7a4-41e4-9ccb-f85d6ce89241</rd:ReportID>
+</Report>
