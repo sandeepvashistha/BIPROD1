@@ -13,45 +13,82 @@
     <DataSet Name="BISQL01">
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
+        <QueryParameters>
+          <QueryParameter Name="@ReportMonth">
+            <Value>=Parameters!ReportMonth.Value</Value>
+          </QueryParameter>
+        </QueryParameters>
         <CommandText>SELECT
+  a.DIST_ID,
+  a.Native_Name,
+  a.ENTRY_DATE,
+  MAX(ISNULL(RNW.NEXT_RENEW_DATE,a.NEXT_RENEW_DATE)) as Next_Renew_Date,
+  MAX(ISNULL(RNW.LAST_RENEW_DATE,a.LAST_RENEW_DATE)) as Last_Renew_Date,
+  a.DIST_STATUS,
+  DSS.STATUS_DESC,
+  a.[ORGANIZATIONAL_VOLUME],
+  a.END_RANK,
+  RANK.TITLE,
+  a.SPONSOR_ID,
+  ISNULL(SAPDW_DST_SPONSOR.REAL_NATIVE_NAME_1,SAPDW_DST_SPONSOR.NATIVE_NAME_1) as SPONSOR_NATIVE_NAME,
+  MAX(ISNULL(SPO_RNW.NEXT_RENEW_DATE,SAPDW_DST_SPONSOR.NEXT_RENEW_DATE)) as SPO_NEXT_RENEW_DATE,
+  SAPDW_DST_SPONSOR.DIST_STATUS SPO_DIST_STATUS,
+  SAPDW_DST_SPONSOR.UNI_MKTING_UNIT,
+  SAPDW_DST_SPONSOR.COUNTRY_CODE
+FROM
+(
+SELECT
   DST.DIST_ID,
   ISNULL(DST.REAL_NATIVE_NAME_1,DST.NATIVE_NAME_1) as Native_Name,
   DST.ENTRY_DATE,
-  MAX(ISNULL(RNW.NEXT_RENEW_DATE,DST.NEXT_RENEW_DATE)) as Next_Renew_Date,
-  MAX(ISNULL(RNW.LAST_RENEW_DATE,DST.LAST_RENEW_DATE)) as Last_Renew_Date,
+  DST.NEXT_RENEW_DATE,
+  DST.LAST_RENEW_DATE,
+  DST.UNI_MKTING_UNIT,
   DST.DIST_STATUS,
-  --DSS.STATUS_DESC,
-  BWT.VOL3 [ORGANIZATIONAL_VOLUME],
-  BWT.END_RANK,
-  RANK.TITLE,
-  SAPDW_DST_SPONSOR.DIST_ID as SPONSOR_ID,
-  ISNULL(SAPDW_DST_SPONSOR.REAL_NATIVE_NAME_1,SAPDW_DST_SPONSOR.NATIVE_NAME_1) as SPONSOR_NATIVE_NAME,
-  MAX(ISNULL(SPO_RNW.NEXT_RENEW_DATE,SAPDW_DST_SPONSOR.NEXT_RENEW_DATE)) as SPO_NEXT_RENEW_DATE,
-  SAPDW_DST_SPONSOR.DIST_STATUS SPO_DIST_STATUS
+  sum(BWT.VOL1) [PV],
+  sum(case when BWT.PV_DATE_DATE = CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, @ReportMonth)-1, 0) AS DATE) THEN BWT.VOL3 ELSE 0 END) [ORGANIZATIONAL_VOLUME],
+  sum(case when BWT.PV_DATE_DATE = CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, @ReportMonth)-1, 0) AS DATE) THEN BWT.END_RANK ELSE 0 END) END_RANK,
+  DST.SPONSOR_DIST_ID as SPONSOR_ID,
+  DST.MDIST
 FROM
   DW.dbo.DST
-  LEFT OUTER JOIN DW.dbo.DST  SAPDW_DST_SPONSOR ON ( DST.SPONSOR_DIST_ID = SAPDW_DST_SPONSOR.DIST_ID )
-  LEFT OUTER JOIN DW.dbo.RNW ON ( DST.MDIST = RNW.MDIST )
-  --LEFT OUTER JOIN DW.dbo.DSS ON ( DST.UNI_MKTING_UNIT=DSS.MKTING_UNIT AND DST.DIST_STATUS = DSS.STATUS_CODE )
-  LEFT OUTER JOIN DW.dbo.BWT_CURRENT BWT ON (BWT.DIST_ID=DST.DIST_ID)
-  LEFT OUTER JOIN DW.dbo.RANK ON (RANK.MARKET=BWT.MARKETING_UNIT AND RANK.RANK=BWT.END_RANK)
-  LEFT OUTER JOIN DW.dbo.RNW SPO_RNW ON ( SAPDW_DST_SPONSOR.MDIST = SPO_RNW.MDIST )
+  INNER JOIN DW.dbo.BWT BWT ON (BWT.DIST_ID=DST.DIST_ID)
 WHERE
    DST.UNI_MKTING_UNIT = 81 AND DST.COUNTRY_CODE = 'JPN'
    AND DST.DIST_STATUS='S' 
-   --and dst.dist_id=22327281 --47127881
+   --and dst.dist_id=101983681
+   and bwt.pv_date_date between DATEADD(MONTH, DATEDIFF(MONTH, 0, @ReportMonth)-14, 0) and DATEADD(MONTH, DATEDIFF(MONTH, 0, @ReportMonth)-1, 0) --47127881
 GROUP BY
-  DST.DIST_ID, 
-  ISNULL(DST.REAL_NATIVE_NAME_1,DST.NATIVE_NAME_1), 
-  DST.ENTRY_DATE, 
-  DST.DIST_STATUS, 
-  --DSS.STATUS_DESC,
-  BWT.VOL3,
-  BWT.END_RANK,
+DST.DIST_ID,
+  ISNULL(DST.REAL_NATIVE_NAME_1,DST.NATIVE_NAME_1),
+  DST.ENTRY_DATE,
+  DST.NEXT_RENEW_DATE,
+  DST.LAST_RENEW_DATE,
+  DST.UNI_MKTING_UNIT,
+  DST.DIST_STATUS,
+  DST.SPONSOR_DIST_ID,
+  DST.MDIST
+HAVING sum(BWT.VOL1)&lt;=0
+) a
+LEFT OUTER JOIN DW.dbo.DST  SAPDW_DST_SPONSOR ON ( a.SPONSOR_ID = SAPDW_DST_SPONSOR.DIST_ID )
+LEFT OUTER JOIN DW.dbo.RNW ON ( a.MDIST = RNW.MDIST )
+LEFT OUTER JOIN DW.dbo.DSS ON ( a.UNI_MKTING_UNIT=DSS.MKTING_UNIT AND a.DIST_STATUS = DSS.STATUS_CODE )
+LEFT OUTER JOIN DW.dbo.RANK ON (RANK.MARKET=a.UNI_MKTING_UNIT AND RANK.RANK=a.END_RANK)
+LEFT OUTER JOIN DW.dbo.RNW SPO_RNW ON ( SAPDW_DST_SPONSOR.MDIST = SPO_RNW.MDIST )
+GROUP BY
+a.DIST_ID,
+  a.Native_Name,
+  a.ENTRY_DATE,
+  a.DIST_STATUS,
+  DSS.STATUS_DESC,
+  a.[ORGANIZATIONAL_VOLUME],
+  a.END_RANK,
   RANK.TITLE,
-  SAPDW_DST_SPONSOR.DIST_ID,
+  a.SPONSOR_ID,
   ISNULL(SAPDW_DST_SPONSOR.REAL_NATIVE_NAME_1,SAPDW_DST_SPONSOR.NATIVE_NAME_1),
-  SAPDW_DST_SPONSOR.DIST_STATUS</CommandText>
+  SAPDW_DST_SPONSOR.DIST_STATUS,
+  SAPDW_DST_SPONSOR.UNI_MKTING_UNIT,
+  SAPDW_DST_SPONSOR.COUNTRY_CODE</CommandText>
       </Query>
       <Fields>
         <Field Name="DIST_ID">
@@ -76,6 +113,10 @@ GROUP BY
         </Field>
         <Field Name="DIST_STATUS">
           <DataField>DIST_STATUS</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="STATUS_DESC">
+          <DataField>STATUS_DESC</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
         <Field Name="ORGANIZATIONAL_VOLUME">
@@ -104,6 +145,14 @@ GROUP BY
         </Field>
         <Field Name="SPO_DIST_STATUS">
           <DataField>SPO_DIST_STATUS</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="UNI_MKTING_UNIT">
+          <DataField>UNI_MKTING_UNIT</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="COUNTRY_CODE">
+          <DataField>COUNTRY_CODE</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
       </Fields>
@@ -148,6 +197,12 @@ GROUP BY
                 </TablixColumn>
                 <TablixColumn>
                   <Width>2in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1in</Width>
@@ -888,6 +943,118 @@ GROUP BY
                         </Textbox>
                       </CellContents>
                     </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox4">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Master Marketing Unit</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox4</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>CornflowerBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox12">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Master Country Code</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox12</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>CornflowerBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
                   </TablixCells>
                 </TablixRow>
                 <TablixRow>
@@ -1506,12 +1673,120 @@ GROUP BY
                         </Textbox>
                       </CellContents>
                     </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="UNI_MKTING_UNIT">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!UNI_MKTING_UNIT.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Left</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>UNI_MKTING_UNIT</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="COUNTRY_CODE">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!COUNTRY_CODE.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Left</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>COUNTRY_CODE</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
                   </TablixCells>
                 </TablixRow>
               </TablixRows>
             </TablixBody>
             <TablixColumnHierarchy>
               <TablixMembers>
+                <TablixMember />
+                <TablixMember />
                 <TablixMember />
                 <TablixMember />
                 <TablixMember />
@@ -1545,7 +1820,7 @@ GROUP BY
               </SortExpression>
             </SortExpressions>
             <Height>0.5in</Height>
-            <Width>14.77083in</Width>
+            <Width>16.77083in</Width>
             <Style>
               <Border>
                 <Style>None</Style>
@@ -1556,7 +1831,7 @@ GROUP BY
         <Height>0.5in</Height>
         <Style />
       </Body>
-      <Width>14.77083in</Width>
+      <Width>16.77083in</Width>
       <Page>
         <LeftMargin>1in</LeftMargin>
         <RightMargin>1in</RightMargin>
@@ -1566,10 +1841,23 @@ GROUP BY
       </Page>
     </ReportSection>
   </ReportSections>
+  <ReportParameters>
+    <ReportParameter Name="ReportMonth">
+      <DataType>DateTime</DataType>
+      <Prompt>Report Month</Prompt>
+    </ReportParameter>
+  </ReportParameters>
   <ReportParametersLayout>
     <GridLayoutDefinition>
       <NumberOfColumns>4</NumberOfColumns>
       <NumberOfRows>1</NumberOfRows>
+      <CellDefinitions>
+        <CellDefinition>
+          <ColumnIndex>0</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>ReportMonth</ParameterName>
+        </CellDefinition>
+      </CellDefinitions>
     </GridLayoutDefinition>
   </ReportParametersLayout>
   <rd:ReportUnitType>Inch</rd:ReportUnitType>
