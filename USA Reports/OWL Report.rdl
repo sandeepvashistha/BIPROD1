@@ -173,16 +173,16 @@ ON (iv.[uni_company_name] = indepFC.[uni_company_name] and iv.[No_] = indepFC.[N
 LEFT OUTER JOIN --***INDEPENDENT ON HAND***
 	(SELECT	iv3.[uni_company_name], iv3.[No_], sum(whev.[Qty_ (Base)]) as IndOnHand, 
 	SUM(CASE WHEN whev.[Location Code] ='NV' THEN whev.[Qty_ (Base)] ELSE 0 END) AS "NV OH",
-	SUM(CASE WHEN whev.[Location Code] ='OREM' THEN whev.[Qty_ (Base)] ELSE 0 END) AS "OREM OH",
+	--SUM(CASE WHEN whev.[Location Code] ='OREM' THEN whev.[Qty_ (Base)] ELSE 0 END) AS "OREM OH",
 	SUM(CASE WHEN whev.[Location Code] ='PUERTORICO' THEN whev.[Qty_ (Base)] ELSE 0 END) AS "PR OH",
-	SUM(CASE WHEN whev.[Location Code] ='ATLSC' THEN whev.[Qty_ (Base)] ELSE 0 END) AS "ATL OH",
-	SUM(CASE WHEN whev.[Location Code] ='ES MEDIA' THEN whev.[Qty_ (Base)] ELSE 0 END) AS "ESM OH"
+	SUM(CASE WHEN whev.[Location Code] ='ATLSC' THEN whev.[Qty_ (Base)] ELSE 0 END) AS "ATL OH"
+	--SUM(CASE WHEN whev.[Location Code] ='ES MEDIA' THEN whev.[Qty_ (Base)] ELSE 0 END) AS "ESM OH"
 	FROM [Prod_Navision].[dbo].item_nc_vw as iv3
 	LEFT OUTER JOIN Prod_Navision.dbo.[Warehouse_Entry_nc_vw] as whev
 		ON ( iv3.[uni_company_name] = whev.[uni_company_name] and iv3.[No_] = whev.[Item No_] )
 		LEFT OUTER JOIN [Prod_Navision].[dbo].[Location_nc_vw] as lv
 			ON (whev.[uni_company_name] = lv.[uni_company_name] and whev.[Location Code] = lv.[Code] )
-	WHERE lv.[Non-Nettable] = 0 or whev.[Location Code] ='OREM' /*and whev.[Location Code] ='NV'*/
+	WHERE  whev.[uni_company_name]in ('USA') and lv.[Non-Nettable] = 0 --or whev.[Location Code] ='OREM'  /*and whev.[Location Code] ='NV'*/
 	GROUP BY iv3.[uni_company_name], iv3.[No_]
 	) indepOH
 ON (iv.[uni_company_name] = indepOH.[uni_company_name] and iv.[No_] = indepOH.[No_])
@@ -194,7 +194,7 @@ ON (iv.[uni_company_name] = indepOH.[uni_company_name] and iv.[No_] = indepOH.[N
 	[Prod_Navision].[dbo].item_nc_vw as iv4
 	LEFT OUTER JOIN [Prod_Navision].[dbo].[Purchase_Line_nc_vw] as pl
 		ON ( iv4.[uni_company_name] = pl.[uni_company_name] and iv4.[No_] = pl.[No_] )
-	WHERE pl.[Outstanding Quantity] &gt; 0 and pl.[No_] &lt;&gt; '' and pl.[uni_company_name] in ('UII Corp', 'USA' )
+	WHERE pl.[Outstanding Quantity] &gt; 0 and pl.[No_] &lt;&gt; '' and pl.[uni_company_name] in ('USA')
 	) POone
 ON (iv.[uni_company_name] = POone.[uni_company_name] and iv.[No_] = POone.[No_])
 
@@ -202,7 +202,7 @@ LEFT OUTER JOIN --***1ST MONTH SALES ORDERS***
 	(SELECT sl.[No_], SUM(sl.[Quantity]) as "1stMoSOs"
 	FROM [Prod_Navision].[dbo].[Sales_Line_nc_vw] sl
 	WHERE
-		sl.[uni_company_name] in ('UII Corp', 'USA' ) and 
+		sl.[uni_company_name] in ('USA') and 
 		sl.[Sell-to Customer No_] &lt;&gt; '' and 
 		sl.[Quantity] &gt; 0 and 
 		sl.[Shipment Date] &lt;= DATEADD(DD, -1, DATEADD(mm, DATEDIFF(m, 0, GETDATE()) + 1, 0))
@@ -214,7 +214,7 @@ LEFT OUTER JOIN --***2ND MONTH SALES ORDERS***
 	(SELECT sl2.[No_], SUM(sl2.[Quantity]) as "2ndMoSOs"
 	FROM [Prod_Navision].[dbo].[Sales_Line_nc_vw] sl2
 	WHERE
-		sl2.[uni_company_name] in ('UII Corp', 'USA' ) and 
+		sl2.[uni_company_name] in ('USA') and 
 		sl2.[Sell-to Customer No_] &lt;&gt; '' and 
 		sl2.[Quantity] &gt; 0 and 
 		sl2.[Shipment Date] BETWEEN DATEADD(MM, 1, DATEADD(mm, DATEDIFF(mm, 0, GETDATE()), 0)) AND DATEADD(DD, -1, DATEADD(mm, DATEDIFF(m, 0, GETDATE()) + 2, 0))
@@ -238,7 +238,7 @@ left join --***Atlanta In-Transit***-
 		left outer join Prod_Navision.dbo.Item_nc_vw as iv
 			on (tl.[Item No_] = iv.[Vendor Item No_] and tl.[uni_company_name]=iv.[uni_company_name])
 			WHERE 
-		tl.[uni_company_name] in ('UII Corp', 'USA' ) 
+		tl.[uni_company_name] in ('USA')
 		and tl.[Outstanding Quantity] &gt; 0
 		and tl.[Transfer-to Code] = 'ATLSC'
 		and tl.[Status] = 1
@@ -261,7 +261,7 @@ left join --***PR In-Transit***-
 		left outer join Prod_Navision.dbo.Item_nc_vw as iv
 			on (tl.[Item No_] = iv.[Vendor Item No_] and tl.[uni_company_name]=iv.[uni_company_name])
 			WHERE 
-		tl.[uni_company_name] in ('UII Corp', 'USA' ) 
+		tl.[uni_company_name] in ('USA') 
 		and tl.[Outstanding Quantity] &gt; 0
 		and tl.[Transfer-to Code] = 'Puertorico'
 		and tl.[Status] = 1
@@ -292,7 +292,7 @@ left join --***US In-Transit***
 WHERE
 iv.[Item Status] IN ('0', '1') and
 iv.[Item Type] in ('2','4','8') and
-iv.[uni_company_name] in ('UII Corp', 'USA' ) and
+iv.[uni_company_name] in ('USA') and
 --iv.[Planner] = 'USA' and
 indepFC.IndependentFC &lt;&gt; 0 and
  CASE WHEN POone.Ranking = 1 THEN 1
@@ -353,6 +353,7 @@ US_IT.[Qty]
 
 ORDER BY
 (indepOH.[NV OH]/indepFC.IndependentFC)*4.35 asc
+
 
 </CommandText>
       </Query>
