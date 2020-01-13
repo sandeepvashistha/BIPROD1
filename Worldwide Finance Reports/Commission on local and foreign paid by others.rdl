@@ -24,44 +24,168 @@
             <Value>=Parameters!EndPVDate.Value</Value>
           </QueryParameter>
         </QueryParameters>
-        <CommandText>select 
-	btr.pv_date_date,
-	substring((case when (dst.country_code = @Country and btr.target_country = @Country and btr.source_country = @Country )
+        <CommandText>select btr.dist_id as paid_to_dist, dst.roman_name_1 as paid_to_nm ,dst.country_code as paid_to_homecountry, btr.target_country,btr.pv_date_date,  
+btr.bonus_type, btr.paid_level,btr.BTR_LEVEL,
+(case 
+	when btr.bonus_type=1 then 'Retail Profit'
+	when btr.bonus_type=2 then 'PC Profit'
+	when btr.bonus_type=3 then 'Personal Rebate Asia'
+	when btr.bonus_type=4 then 'Enroller Rewards'
+	when btr.bonus_type=5 then 'Elite Match'
+	when btr.bonus_type=6 then 'Team Commissions'
+	when btr.bonus_type=7 then 'Business Development'
+	when btr.bonus_type=8 then 'Fast Start Asia'
+	when btr.bonus_type=9 then 'Autoship Bonus'
+	when btr.bonus_type=10 then 'Phase 1'
+	when btr.bonus_type=11 then 'Elite Level Bonus'
+	when btr.bonus_type=12 then 'Management Group Bonus'
+	when btr.bonus_type=13 then 'Generation'
+	when btr.bonus_type=14 then 'Courtesy Bonus'
+	when btr.bonus_type=15 then 'Infinity Bonus'
+	when btr.bonus_type=16 then 'Car Bonus'
+	when btr.bonus_type=17 then 'Lifestyle Bonus'
+	when btr.bonus_type=18 then 'PCA Bonus'
+	when btr.bonus_type=22 then 'Personal Rebate'
+	when btr.bonus_type=23 then 'Royalties'
+	when btr.bonus_type=24 then 'Fast Start'
+	when btr.bonus_type=25 then 'ITA Lvl Bonus'
+	when btr.bonus_type=26 then 'PHL Fast Start'
+	when btr.bonus_type=27 then 'Leadership Growth Bonus'
+	when btr.bonus_type=28 then 'DLB'
+	when btr.bonus_type=29 then 'OV Legs'
+	when btr.bonus_type=30 then 'Manual Adjustments'
+end) descri,
+btr.sold_dist_id, btr.sold_name,sd.country_code as sold_to_homecountry, btr.source_country,
+substring((case when (dst.country_code = @Country and btr.target_country = @Country and btr.source_country = @Country )
                                    then '1Local Volume'
-                when (dst.country_code = @Country and sd.country_code = @Country and btr.target_country = @Country and btr.source_country &lt;&gt; @Country )
+                when (dst.country_code = @Country and btr.target_country &lt;&gt; @Country and btr.source_country = @Country )
                                    then '2Foreign Volume' 
-                when (dst.country_code = @Country and sd.country_code &lt;&gt; @Country and btr.target_country = @Country and btr.source_country &lt;&gt; @Country )
+                when (dst.country_code &lt;&gt; @Country and btr.target_country &lt;&gt; @Country and btr.source_country = @Country )
                                    then '3Foreign Downlines Volume' 
                         else '4N/A' end) ,0,50) [Paid From],
-	sum(converted_bonus) as Com_LCY
+btr_percent,conversion_rate, sum(converted_bonus) as Com_LCY, sum(amount_1) as PV,sum(bonus) Bonus
 from dw.dbo.btr 
 join dw.dbo.dst on btr.dist_id = dst.dist_id
 join dw.dbo.dst sd on btr.sold_dist_id = sd.dist_id
 where btr.pv_date_date between @BeginPVDate and @EndPVDate
-and ( (btr.SOURCE_COUNTRY = @Country and btr.TARGET_COUNTRY = @Country) OR
-       --(btr.SOURCE_COUNTRY = @Country and btr.TARGET_COUNTRY &lt;&gt; @Country) OR
-      (btr.SOURCE_COUNTRY &lt;&gt; @Country and btr.TARGET_COUNTRY = @Country))
-group by btr.pv_date_date,
+and ( btr.SOURCE_COUNTRY = @Country or (@Country='JPNN' and btr.SOURCE_COUNTRY = 'USA' and btr.source_unit  = '65'))
+group by btr.dist_id, dst.roman_name_1,dst.country_code, btr.target_country,btr.pv_date_date,  
+btr.bonus_type, btr.paid_level,btr.BTR_LEVEL,
+(case 
+	when btr.bonus_type=1 then 'Retail Profit'
+	when btr.bonus_type=2 then 'PC Profit'
+	when btr.bonus_type=3 then 'Personal Rebate Asia'
+	when btr.bonus_type=4 then 'Enroller Rewards'
+	when btr.bonus_type=5 then 'Elite Match'
+	when btr.bonus_type=6 then 'Team Commissions'
+	when btr.bonus_type=7 then 'Business Development'
+	when btr.bonus_type=8 then 'Fast Start Asia'
+	when btr.bonus_type=9 then 'Autoship Bonus'
+	when btr.bonus_type=10 then 'Phase 1'
+	when btr.bonus_type=11 then 'Elite Level Bonus'
+	when btr.bonus_type=12 then 'Management Group Bonus'
+	when btr.bonus_type=13 then 'Generation'
+	when btr.bonus_type=14 then 'Courtesy Bonus'
+	when btr.bonus_type=15 then 'Infinity Bonus'
+	when btr.bonus_type=16 then 'Car Bonus'
+	when btr.bonus_type=17 then 'Lifestyle Bonus'
+	when btr.bonus_type=18 then 'PCA Bonus'
+	when btr.bonus_type=22 then 'Personal Rebate'
+	when btr.bonus_type=23 then 'Royalties'
+	when btr.bonus_type=24 then 'Fast Start'
+	when btr.bonus_type=25 then 'ITA Lvl Bonus'
+	when btr.bonus_type=26 then 'PHL Fast Start'
+	when btr.bonus_type=27 then 'Leadership Growth Bonus'
+	when btr.bonus_type=28 then 'DLB'
+	when btr.bonus_type=29 then 'OV Legs'
+	when btr.bonus_type=30 then 'Manual Adjustments'
+end),
+btr.sold_dist_id, btr.sold_name,sd.country_code, btr.source_country,
 substring((case when (dst.country_code = @Country and btr.target_country = @Country and btr.source_country = @Country )
                                    then '1Local Volume'
-                when (dst.country_code = @Country and sd.country_code = @Country and btr.target_country = @Country and btr.source_country &lt;&gt; @Country )
+                when (dst.country_code = @Country and btr.target_country &lt;&gt; @Country and btr.source_country = @Country )
                                    then '2Foreign Volume' 
-                when (dst.country_code = @Country and sd.country_code &lt;&gt; @Country and btr.target_country = @Country and btr.source_country &lt;&gt; @Country )
+                when (dst.country_code &lt;&gt; @Country and btr.target_country &lt;&gt; @Country and btr.source_country = @Country )
                                    then '3Foreign Downlines Volume' 
-                        else '4N/A' end) ,0,50)
+                        else '4N/A' end) ,0,50),
+btr_percent,conversion_rate
 having sum(bonus) &gt; 0 OR sum(converted_bonus) &gt; 0</CommandText>
       </Query>
       <Fields>
+        <Field Name="paid_to_dist">
+          <DataField>paid_to_dist</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
         <Field Name="pv_date_date">
           <DataField>pv_date_date</DataField>
           <rd:TypeName>System.DateTime</rd:TypeName>
+        </Field>
+        <Field Name="paid_to_nm">
+          <DataField>paid_to_nm</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
         </Field>
         <Field Name="Paid_From">
           <DataField>Paid From</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
+        <Field Name="paid_to_homecountry">
+          <DataField>paid_to_homecountry</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
         <Field Name="Com_LCY">
           <DataField>Com_LCY</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="bonus">
+          <DataField>Bonus</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="target_country">
+          <DataField>target_country</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="bonus_type">
+          <DataField>bonus_type</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="paid_level">
+          <DataField>paid_level</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="BTR_LEVEL">
+          <DataField>BTR_LEVEL</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="descri">
+          <DataField>descri</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="sold_dist_id">
+          <DataField>sold_dist_id</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="sold_name">
+          <DataField>sold_name</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="sold_to_homecountry">
+          <DataField>sold_to_homecountry</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="source_country">
+          <DataField>source_country</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="btr_percent">
+          <DataField>btr_percent</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="conversion_rate">
+          <DataField>conversion_rate</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="PV">
+          <DataField>PV</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
       </Fields>
@@ -111,21 +235,19 @@ end) descri,
 btr.sold_dist_id, btr.sold_name,sd.country_code as sold_to_homecountry, btr.source_country,
 substring((case when (dst.country_code = @Country and btr.target_country = @Country and btr.source_country = @Country )
                                    then '1Local Volume'
-                when (dst.country_code = @Country and sd.country_code = @Country and btr.target_country = @Country and btr.source_country &lt;&gt; @Country )
+                when (dst.country_code = @Country and btr.target_country &lt;&gt; @Country and btr.source_country = @Country )
                                    then '2Foreign Volume' 
-                when (dst.country_code = @Country and sd.country_code &lt;&gt; @Country and btr.target_country = @Country and btr.source_country &lt;&gt; @Country )
+                when (dst.country_code &lt;&gt; @Country and btr.target_country &lt;&gt; @Country and btr.source_country = @Country )
                                    then '3Foreign Downlines Volume' 
                         else '4N/A' end) ,0,50) [Paid From],
-btr_percent,conversion_rate, sum(converted_bonus) as Com_LCY, sum(amount_1) as PV
+btr_percent,conversion_rate, sum(converted_bonus) as Com_LCY, sum(amount_1) as PV,sum(bonus) Bonus
 from dw.dbo.btr 
 join dw.dbo.dst on btr.dist_id = dst.dist_id
 join dw.dbo.dst sd on btr.sold_dist_id = sd.dist_id
 where btr.pv_date_date = DATEADD(MONTH, DATEDIFF(MONTH, 0, @EndPVDate), 0)
-and ( (btr.SOURCE_COUNTRY = @Country and btr.TARGET_COUNTRY = @Country) OR
-       --(btr.SOURCE_COUNTRY = @Country and btr.TARGET_COUNTRY &lt;&gt; @Country) OR
-      (btr.SOURCE_COUNTRY &lt;&gt; @Country and btr.TARGET_COUNTRY = @Country))
-group by btr.dist_id, dst.roman_name_1, dst.country_code,btr.target_country, btr.pv_date_date, btr.bonus_type, btr.paid_level,
-btr.sold_dist_id, btr.sold_name, sd.country_code, btr.source_country,btr.BTR_LEVEL,
+and ( btr.SOURCE_COUNTRY = @Country or (@Country='JPNN' and btr.SOURCE_COUNTRY = 'USA' and btr.source_unit  = '65'))
+group by btr.dist_id, dst.roman_name_1,dst.country_code, btr.target_country,btr.pv_date_date,  
+btr.bonus_type, btr.paid_level,btr.BTR_LEVEL,
 (case 
 	when btr.bonus_type=1 then 'Retail Profit'
 	when btr.bonus_type=2 then 'PC Profit'
@@ -155,6 +277,14 @@ btr.sold_dist_id, btr.sold_name, sd.country_code, btr.source_country,btr.BTR_LEV
 	when btr.bonus_type=29 then 'OV Legs'
 	when btr.bonus_type=30 then 'Manual Adjustments'
 end),
+btr.sold_dist_id, btr.sold_name,sd.country_code, btr.source_country,
+substring((case when (dst.country_code = @Country and btr.target_country = @Country and btr.source_country = @Country )
+                                   then '1Local Volume'
+                when (dst.country_code = @Country and btr.target_country &lt;&gt; @Country and btr.source_country = @Country )
+                                   then '2Foreign Volume' 
+                when (dst.country_code &lt;&gt; @Country and btr.target_country &lt;&gt; @Country and btr.source_country = @Country )
+                                   then '3Foreign Downlines Volume' 
+                        else '4N/A' end) ,0,50),
 btr_percent,conversion_rate
 having sum(bonus) &gt; 0 OR sum(converted_bonus) &gt; 0</CommandText>
       </Query>
@@ -229,6 +359,10 @@ having sum(bonus) &gt; 0 OR sum(converted_bonus) &gt; 0</CommandText>
         </Field>
         <Field Name="PV">
           <DataField>PV</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="Bonus">
+          <DataField>Bonus</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
       </Fields>
@@ -437,6 +571,37 @@ order by country_code;</CommandText>
                   </TablixCornerCell>
                   <TablixCornerCell>
                     <CellContents>
+                      <Textbox Name="Textbox12">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value />
+                                <Style>
+                                  <FontFamily>Arial</FontFamily>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style />
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox12</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>None</Style>
+                          </Border>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixCornerCell>
+                  <TablixCornerCell>
+                    <CellContents>
                       <Textbox Name="Textbox83">
                         <CanGrow>true</CanGrow>
                         <KeepTogether>true</KeepTogether>
@@ -613,35 +778,6 @@ order by country_code;</CommandText>
                   </TablixCornerCell>
                   <TablixCornerCell>
                     <CellContents>
-                      <Textbox Name="Textbox88">
-                        <CanGrow>true</CanGrow>
-                        <KeepTogether>true</KeepTogether>
-                        <Paragraphs>
-                          <Paragraph>
-                            <TextRuns>
-                              <TextRun>
-                                <Value />
-                                <Style />
-                              </TextRun>
-                            </TextRuns>
-                            <Style />
-                          </Paragraph>
-                        </Paragraphs>
-                        <rd:DefaultName>Textbox88</rd:DefaultName>
-                        <Style>
-                          <Border>
-                            <Style>None</Style>
-                          </Border>
-                          <PaddingLeft>2pt</PaddingLeft>
-                          <PaddingRight>2pt</PaddingRight>
-                          <PaddingTop>2pt</PaddingTop>
-                          <PaddingBottom>2pt</PaddingBottom>
-                        </Style>
-                      </Textbox>
-                    </CellContents>
-                  </TablixCornerCell>
-                  <TablixCornerCell>
-                    <CellContents>
                       <Textbox Name="Textbox89">
                         <CanGrow>true</CanGrow>
                         <KeepTogether>true</KeepTogether>
@@ -705,7 +841,7 @@ order by country_code;</CommandText>
                           <Paragraph>
                             <TextRuns>
                               <TextRun>
-                                <Value>paid to dist</Value>
+                                <Value>sold to dist</Value>
                                 <Style>
                                   <FontWeight>Bold</FontWeight>
                                 </Style>
@@ -759,7 +895,7 @@ order by country_code;</CommandText>
                           <Paragraph>
                             <TextRuns>
                               <TextRun>
-                                <Value>paid to nm</Value>
+                                <Value>sold name</Value>
                                 <Style>
                                   <FontWeight>Bold</FontWeight>
                                 </Style>
@@ -771,6 +907,61 @@ order by country_code;</CommandText>
                           </Paragraph>
                         </Paragraphs>
                         <rd:DefaultName>Textbox7</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
+                          <BackgroundColor>LightBlue</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixCornerCell>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox14">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>source country</Value>
+                                <Style>
+                                  <FontFamily>Arial</FontFamily>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox14</rd:DefaultName>
                         <Style>
                           <Border>
                             <Style>Solid</Style>
@@ -1030,7 +1221,7 @@ order by country_code;</CommandText>
                           <Paragraph>
                             <TextRuns>
                               <TextRun>
-                                <Value>sold dist id</Value>
+                                <Value>paid dist id</Value>
                                 <Style>
                                   <FontWeight>Bold</FontWeight>
                                 </Style>
@@ -1084,7 +1275,7 @@ order by country_code;</CommandText>
                           <Paragraph>
                             <TextRuns>
                               <TextRun>
-                                <Value>sold name</Value>
+                                <Value>paid to nm</Value>
                                 <Style>
                                   <FontWeight>Bold</FontWeight>
                                 </Style>
@@ -1131,60 +1322,6 @@ order by country_code;</CommandText>
                   </TablixCornerCell>
                   <TablixCornerCell>
                     <CellContents>
-                      <Textbox Name="Textbox19">
-                        <CanGrow>true</CanGrow>
-                        <KeepTogether>true</KeepTogether>
-                        <Paragraphs>
-                          <Paragraph>
-                            <TextRuns>
-                              <TextRun>
-                                <Value>sold to homecountry</Value>
-                                <Style>
-                                  <FontWeight>Bold</FontWeight>
-                                </Style>
-                              </TextRun>
-                            </TextRuns>
-                            <Style>
-                              <TextAlign>Center</TextAlign>
-                            </Style>
-                          </Paragraph>
-                        </Paragraphs>
-                        <rd:DefaultName>Textbox19</rd:DefaultName>
-                        <Style>
-                          <Border>
-                            <Style>Solid</Style>
-                          </Border>
-                          <TopBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </TopBorder>
-                          <BottomBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </BottomBorder>
-                          <LeftBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </LeftBorder>
-                          <RightBorder>
-                            <Color>Black</Color>
-                            <Style>Solid</Style>
-                            <Width>1pt</Width>
-                          </RightBorder>
-                          <BackgroundColor>LightBlue</BackgroundColor>
-                          <PaddingLeft>2pt</PaddingLeft>
-                          <PaddingRight>2pt</PaddingRight>
-                          <PaddingTop>2pt</PaddingTop>
-                          <PaddingBottom>2pt</PaddingBottom>
-                        </Style>
-                      </Textbox>
-                    </CellContents>
-                  </TablixCornerCell>
-                  <TablixCornerCell>
-                    <CellContents>
                       <Textbox Name="Textbox21">
                         <CanGrow>true</CanGrow>
                         <KeepTogether>true</KeepTogether>
@@ -1192,7 +1329,7 @@ order by country_code;</CommandText>
                           <Paragraph>
                             <TextRuns>
                               <TextRun>
-                                <Value>source country</Value>
+                                <Value>target country</Value>
                                 <Style>
                                   <FontWeight>Bold</FontWeight>
                                 </Style>
@@ -1599,30 +1736,38 @@ order by country_code;</CommandText>
                   <Group Name="paid_to_dist">
                     <GroupExpressions>
                       <GroupExpression>=Fields!paid_to_dist.Value</GroupExpression>
+                      <GroupExpression>=Fields!paid_to_nm.Value</GroupExpression>
+                      <GroupExpression>=Fields!bonus_type.Value</GroupExpression>
+                      <GroupExpression>=Fields!paid_level.Value</GroupExpression>
+                      <GroupExpression>=Fields!sold_dist_id.Value</GroupExpression>
+                      <GroupExpression>=Fields!target_country.Value</GroupExpression>
+                      <GroupExpression>=Fields!source_country.Value</GroupExpression>
+                      <GroupExpression>=Fields!btr_percent.Value</GroupExpression>
+                      <GroupExpression>=Fields!sold_name.Value</GroupExpression>
                     </GroupExpressions>
                   </Group>
                   <SortExpressions>
                     <SortExpression>
-                      <Value>=Fields!paid_to_dist.Value</Value>
+                      <Value>=Fields!sold_dist_id.Value</Value>
                     </SortExpression>
                   </SortExpressions>
                   <TablixHeader>
                     <Size>1in</Size>
                     <CellContents>
-                      <Textbox Name="paid_to_dist">
+                      <Textbox Name="sold_dist_id1">
                         <KeepTogether>true</KeepTogether>
                         <Paragraphs>
                           <Paragraph>
                             <TextRuns>
                               <TextRun>
-                                <Value>=Fields!paid_to_dist.Value</Value>
+                                <Value>=Fields!sold_dist_id.Value</Value>
                                 <Style />
                               </TextRun>
                             </TextRuns>
                             <Style />
                           </Paragraph>
                         </Paragraphs>
-                        <rd:DefaultName>paid_to_dist</rd:DefaultName>
+                        <rd:DefaultName>sold_dist_id1</rd:DefaultName>
                         <Style>
                           <Border>
                             <Style>Solid</Style>
@@ -1657,33 +1802,23 @@ order by country_code;</CommandText>
                   </TablixHeader>
                   <TablixMembers>
                     <TablixMember>
-                      <Group Name="paid_to_nm">
-                        <GroupExpressions>
-                          <GroupExpression>=Fields!paid_to_nm.Value</GroupExpression>
-                        </GroupExpressions>
-                      </Group>
-                      <SortExpressions>
-                        <SortExpression>
-                          <Value>=Fields!paid_to_nm.Value</Value>
-                        </SortExpression>
-                      </SortExpressions>
                       <TablixHeader>
                         <Size>2in</Size>
                         <CellContents>
-                          <Textbox Name="paid_to_nm">
+                          <Textbox Name="sold_name1">
                             <KeepTogether>true</KeepTogether>
                             <Paragraphs>
                               <Paragraph>
                                 <TextRuns>
                                   <TextRun>
-                                    <Value>=Fields!paid_to_nm.Value</Value>
+                                    <Value>=Fields!sold_name.Value</Value>
                                     <Style />
                                   </TextRun>
                                 </TextRuns>
                                 <Style />
                               </Paragraph>
                             </Paragraphs>
-                            <rd:DefaultName>paid_to_nm</rd:DefaultName>
+                            <rd:DefaultName>sold_name1</rd:DefaultName>
                             <Style>
                               <Border>
                                 <Style>Solid</Style>
@@ -1718,33 +1853,23 @@ order by country_code;</CommandText>
                       </TablixHeader>
                       <TablixMembers>
                         <TablixMember>
-                          <Group Name="bonus_type">
-                            <GroupExpressions>
-                              <GroupExpression>=Fields!bonus_type.Value</GroupExpression>
-                            </GroupExpressions>
-                          </Group>
-                          <SortExpressions>
-                            <SortExpression>
-                              <Value>=Fields!bonus_type.Value</Value>
-                            </SortExpression>
-                          </SortExpressions>
                           <TablixHeader>
                             <Size>1in</Size>
                             <CellContents>
-                              <Textbox Name="bonus_type">
+                              <Textbox Name="source_country">
                                 <KeepTogether>true</KeepTogether>
                                 <Paragraphs>
                                   <Paragraph>
                                     <TextRuns>
                                       <TextRun>
-                                        <Value>=Fields!bonus_type.Value</Value>
+                                        <Value>=Fields!source_country.Value</Value>
                                         <Style />
                                       </TextRun>
                                     </TextRuns>
                                     <Style />
                                   </Paragraph>
                                 </Paragraphs>
-                                <rd:DefaultName>bonus_type</rd:DefaultName>
+                                <rd:DefaultName>source_country</rd:DefaultName>
                                 <Style>
                                   <Border>
                                     <Style>Solid</Style>
@@ -1780,22 +1905,22 @@ order by country_code;</CommandText>
                           <TablixMembers>
                             <TablixMember>
                               <TablixHeader>
-                                <Size>2in</Size>
+                                <Size>1in</Size>
                                 <CellContents>
-                                  <Textbox Name="descri">
+                                  <Textbox Name="bonus_type">
                                     <KeepTogether>true</KeepTogether>
                                     <Paragraphs>
                                       <Paragraph>
                                         <TextRuns>
                                           <TextRun>
-                                            <Value>=Fields!descri.Value</Value>
+                                            <Value>=Fields!bonus_type.Value</Value>
                                             <Style />
                                           </TextRun>
                                         </TextRuns>
                                         <Style />
                                       </Paragraph>
                                     </Paragraphs>
-                                    <rd:DefaultName>descri</rd:DefaultName>
+                                    <rd:DefaultName>bonus_type</rd:DefaultName>
                                     <Style>
                                       <Border>
                                         <Style>Solid</Style>
@@ -1830,33 +1955,23 @@ order by country_code;</CommandText>
                               </TablixHeader>
                               <TablixMembers>
                                 <TablixMember>
-                                  <Group Name="paid_level">
-                                    <GroupExpressions>
-                                      <GroupExpression>=Fields!paid_level.Value</GroupExpression>
-                                    </GroupExpressions>
-                                  </Group>
-                                  <SortExpressions>
-                                    <SortExpression>
-                                      <Value>=Fields!paid_level.Value</Value>
-                                    </SortExpression>
-                                  </SortExpressions>
                                   <TablixHeader>
-                                    <Size>1in</Size>
+                                    <Size>2in</Size>
                                     <CellContents>
-                                      <Textbox Name="paid_level">
+                                      <Textbox Name="descri">
                                         <KeepTogether>true</KeepTogether>
                                         <Paragraphs>
                                           <Paragraph>
                                             <TextRuns>
                                               <TextRun>
-                                                <Value>=Fields!paid_level.Value</Value>
+                                                <Value>=Fields!descri.Value</Value>
                                                 <Style />
                                               </TextRun>
                                             </TextRuns>
                                             <Style />
                                           </Paragraph>
                                         </Paragraphs>
-                                        <rd:DefaultName>paid_level</rd:DefaultName>
+                                        <rd:DefaultName>descri</rd:DefaultName>
                                         <Style>
                                           <Border>
                                             <Style>Solid</Style>
@@ -1891,33 +2006,23 @@ order by country_code;</CommandText>
                                   </TablixHeader>
                                   <TablixMembers>
                                     <TablixMember>
-                                      <Group Name="btr_percent">
-                                        <GroupExpressions>
-                                          <GroupExpression>=Fields!btr_percent.Value</GroupExpression>
-                                        </GroupExpressions>
-                                      </Group>
-                                      <SortExpressions>
-                                        <SortExpression>
-                                          <Value>=Fields!btr_percent.Value</Value>
-                                        </SortExpression>
-                                      </SortExpressions>
                                       <TablixHeader>
                                         <Size>1in</Size>
                                         <CellContents>
-                                          <Textbox Name="btr_percent">
+                                          <Textbox Name="paid_level">
                                             <KeepTogether>true</KeepTogether>
                                             <Paragraphs>
                                               <Paragraph>
                                                 <TextRuns>
                                                   <TextRun>
-                                                    <Value>=Fields!btr_percent.Value</Value>
+                                                    <Value>=Fields!paid_level.Value</Value>
                                                     <Style />
                                                   </TextRun>
                                                 </TextRuns>
                                                 <Style />
                                               </Paragraph>
                                             </Paragraphs>
-                                            <rd:DefaultName>btr_percent</rd:DefaultName>
+                                            <rd:DefaultName>paid_level</rd:DefaultName>
                                             <Style>
                                               <Border>
                                                 <Style>Solid</Style>
@@ -1952,33 +2057,23 @@ order by country_code;</CommandText>
                                       </TablixHeader>
                                       <TablixMembers>
                                         <TablixMember>
-                                          <Group Name="sold_dist_id">
-                                            <GroupExpressions>
-                                              <GroupExpression>=Fields!sold_dist_id.Value</GroupExpression>
-                                            </GroupExpressions>
-                                          </Group>
-                                          <SortExpressions>
-                                            <SortExpression>
-                                              <Value>=Fields!sold_dist_id.Value</Value>
-                                            </SortExpression>
-                                          </SortExpressions>
                                           <TablixHeader>
                                             <Size>1in</Size>
                                             <CellContents>
-                                              <Textbox Name="sold_dist_id">
+                                              <Textbox Name="btr_percent">
                                                 <KeepTogether>true</KeepTogether>
                                                 <Paragraphs>
                                                   <Paragraph>
                                                     <TextRuns>
                                                       <TextRun>
-                                                        <Value>=Fields!sold_dist_id.Value</Value>
+                                                        <Value>=Fields!btr_percent.Value</Value>
                                                         <Style />
                                                       </TextRun>
                                                     </TextRuns>
                                                     <Style />
                                                   </Paragraph>
                                                 </Paragraphs>
-                                                <rd:DefaultName>sold_dist_id</rd:DefaultName>
+                                                <rd:DefaultName>btr_percent</rd:DefaultName>
                                                 <Style>
                                                   <Border>
                                                     <Style>Solid</Style>
@@ -2013,33 +2108,23 @@ order by country_code;</CommandText>
                                           </TablixHeader>
                                           <TablixMembers>
                                             <TablixMember>
-                                              <Group Name="sold_name">
-                                                <GroupExpressions>
-                                                  <GroupExpression>=Fields!sold_name.Value</GroupExpression>
-                                                </GroupExpressions>
-                                              </Group>
-                                              <SortExpressions>
-                                                <SortExpression>
-                                                  <Value>=Fields!sold_name.Value</Value>
-                                                </SortExpression>
-                                              </SortExpressions>
                                               <TablixHeader>
-                                                <Size>2in</Size>
+                                                <Size>1in</Size>
                                                 <CellContents>
-                                                  <Textbox Name="sold_name">
+                                                  <Textbox Name="paid_to_dist">
                                                     <KeepTogether>true</KeepTogether>
                                                     <Paragraphs>
                                                       <Paragraph>
                                                         <TextRuns>
                                                           <TextRun>
-                                                            <Value>=Fields!sold_name.Value</Value>
+                                                            <Value>=Fields!paid_to_dist.Value</Value>
                                                             <Style />
                                                           </TextRun>
                                                         </TextRuns>
                                                         <Style />
                                                       </Paragraph>
                                                     </Paragraphs>
-                                                    <rd:DefaultName>sold_name</rd:DefaultName>
+                                                    <rd:DefaultName>paid_to_dist</rd:DefaultName>
                                                     <Style>
                                                       <Border>
                                                         <Style>Solid</Style>
@@ -2074,33 +2159,23 @@ order by country_code;</CommandText>
                                               </TablixHeader>
                                               <TablixMembers>
                                                 <TablixMember>
-                                                  <Group Name="sold_to_homecountry">
-                                                    <GroupExpressions>
-                                                      <GroupExpression>=Fields!sold_to_homecountry.Value</GroupExpression>
-                                                    </GroupExpressions>
-                                                  </Group>
-                                                  <SortExpressions>
-                                                    <SortExpression>
-                                                      <Value>=Fields!sold_to_homecountry.Value</Value>
-                                                    </SortExpression>
-                                                  </SortExpressions>
                                                   <TablixHeader>
-                                                    <Size>1in</Size>
+                                                    <Size>2in</Size>
                                                     <CellContents>
-                                                      <Textbox Name="sold_to_homecountry">
+                                                      <Textbox Name="paid_to_nm">
                                                         <KeepTogether>true</KeepTogether>
                                                         <Paragraphs>
                                                           <Paragraph>
                                                             <TextRuns>
                                                               <TextRun>
-                                                                <Value>=Fields!sold_to_homecountry.Value</Value>
+                                                                <Value>=Fields!paid_to_nm.Value</Value>
                                                                 <Style />
                                                               </TextRun>
                                                             </TextRuns>
                                                             <Style />
                                                           </Paragraph>
                                                         </Paragraphs>
-                                                        <rd:DefaultName>sold_to_homecountry</rd:DefaultName>
+                                                        <rd:DefaultName>paid_to_nm</rd:DefaultName>
                                                         <Style>
                                                           <Border>
                                                             <Style>Solid</Style>
@@ -2135,33 +2210,23 @@ order by country_code;</CommandText>
                                                   </TablixHeader>
                                                   <TablixMembers>
                                                     <TablixMember>
-                                                      <Group Name="source_country">
-                                                        <GroupExpressions>
-                                                          <GroupExpression>=Fields!source_country.Value</GroupExpression>
-                                                        </GroupExpressions>
-                                                      </Group>
-                                                      <SortExpressions>
-                                                        <SortExpression>
-                                                          <Value>=Fields!source_country.Value</Value>
-                                                        </SortExpression>
-                                                      </SortExpressions>
                                                       <TablixHeader>
                                                         <Size>1in</Size>
                                                         <CellContents>
-                                                          <Textbox Name="source_country">
+                                                          <Textbox Name="target_country">
                                                             <KeepTogether>true</KeepTogether>
                                                             <Paragraphs>
                                                               <Paragraph>
                                                                 <TextRuns>
                                                                   <TextRun>
-                                                                    <Value>=Fields!source_country.Value</Value>
+                                                                    <Value>=Fields!target_country.Value</Value>
                                                                     <Style />
                                                                   </TextRun>
                                                                 </TextRuns>
                                                                 <Style />
                                                               </Paragraph>
                                                             </Paragraphs>
-                                                            <rd:DefaultName>source_country</rd:DefaultName>
+                                                            <rd:DefaultName>target_country</rd:DefaultName>
                                                             <Style>
                                                               <Border>
                                                                 <Style>Solid</Style>
@@ -2217,7 +2282,7 @@ order by country_code;</CommandText>
                   <TablixHeader>
                     <Size>1in</Size>
                     <CellContents>
-                      <Textbox Name="Textbox57">
+                      <Textbox Name="Textbox10">
                         <CanGrow>true</CanGrow>
                         <KeepTogether>true</KeepTogether>
                         <Paragraphs>
@@ -2231,7 +2296,7 @@ order by country_code;</CommandText>
                             <Style />
                           </Paragraph>
                         </Paragraphs>
-                        <rd:DefaultName>Textbox57</rd:DefaultName>
+                        <rd:DefaultName>Textbox10</rd:DefaultName>
                         <Style>
                           <Border>
                             <Style>Solid</Style>
@@ -2321,7 +2386,7 @@ order by country_code;</CommandText>
                           <TablixHeader>
                             <Size>1in</Size>
                             <CellContents>
-                              <Textbox Name="Textbox59">
+                              <Textbox Name="Textbox18">
                                 <CanGrow>true</CanGrow>
                                 <KeepTogether>true</KeepTogether>
                                 <Paragraphs>
@@ -2335,7 +2400,7 @@ order by country_code;</CommandText>
                                     <Style />
                                   </Paragraph>
                                 </Paragraphs>
-                                <rd:DefaultName>Textbox59</rd:DefaultName>
+                                <rd:DefaultName>Textbox18</rd:DefaultName>
                                 <Style>
                                   <Border>
                                     <Style>Solid</Style>
@@ -2371,9 +2436,9 @@ order by country_code;</CommandText>
                           <TablixMembers>
                             <TablixMember>
                               <TablixHeader>
-                                <Size>2in</Size>
+                                <Size>1in</Size>
                                 <CellContents>
-                                  <Textbox Name="Textbox8">
+                                  <Textbox Name="Textbox59">
                                     <CanGrow>true</CanGrow>
                                     <KeepTogether>true</KeepTogether>
                                     <Paragraphs>
@@ -2387,7 +2452,7 @@ order by country_code;</CommandText>
                                         <Style />
                                       </Paragraph>
                                     </Paragraphs>
-                                    <rd:DefaultName>Textbox8</rd:DefaultName>
+                                    <rd:DefaultName>Textbox59</rd:DefaultName>
                                     <Style>
                                       <Border>
                                         <Style>Solid</Style>
@@ -2423,9 +2488,9 @@ order by country_code;</CommandText>
                               <TablixMembers>
                                 <TablixMember>
                                   <TablixHeader>
-                                    <Size>1in</Size>
+                                    <Size>2in</Size>
                                     <CellContents>
-                                      <Textbox Name="Textbox60">
+                                      <Textbox Name="Textbox8">
                                         <CanGrow>true</CanGrow>
                                         <KeepTogether>true</KeepTogether>
                                         <Paragraphs>
@@ -2439,7 +2504,7 @@ order by country_code;</CommandText>
                                             <Style />
                                           </Paragraph>
                                         </Paragraphs>
-                                        <rd:DefaultName>Textbox60</rd:DefaultName>
+                                        <rd:DefaultName>Textbox8</rd:DefaultName>
                                         <Style>
                                           <Border>
                                             <Style>Solid</Style>
@@ -2477,7 +2542,7 @@ order by country_code;</CommandText>
                                       <TablixHeader>
                                         <Size>1in</Size>
                                         <CellContents>
-                                          <Textbox Name="Textbox61">
+                                          <Textbox Name="Textbox60">
                                             <CanGrow>true</CanGrow>
                                             <KeepTogether>true</KeepTogether>
                                             <Paragraphs>
@@ -2491,7 +2556,7 @@ order by country_code;</CommandText>
                                                 <Style />
                                               </Paragraph>
                                             </Paragraphs>
-                                            <rd:DefaultName>Textbox61</rd:DefaultName>
+                                            <rd:DefaultName>Textbox60</rd:DefaultName>
                                             <Style>
                                               <Border>
                                                 <Style>Solid</Style>
@@ -2529,7 +2594,7 @@ order by country_code;</CommandText>
                                           <TablixHeader>
                                             <Size>1in</Size>
                                             <CellContents>
-                                              <Textbox Name="Textbox62">
+                                              <Textbox Name="Textbox61">
                                                 <CanGrow>true</CanGrow>
                                                 <KeepTogether>true</KeepTogether>
                                                 <Paragraphs>
@@ -2543,7 +2608,7 @@ order by country_code;</CommandText>
                                                     <Style />
                                                   </Paragraph>
                                                 </Paragraphs>
-                                                <rd:DefaultName>Textbox62</rd:DefaultName>
+                                                <rd:DefaultName>Textbox61</rd:DefaultName>
                                                 <Style>
                                                   <Border>
                                                     <Style>Solid</Style>
@@ -2579,9 +2644,9 @@ order by country_code;</CommandText>
                                           <TablixMembers>
                                             <TablixMember>
                                               <TablixHeader>
-                                                <Size>2in</Size>
+                                                <Size>1in</Size>
                                                 <CellContents>
-                                                  <Textbox Name="Textbox63">
+                                                  <Textbox Name="Textbox3">
                                                     <CanGrow>true</CanGrow>
                                                     <KeepTogether>true</KeepTogether>
                                                     <Paragraphs>
@@ -2595,7 +2660,7 @@ order by country_code;</CommandText>
                                                         <Style />
                                                       </Paragraph>
                                                     </Paragraphs>
-                                                    <rd:DefaultName>Textbox63</rd:DefaultName>
+                                                    <rd:DefaultName>Textbox3</rd:DefaultName>
                                                     <Style>
                                                       <Border>
                                                         <Style>Solid</Style>
@@ -2631,9 +2696,9 @@ order by country_code;</CommandText>
                                               <TablixMembers>
                                                 <TablixMember>
                                                   <TablixHeader>
-                                                    <Size>1in</Size>
+                                                    <Size>2in</Size>
                                                     <CellContents>
-                                                      <Textbox Name="Textbox64">
+                                                      <Textbox Name="Textbox63">
                                                         <CanGrow>true</CanGrow>
                                                         <KeepTogether>true</KeepTogether>
                                                         <Paragraphs>
@@ -2647,7 +2712,7 @@ order by country_code;</CommandText>
                                                             <Style />
                                                           </Paragraph>
                                                         </Paragraphs>
-                                                        <rd:DefaultName>Textbox64</rd:DefaultName>
+                                                        <rd:DefaultName>Textbox63</rd:DefaultName>
                                                         <Style>
                                                           <Border>
                                                             <Style>Solid</Style>
