@@ -108,7 +108,7 @@
       <Query>
         <DataSourceName>ProdNavision</DataSourceName>
         <CommandText>SELECT 
---iv.[uni_company_name], 
+iv.[uni_company_name], 
 iv.[No_] as "Item", 
 iv.[Description],
 iv.[Buyer] as "Byr",
@@ -165,6 +165,7 @@ LEFT OUTER JOIN --***FORECAST***
 		ON (iv2.[uni_company_name] = pfev.[uni_company_name] and iv2.[No_] = pfev.[Item No_])
 	WHERE	pfev.[Production Forecast Name] = 'MERCIA' and
 			pfev.[Forecast Date] BETWEEN DATEADD(mm, DATEDIFF(mm, 0, GETDATE()), 0) AND DATEADD(DD, -1, DATEADD(mm, DATEDIFF(m, 0, GETDATE()) + 3, 0))
+			and iv2.[uni_company_name] ='USA'
 	GROUP BY
 		iv2.[uni_company_name], iv2.[No_]
 	) indepFC
@@ -182,7 +183,7 @@ LEFT OUTER JOIN --***INDEPENDENT ON HAND***
 		ON ( iv3.[uni_company_name] = whev.[uni_company_name] and iv3.[No_] = whev.[Item No_] )
 		LEFT OUTER JOIN [Prod_Navision].[dbo].[Location_nc_vw] as lv
 			ON (whev.[uni_company_name] = lv.[uni_company_name] and whev.[Location Code] = lv.[Code] )
-	WHERE  whev.[uni_company_name]in ('USA') and lv.[Non-Nettable] = 0 --or whev.[Location Code] ='OREM'  /*and whev.[Location Code] ='NV'*/
+	WHERE  whev.[uni_company_name]= ('USA') and lv.[Non-Nettable] = 0 --or whev.[Location Code] ='OREM'  /*and whev.[Location Code] ='NV'*/
 	GROUP BY iv3.[uni_company_name], iv3.[No_]
 	) indepOH
 ON (iv.[uni_company_name] = indepOH.[uni_company_name] and iv.[No_] = indepOH.[No_])
@@ -194,7 +195,7 @@ ON (iv.[uni_company_name] = indepOH.[uni_company_name] and iv.[No_] = indepOH.[N
 	[Prod_Navision].[dbo].item_nc_vw as iv4
 	LEFT OUTER JOIN [Prod_Navision].[dbo].[Purchase_Line_nc_vw] as pl
 		ON ( iv4.[uni_company_name] = pl.[uni_company_name] and iv4.[No_] = pl.[No_] )
-	WHERE pl.[Outstanding Quantity] &gt; 0 and pl.[No_] &lt;&gt; '' and pl.[uni_company_name] in ('USA')
+	WHERE pl.[Outstanding Quantity] &gt; 0 and pl.[No_] &lt;&gt; '' and pl.[uni_company_name] = ('USA')
 	) POone
 ON (iv.[uni_company_name] = POone.[uni_company_name] and iv.[No_] = POone.[No_])
 
@@ -202,7 +203,7 @@ LEFT OUTER JOIN --***1ST MONTH SALES ORDERS***
 	(SELECT sl.[No_], SUM(sl.[Quantity]) as "1stMoSOs"
 	FROM [Prod_Navision].[dbo].[Sales_Line_nc_vw] sl
 	WHERE
-		sl.[uni_company_name] in ('USA') and 
+		sl.[uni_company_name] = ('USA') and 
 		sl.[Sell-to Customer No_] &lt;&gt; '' and 
 		sl.[Quantity] &gt; 0 and 
 		sl.[Shipment Date] &lt;= DATEADD(DD, -1, DATEADD(mm, DATEDIFF(m, 0, GETDATE()) + 1, 0))
@@ -214,7 +215,7 @@ LEFT OUTER JOIN --***2ND MONTH SALES ORDERS***
 	(SELECT sl2.[No_], SUM(sl2.[Quantity]) as "2ndMoSOs"
 	FROM [Prod_Navision].[dbo].[Sales_Line_nc_vw] sl2
 	WHERE
-		sl2.[uni_company_name] in ('USA') and 
+		sl2.[uni_company_name] = ('USA') and 
 		sl2.[Sell-to Customer No_] &lt;&gt; '' and 
 		sl2.[Quantity] &gt; 0 and 
 		sl2.[Shipment Date] BETWEEN DATEADD(MM, 1, DATEADD(mm, DATEDIFF(mm, 0, GETDATE()), 0)) AND DATEADD(DD, -1, DATEADD(mm, DATEDIFF(m, 0, GETDATE()) + 2, 0))
@@ -238,7 +239,7 @@ left join --***Atlanta In-Transit***-
 		left outer join Prod_Navision.dbo.Item_nc_vw as iv
 			on (tl.[Item No_] = iv.[Vendor Item No_] and tl.[uni_company_name]=iv.[uni_company_name])
 			WHERE 
-		tl.[uni_company_name] in ('USA')
+		tl.[uni_company_name] = ('USA')
 		and tl.[Outstanding Quantity] &gt; 0
 		and tl.[Transfer-to Code] = 'ATLSC'
 		and tl.[Status] = 1
@@ -261,7 +262,7 @@ left join --***PR In-Transit***-
 		left outer join Prod_Navision.dbo.Item_nc_vw as iv
 			on (tl.[Item No_] = iv.[Vendor Item No_] and tl.[uni_company_name]=iv.[uni_company_name])
 			WHERE 
-		tl.[uni_company_name] in ('USA') 
+		tl.[uni_company_name] = ('USA') 
 		and tl.[Outstanding Quantity] &gt; 0
 		and tl.[Transfer-to Code] = 'Puertorico'
 		and tl.[Status] = 1
@@ -281,7 +282,7 @@ left join --***US In-Transit***
 				ssheader.[Delivery Date] &lt;= '1753-01-01 00:00:00.000' --this is accounting for blanks in a date field because MsSQL does not allow blank date fields unless it is converted to above format.
 				and ssline.[Quantity] &gt; 0
 				and ssline.[Type] &lt;&gt; 1
-				and ssheader.[Sell-to Customer No_] in ('001')
+				and ssheader.[Sell-to Customer No_] in ('001','100')
 				and ssheader.[Posting Date] &gt; '2019-01-1'
 				group by
 				ssline.[No_] ,
@@ -290,23 +291,23 @@ left join --***US In-Transit***
 				 on iv.[No_] = US_IT.[Item No.] and iv.[Description]=US_IT.[Description]
 
 WHERE
-iv.[Item Status] IN ('0', '1') and
+iv.[Item Status] IN ( '0','1') and
 iv.[Item Type] in ('2','4','8') and
-iv.[uni_company_name] in ('USA') and
+--iv.[uni_company_name] = ('USA') and
 --iv.[Planner] = 'USA' and
 indepFC.IndependentFC &lt;&gt; 0 and
  CASE WHEN POone.Ranking = 1 THEN 1
 		WHEN ISNULL(POone.Ranking,1)=1 THEN 1
 	END =1 and
 
-((indepOH.IndOnHand/indepFC.IndependentFC)*4.35 &lt;= 8 or
+((indepOH.IndOnHand/indepFC.IndependentFC)*4.35 &lt;= 200 or
 
 	--Weeks on hand after SOs are shipped oout &lt; 8
 	
 	
 	CASE WHEN DAY(GETDATE()) BETWEEN 1 and 15 THEN ((indepOH.IndOnHand-SOone.[1stMoSOs])/indepFC.IndependentFC)*4.35
 		WHEN DAY(GETDATE()) BETWEEN 16 and 31 THEN ((indepOH.IndOnHand-SOone.[1stMoSOs]-SOtwo.[2ndMoSOs])/indepFC.IndependentFC)*4.35 END
-	&lt;= 8
+	&lt;= 100
 	
 	or
 
@@ -318,7 +319,7 @@ indepFC.IndependentFC &lt;&gt; 0 and
 	CASE 
 	WHEN CAST((POone.POdate1 - GETDATE() ) AS decimal (38,2))/7 &lt; 0 THEN 0
 	WHEN CAST((POone.POdate1 - GETDATE() ) AS decimal (38,2))/7 &gt;= 0 THEN CAST((POone.POdate1 - GETDATE() ) AS decimal (38,2))/7
-	END) AS decimal (38,2)) &lt;= 6.5 
+	END) AS decimal (38,2)) &lt;= 200
 	or
 
 	CAST((((indepOH.[NV OH]-ISNULL(SOone.[1stMoSOs],0)-ISNULL(SOtwo.[2ndMoSOs],0))/indepFC.IndependentFC)*4.35) AS decimal (38,2))
@@ -326,7 +327,7 @@ indepFC.IndependentFC &lt;&gt; 0 and
 	CASE 
 	WHEN CAST((POone.POdate1 - GETDATE() ) AS decimal (38,2))/7 &lt; 0 THEN CAST(0 AS DECIMAL (38,2))
 	WHEN CAST((POone.POdate1 - GETDATE() ) AS decimal (38,2))/7 &gt;= 0 THEN CAST(CAST((POone.POdate1 - GETDATE() ) AS decimal (38,2))/7 AS DECIMAL (38,2))
-	END &lt;=6.5
+	END &lt;=200
 	
 	) 
 
@@ -358,6 +359,10 @@ ORDER BY
 </CommandText>
       </Query>
       <Fields>
+        <Field Name="uni_company_name">
+          <DataField>uni_company_name</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
         <Field Name="Item">
           <DataField>Item</DataField>
           <rd:TypeName>System.String</rd:TypeName>
@@ -3099,10 +3104,13 @@ ssheader.[uni_company_name] asc
             <TablixBody>
               <TablixColumns>
                 <TablixColumn>
+                  <Width>1.4375in</Width>
+                </TablixColumn>
+                <TablixColumn>
                   <Width>1in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1.98958in</Width>
+                  <Width>2.55208in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1in</Width>
@@ -3172,6 +3180,59 @@ ssheader.[uni_company_name] asc
                 <TablixRow>
                   <Height>0.25in</Height>
                   <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox12">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Uni Company Name</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox12</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>PaleTurquoise</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="Textbox83">
@@ -4395,6 +4456,57 @@ ssheader.[uni_company_name] asc
                   <TablixCells>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="uni_company_name">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!uni_company_name.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>uni_company_name</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="Item1">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
@@ -5611,6 +5723,7 @@ ssheader.[uni_company_name] asc
                 <TablixMember />
                 <TablixMember />
                 <TablixMember />
+                <TablixMember />
               </TablixMembers>
             </TablixColumnHierarchy>
             <TablixRowHierarchy>
@@ -5630,7 +5743,7 @@ ssheader.[uni_company_name] asc
             <PageName>MainUsOwl</PageName>
             <Top>0.82167in</Top>
             <Height>0.5in</Height>
-            <Width>25.17707in</Width>
+            <Width>27.17707in</Width>
             <ZIndex>1</ZIndex>
             <Style>
               <Border>
@@ -9962,7 +10075,7 @@ ssheader.[uni_company_name] asc
         <Height>5in</Height>
         <Style />
       </Body>
-      <Width>25.17708in</Width>
+      <Width>27.17707in</Width>
       <Page>
         <LeftMargin>1in</LeftMargin>
         <RightMargin>1in</RightMargin>
