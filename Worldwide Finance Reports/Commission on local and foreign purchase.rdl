@@ -24,16 +24,46 @@
             <Value>=Parameters!EndPVDate.Value</Value>
           </QueryParameter>
         </QueryParameters>
-        <CommandText>select 
-	btr.pv_date_date,
-	substring((case when (dst.country_code = @Country and btr.target_country = @Country and btr.source_country = @Country )
+        <CommandText>select btr.dist_id as paid_to_dist, dst.roman_name_1 as paid_to_nm ,dst.country_code as paid_to_homecountry, btr.target_country,btr.pv_date_date,  
+btr.bonus_type, btr.paid_level,btr.BTR_LEVEL,
+(case 
+	when btr.bonus_type=1 then 'Retail Profit'
+	when btr.bonus_type=2 then 'PC Profit'
+	when btr.bonus_type=3 then 'Personal Rebate Asia'
+	when btr.bonus_type=4 then 'Enroller Rewards'
+	when btr.bonus_type=5 then 'Elite Match'
+	when btr.bonus_type=6 then 'Team Commissions'
+	when btr.bonus_type=7 then 'Business Development'
+	when btr.bonus_type=8 then 'Fast Start Asia'
+	when btr.bonus_type=9 then 'Autoship Bonus'
+	when btr.bonus_type=10 then 'Phase 1'
+	when btr.bonus_type=11 then 'Elite Level Bonus'
+	when btr.bonus_type=12 then 'Management Group Bonus'
+	when btr.bonus_type=13 then 'Generation'
+	when btr.bonus_type=14 then 'Courtesy Bonus'
+	when btr.bonus_type=15 then 'Infinity Bonus'
+	when btr.bonus_type=16 then 'Car Bonus'
+	when btr.bonus_type=17 then 'Lifestyle Bonus'
+	when btr.bonus_type=18 then 'PCA Bonus'
+	when btr.bonus_type=22 then 'Personal Rebate'
+	when btr.bonus_type=23 then 'Royalties'
+	when btr.bonus_type=24 then 'Fast Start'
+	when btr.bonus_type=25 then 'ITA Lvl Bonus'
+	when btr.bonus_type=26 then 'PHL Fast Start'
+	when btr.bonus_type=27 then 'Leadership Growth Bonus'
+	when btr.bonus_type=28 then 'DLB'
+	when btr.bonus_type=29 then 'OV Legs'
+	when btr.bonus_type=30 then 'Manual Adjustments'
+end) descri,
+btr.sold_dist_id, btr.sold_name,sd.country_code as sold_to_homecountry, btr.source_country,
+substring((case when (dst.country_code = @Country and btr.target_country = @Country and btr.source_country = @Country )
                                    then '1Local Volume'
                 when (dst.country_code = @Country and sd.country_code = @Country and btr.target_country = @Country and btr.source_country &lt;&gt; @Country )
                                    then '2Foreign Volume' 
                 when (dst.country_code = @Country and sd.country_code &lt;&gt; @Country and btr.target_country = @Country and btr.source_country &lt;&gt; @Country )
                                    then '3Foreign Downlines Volume' 
                         else '4N/A' end) ,0,50) [Paid From],
-	sum(converted_bonus) as Com_LCY
+btr_percent,conversion_rate, sum(converted_bonus) as Com_LCY, sum(amount_1) as PV
 from dw.dbo.btr 
 join dw.dbo.dst on btr.dist_id = dst.dist_id
 join dw.dbo.dst sd on btr.sold_dist_id = sd.dist_id
@@ -41,27 +71,111 @@ where btr.pv_date_date between @BeginPVDate and @EndPVDate
 and ( (btr.SOURCE_COUNTRY = @Country and btr.TARGET_COUNTRY = @Country) OR
        --(btr.SOURCE_COUNTRY = @Country and btr.TARGET_COUNTRY &lt;&gt; @Country) OR
       (btr.SOURCE_COUNTRY &lt;&gt; @Country and btr.TARGET_COUNTRY = @Country))
-group by btr.pv_date_date,
-substring((case when (dst.country_code = @Country and btr.target_country = @Country and btr.source_country = @Country )
-                                   then '1Local Volume'
-                when (dst.country_code = @Country and sd.country_code = @Country and btr.target_country = @Country and btr.source_country &lt;&gt; @Country )
-                                   then '2Foreign Volume' 
-                when (dst.country_code = @Country and sd.country_code &lt;&gt; @Country and btr.target_country = @Country and btr.source_country &lt;&gt; @Country )
-                                   then '3Foreign Downlines Volume' 
-                        else '4N/A' end) ,0,50)
-having sum(bonus) &gt; 0 OR sum(converted_bonus) &gt; 0</CommandText>
+group by btr.dist_id, dst.roman_name_1, dst.country_code,btr.target_country, btr.pv_date_date, btr.bonus_type, btr.paid_level,
+btr.sold_dist_id, btr.sold_name, sd.country_code, btr.source_country,btr.BTR_LEVEL,
+(case 
+	when btr.bonus_type=1 then 'Retail Profit'
+	when btr.bonus_type=2 then 'PC Profit'
+	when btr.bonus_type=3 then 'Personal Rebate Asia'
+	when btr.bonus_type=4 then 'Enroller Rewards'
+	when btr.bonus_type=5 then 'Elite Match'
+	when btr.bonus_type=6 then 'Team Commissions'
+	when btr.bonus_type=7 then 'Business Development'
+	when btr.bonus_type=8 then 'Fast Start Asia'
+	when btr.bonus_type=9 then 'Autoship Bonus'
+	when btr.bonus_type=10 then 'Phase 1'
+	when btr.bonus_type=11 then 'Elite Level Bonus'
+	when btr.bonus_type=12 then 'Management Group Bonus'
+	when btr.bonus_type=13 then 'Generation'
+	when btr.bonus_type=14 then 'Courtesy Bonus'
+	when btr.bonus_type=15 then 'Infinity Bonus'
+	when btr.bonus_type=16 then 'Car Bonus'
+	when btr.bonus_type=17 then 'Lifestyle Bonus'
+	when btr.bonus_type=18 then 'PCA Bonus'
+	when btr.bonus_type=22 then 'Personal Rebate'
+	when btr.bonus_type=23 then 'Royalties'
+	when btr.bonus_type=24 then 'Fast Start'
+	when btr.bonus_type=25 then 'ITA Lvl Bonus'
+	when btr.bonus_type=26 then 'PHL Fast Start'
+	when btr.bonus_type=27 then 'Leadership Growth Bonus'
+	when btr.bonus_type=28 then 'DLB'
+	when btr.bonus_type=29 then 'OV Legs'
+	when btr.bonus_type=30 then 'Manual Adjustments'
+end),
+btr_percent,conversion_rate
+having sum(bonus) &lt;&gt; 0 OR sum(converted_bonus) &lt;&gt; 0</CommandText>
       </Query>
       <Fields>
+        <Field Name="paid_to_dist">
+          <DataField>paid_to_dist</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
         <Field Name="pv_date_date">
           <DataField>pv_date_date</DataField>
           <rd:TypeName>System.DateTime</rd:TypeName>
+        </Field>
+        <Field Name="paid_to_nm">
+          <DataField>paid_to_nm</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
         </Field>
         <Field Name="Paid_From">
           <DataField>Paid From</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
+        <Field Name="paid_to_homecountry">
+          <DataField>paid_to_homecountry</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
         <Field Name="Com_LCY">
           <DataField>Com_LCY</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="target_country">
+          <DataField>target_country</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="bonus_type">
+          <DataField>bonus_type</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="paid_level">
+          <DataField>paid_level</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="BTR_LEVEL">
+          <DataField>BTR_LEVEL</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="descri">
+          <DataField>descri</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="sold_dist_id">
+          <DataField>sold_dist_id</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="sold_name">
+          <DataField>sold_name</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="sold_to_homecountry">
+          <DataField>sold_to_homecountry</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="source_country">
+          <DataField>source_country</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="btr_percent">
+          <DataField>btr_percent</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="conversion_rate">
+          <DataField>conversion_rate</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="PV">
+          <DataField>PV</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
       </Fields>
@@ -156,7 +270,7 @@ btr.sold_dist_id, btr.sold_name, sd.country_code, btr.source_country,btr.BTR_LEV
 	when btr.bonus_type=30 then 'Manual Adjustments'
 end),
 btr_percent,conversion_rate
-having sum(bonus) &gt; 0 OR sum(converted_bonus) &gt; 0</CommandText>
+having sum(bonus) &lt;&gt; 0 OR sum(converted_bonus) &lt;&gt; 0</CommandText>
       </Query>
       <Fields>
         <Field Name="paid_to_dist">
