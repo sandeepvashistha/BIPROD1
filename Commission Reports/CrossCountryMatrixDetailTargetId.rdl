@@ -1,0 +1,542 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report MustUnderstand="df" xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition" xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner" xmlns:df="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition/defaultfontfamily">
+  <df:DefaultFontFamily>Segoe UI</df:DefaultFontFamily>
+  <AutoRefresh>0</AutoRefresh>
+  <DataSources>
+    <DataSource Name="UnityDB">
+      <DataSourceReference>UnityDB</DataSourceReference>
+      <rd:SecurityType>None</rd:SecurityType>
+      <rd:DataSourceID>f89ead7c-357d-4fe0-a92e-35f554fb04a0</rd:DataSourceID>
+    </DataSource>
+  </DataSources>
+  <DataSets>
+    <DataSet Name="Query1">
+      <Query>
+        <DataSourceName>UnityDB</DataSourceName>
+        <QueryParameters>
+          <QueryParameter Name="@CommissionMonth">
+            <Value>=Parameters!CommissionMonth.Value</Value>
+          </QueryParameter>
+          <QueryParameter Name="@BatchId">
+            <Value>=Parameters!BatchId.Value</Value>
+          </QueryParameter>
+          <QueryParameter Name="@TargetCountry">
+            <Value>=Parameters!TargetCountry.Value</Value>
+          </QueryParameter>
+          <QueryParameter Name="@SourceCountry">
+            <Value>=Parameters!SourceCountry.Value</Value>
+          </QueryParameter>
+          <QueryParameter Name="@pTargetId">
+            <Value>=Parameters!pTargetId.Value</Value>
+          </QueryParameter>
+        </QueryParameters>
+        <CommandText>IF OBJECT_ID('tempdb.dbo.#SourceTarget', 'U') IS NOT NULL
+       DROP TABLE #SourceTarget
+SELECT d.FromUnicityId SourceUnicityId
+,CASE WHEN d.IsNFR = 1 THEN d.SourceCountryCode+'N' ELSE d.SourceCountryCode END SourceCountryCode
+,d.SourceCurrencyCode
+,d.UnicityId TargetUnicityId
+,d.TargetCountryCode
+,d.TargetCurrencyCode
+,sr.BonusConversion SourceRate
+,tr.BonusConversion TargetRate
+,SUM(d.BonusValue) BonusValue
+,SUM(d.ConvertedBonusValue) ConvertedBonusValue
+,(SELECT TOP 1 exchange_rate_amount FROM [SQLPRODA\SQLA].DW.dbo.VW_NAV_CURRENCY_ALL
+       WHERE from_currency = d.TargetCurrencyCode
+       AND to_Currency = 'USD'
+       AND left(convert(varchar,[starting_date],112),6) = dbo.fnCommissionmonth(@CommissionMonth,1)
+       ORDER BY starting_date) NavRateToUSD
+INTO #SourceTarget
+FROM UNCBonusResults.dbo.BonusDetail d WITH(NOLOCK)
+LEFT OUTER JOIN UNCBonusCACHE.dbo.CACHE_ConversionRate sr WITH(NOLOCK) ON sr.BatchId = @BatchId AND d.SourceCurrencyCode = sr.CurrencyCode --SourceRate
+LEFT OUTER JOIN UNCBonusCACHE.dbo.CACHE_ConversionRate tr WITH(NOLOCK) ON tr.BatchId = @BatchId AND d.TargetCurrencyCode = tr.CurrencyCode --TargetRate
+WHERE d.BatchId = @BatchId
+AND d.UnicityId &gt; 5
+AND d.CommissionProfitCenterID NOT IN (17)      --17=LSB --local cost and it is posted in the manual adjustments so there should not be a cross country charge for this bonus type
+GROUP BY d.FromUnicityId --SourceUnicityId
+,d.UnicityId --TargetUnicityId
+,d.TargetCountryCode
+,d.TargetCurrencyCode
+,tr.BonusConversion
+,sr.BonusConversion
+,CASE WHEN d.IsNFR = 1 THEN d.SourceCountryCode+'N' ELSE d.SourceCountryCode END
+,d.SourceCurrencyCode
+
+
+SELECT 'CrossCountryMatrixDetail' ReportName
+,t.SourceCountryCode
+,t.SourceCurrencyCode
+,t.SourceUnicityId
+,t.TargetCountryCode
+,t.TargetCurrencyCode
+,t.TargetUnicityId
+,SUM(t.ConvertedBonusValue) ConvertedBonusValue
+,t.TargetRate
+,SUM(t.BonusValue) BonusValue
+,t.SourceRate
+,SUM(t.ConvertedBonusValue /t.TargetRate) USD --ROUND(t.ConvertedBonusValue /t.TargetRate,2))USD
+,t.NavRateToUSD
+,SUM(t.ConvertedBonusValue * t.NavRateToUSD) NAVUSD
+FROM #SourceTarget t
+WHERE t.TargetCountryCode IN (@TargetCountry)
+AND t.SourceCountryCode IN (@SourceCountry)
+AND t.TargetUnicityId IN( @pTargetId )
+GROUP BY t.SourceCountryCode
+,t.SourceCurrencyCode
+,t.SourceUnicityId
+,t.TargetCountryCode
+,t.TargetCurrencyCode
+,t.TargetUnicityId
+--,SUM(t.ConvertedBonusValue) ConvertedBonusValue
+,t.TargetRate
+--,SUM(t.BonusValue) BonusValue
+,t.SourceRate
+--,ROUND(t.ConvertedBonusValue /t.TargetRate,2) --USD
+,t.NavRateToUSD </CommandText>
+      </Query>
+      <Fields>
+        <Field Name="ReportName">
+          <DataField>ReportName</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="SourceCountryCode">
+          <DataField>SourceCountryCode</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="SourceCurrencyCode">
+          <DataField>SourceCurrencyCode</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="SourceUnicityId">
+          <DataField>SourceUnicityId</DataField>
+          <rd:TypeName>System.Int64</rd:TypeName>
+        </Field>
+        <Field Name="TargetCountryCode">
+          <DataField>TargetCountryCode</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="TargetCurrencyCode">
+          <DataField>TargetCurrencyCode</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="TargetUnicityId">
+          <DataField>TargetUnicityId</DataField>
+          <rd:TypeName>System.Int64</rd:TypeName>
+        </Field>
+        <Field Name="ConvertedBonusValue">
+          <DataField>ConvertedBonusValue</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="TargetRate">
+          <DataField>TargetRate</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="BonusValue">
+          <DataField>BonusValue</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="SourceRate">
+          <DataField>SourceRate</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="USD">
+          <DataField>USD</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="NavRateToUSD">
+          <DataField>NavRateToUSD</DataField>
+          <rd:TypeName>System.Double</rd:TypeName>
+        </Field>
+        <Field Name="NAVUSD">
+          <DataField>NAVUSD</DataField>
+          <rd:TypeName>System.Double</rd:TypeName>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="pSourceCountry">
+      <Query>
+        <DataSourceName>UnityDB</DataSourceName>
+        <CommandText>SELECT DISTINCT CASE WHEN d.IsNFR = 1 THEN d.SourceCountryCode+'N' ELSE d.SourceCountryCode END SourceCountryCode
+FROM UNCBonusResults.dbo.BonusDetail d WITH(NOLOCK)
+WHERE d.BatchId IN (SELECT DISTINCT batchId FROM UNCBonusResults.dbo.BonusDetail)
+ORDER BY 1</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="SourceCountryCode">
+          <DataField>SourceCountryCode</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="pTargetCountry">
+      <Query>
+        <DataSourceName>UnityDB</DataSourceName>
+        <CommandText>SELECT DISTINCT CASE WHEN d.IsNFR = 1 THEN d.TargetCountryCode+'N' ELSE d.TargetCountryCode END TargetCountryCode
+FROM UNCBonusResults.dbo.BonusDetail d WITH(NOLOCK)
+WHERE d.BatchId IN (SELECT DISTINCT batchId FROM UNCBonusResults.dbo.BonusDetail)
+ORDER BY 1</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="TargetCountryCode">
+          <DataField>TargetCountryCode</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+      </Fields>
+    </DataSet>
+  </DataSets>
+  <ReportSections>
+    <ReportSection>
+      <Body>
+        <ReportItems>
+          <Tablix Name="Tablix1">
+            <TablixCorner>
+              <TablixCornerRows>
+                <TablixCornerRow>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox4">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Target Unicity Id</Value>
+                                <Style>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style />
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox4</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixCornerCell>
+                </TablixCornerRow>
+              </TablixCornerRows>
+            </TablixCorner>
+            <TablixBody>
+              <TablixColumns>
+                <TablixColumn>
+                  <Width>1.78125in</Width>
+                </TablixColumn>
+              </TablixColumns>
+              <TablixRows>
+                <TablixRow>
+                  <Height>0.25in</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="ConvertedBonusValue">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Sum(Fields!ConvertedBonusValue.Value)</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>ConvertedBonusValue</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+              </TablixRows>
+            </TablixBody>
+            <TablixColumnHierarchy>
+              <TablixMembers>
+                <TablixMember>
+                  <Group Name="ColumnGroup">
+                    <GroupExpressions>
+                      <GroupExpression />
+                    </GroupExpressions>
+                  </Group>
+                  <TablixHeader>
+                    <Size>0.25in</Size>
+                    <CellContents>
+                      <Textbox Name="Textbox2">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Converted Bonus Value</Value>
+                                <Style>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style />
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox2</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
+                          <BackgroundColor>PaleTurquoise</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixHeader>
+                </TablixMember>
+              </TablixMembers>
+            </TablixColumnHierarchy>
+            <TablixRowHierarchy>
+              <TablixMembers>
+                <TablixMember>
+                  <Group Name="TargetUnicityId">
+                    <GroupExpressions>
+                      <GroupExpression>=Fields!TargetUnicityId.Value</GroupExpression>
+                    </GroupExpressions>
+                  </Group>
+                  <SortExpressions>
+                    <SortExpression>
+                      <Value>=Fields!TargetUnicityId.Value</Value>
+                    </SortExpression>
+                  </SortExpressions>
+                  <TablixHeader>
+                    <Size>1.39583in</Size>
+                    <CellContents>
+                      <Textbox Name="TargetUnicityId">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>=Fields!TargetUnicityId.Value</Value>
+                                <Style />
+                              </TextRun>
+                            </TextRuns>
+                            <Style />
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>TargetUnicityId</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixHeader>
+                </TablixMember>
+              </TablixMembers>
+            </TablixRowHierarchy>
+            <DataSetName>Query1</DataSetName>
+            <Top>0.14458in</Top>
+            <Left>0.14458in</Left>
+            <Height>0.5in</Height>
+            <Width>3.17708in</Width>
+            <Style>
+              <Border>
+                <Style>None</Style>
+              </Border>
+            </Style>
+          </Tablix>
+        </ReportItems>
+        <Height>2in</Height>
+        <Style />
+      </Body>
+      <Width>20.69792in</Width>
+      <Page>
+        <LeftMargin>1in</LeftMargin>
+        <RightMargin>1in</RightMargin>
+        <TopMargin>1in</TopMargin>
+        <BottomMargin>1in</BottomMargin>
+        <Style />
+      </Page>
+    </ReportSection>
+  </ReportSections>
+  <ReportParameters>
+    <ReportParameter Name="CommissionMonth">
+      <DataType>String</DataType>
+      <Prompt>Commission Month (YYYYMM):</Prompt>
+    </ReportParameter>
+    <ReportParameter Name="BatchId">
+      <DataType>String</DataType>
+      <Prompt>Batch Id</Prompt>
+    </ReportParameter>
+    <ReportParameter Name="SourceCountry">
+      <DataType>String</DataType>
+      <Prompt>Source Country</Prompt>
+      <ValidValues>
+        <DataSetReference>
+          <DataSetName>pSourceCountry</DataSetName>
+          <ValueField>SourceCountryCode</ValueField>
+          <LabelField>SourceCountryCode</LabelField>
+        </DataSetReference>
+      </ValidValues>
+      <MultiValue>true</MultiValue>
+    </ReportParameter>
+    <ReportParameter Name="TargetCountry">
+      <DataType>String</DataType>
+      <Prompt>Target Country</Prompt>
+      <ValidValues>
+        <DataSetReference>
+          <DataSetName>pTargetCountry</DataSetName>
+          <ValueField>TargetCountryCode</ValueField>
+          <LabelField>TargetCountryCode</LabelField>
+        </DataSetReference>
+      </ValidValues>
+      <MultiValue>true</MultiValue>
+    </ReportParameter>
+    <ReportParameter Name="pTargetId">
+      <DataType>String</DataType>
+      <Prompt>Target Id</Prompt>
+      <MultiValue>true</MultiValue>
+    </ReportParameter>
+  </ReportParameters>
+  <ReportParametersLayout>
+    <GridLayoutDefinition>
+      <NumberOfColumns>4</NumberOfColumns>
+      <NumberOfRows>2</NumberOfRows>
+      <CellDefinitions>
+        <CellDefinition>
+          <ColumnIndex>0</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>CommissionMonth</ParameterName>
+        </CellDefinition>
+        <CellDefinition>
+          <ColumnIndex>1</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>BatchId</ParameterName>
+        </CellDefinition>
+        <CellDefinition>
+          <ColumnIndex>3</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>SourceCountry</ParameterName>
+        </CellDefinition>
+        <CellDefinition>
+          <ColumnIndex>2</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>TargetCountry</ParameterName>
+        </CellDefinition>
+        <CellDefinition>
+          <ColumnIndex>0</ColumnIndex>
+          <RowIndex>1</RowIndex>
+          <ParameterName>pTargetId</ParameterName>
+        </CellDefinition>
+      </CellDefinitions>
+    </GridLayoutDefinition>
+  </ReportParametersLayout>
+  <rd:ReportUnitType>Inch</rd:ReportUnitType>
+  <rd:ReportID>33efeeee-082e-4556-83e1-c1c1cf608397</rd:ReportID>
+</Report>
