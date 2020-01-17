@@ -14,11 +14,8 @@
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
         <QueryParameters>
-          <QueryParameter Name="@BeginTerminationDate">
-            <Value>=Parameters!BeginTerminationDate.Value</Value>
-          </QueryParameter>
-          <QueryParameter Name="@EndTerminationDate">
-            <Value>=Parameters!EndTerminationDate.Value</Value>
+          <QueryParameter Name="@DistStatus">
+            <Value>=Parameters!DistStatus.Value</Value>
           </QueryParameter>
         </QueryParameters>
         <CommandText>select a.terminate_date,a.dist_id,a.roman_name_1,a.real_native_name_1,a.entry_date,a.addr,a.addr_2,a.addr_3,a.email_addr,
@@ -32,13 +29,13 @@ row_number() over(partition by dst.dist_id order by upl.date_log desc,upl.time_l
 from dw.dbo.dst
 left outer join dw.dbo.upl 
 on upl.dist_id=dst.dist_id and upl.[database]='DST' and upl.field='Dist Status' 
-and upl.[description]='Termination' and upl.new_value='T' --and upl.date_log=dst.terminate_date
-and upl.old_value&lt;&gt;'T'
+and upl.new_value=@DistStatus --and upl.date_log=dst.terminate_date
+and upl.old_value&lt;&gt;@DistStatus
 left outer join dw.dbo.dss dss_old on dss_old.mkting_unit=upl.uni_mkting_unit and dss_old.status_code=upl.old_value
 left outer join dw.dbo.dss dss on dss.mkting_unit=dst.uni_mkting_unit and dss.status_code=dst.dist_status
 left outer join dw.dbo.usr on usr.uni_mkting_unit=upl.uni_mkting_unit and usr.user_initials=upl.username
-where dst.uni_mkting_unit=81 and dst.country_code='JPN' and dst.dist_status='T' 
-and dst.terminate_date between @BeginTerminationDate and @EndTerminationDate
+where dst.uni_mkting_unit=81 and dst.country_code='JPN' and dst.dist_status=@DistStatus 
+--and dst.terminate_date between '2019-12-01' and '2019-12-01' --@BeginTerminationDate and @EndTerminationDate
 ) a
 where a.rnum=1
 order by a.terminate_date,a.date_log ,a.time_log,a.dist_id</CommandText>
@@ -118,6 +115,25 @@ order by a.terminate_date,a.date_log ,a.time_log,a.dist_id</CommandText>
         </Field>
         <Field Name="operator_name">
           <DataField>operator_name</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="Status_Desc">
+      <Query>
+        <DataSourceName>SQLPRODA</DataSourceName>
+        <CommandText>select status_code,status_code+' - '+status_desc descri 
+from dw.dbo.dss 
+where mkting_unit=81
+order by status_code</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="status_code">
+          <DataField>status_code</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="descri">
+          <DataField>descri</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
       </Fields>
@@ -650,7 +666,7 @@ order by a.terminate_date,a.date_log ,a.time_log,a.dist_id</CommandText>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Terminated by Initial</Value>
+                                  <Value>Modified by Initial</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontWeight>Bold</FontWeight>
@@ -705,7 +721,7 @@ order by a.terminate_date,a.date_log ,a.time_log,a.dist_id</CommandText>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Terminated by Name</Value>
+                                  <Value>Modified by Name</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -2085,7 +2101,7 @@ order by a.terminate_date,a.date_log ,a.time_log,a.dist_id</CommandText>
               <Paragraph>
                 <TextRuns>
                   <TextRun>
-                    <Value>="Terminated date between "+format(Parameters!BeginTerminationDate.Value,"yyyy-MM-dd")+" and "+format(Parameters!EndTerminationDate.Value,"yyyy-MM-dd")</Value>
+                    <Value>="Distributor Status: "+Parameters!DistStatus.Value</Value>
                     <Style>
                       <FontWeight>Bold</FontWeight>
                     </Style>
@@ -2146,13 +2162,16 @@ order by a.terminate_date,a.date_log ,a.time_log,a.dist_id</CommandText>
     </ReportSection>
   </ReportSections>
   <ReportParameters>
-    <ReportParameter Name="BeginTerminationDate">
-      <DataType>DateTime</DataType>
-      <Prompt>Begin Termination Date</Prompt>
-    </ReportParameter>
-    <ReportParameter Name="EndTerminationDate">
-      <DataType>DateTime</DataType>
-      <Prompt>End Termination Date</Prompt>
+    <ReportParameter Name="DistStatus">
+      <DataType>String</DataType>
+      <Prompt>Dist Status</Prompt>
+      <ValidValues>
+        <DataSetReference>
+          <DataSetName>Status_Desc</DataSetName>
+          <ValueField>status_code</ValueField>
+          <LabelField>descri</LabelField>
+        </DataSetReference>
+      </ValidValues>
     </ReportParameter>
   </ReportParameters>
   <ReportParametersLayout>
@@ -2163,12 +2182,7 @@ order by a.terminate_date,a.date_log ,a.time_log,a.dist_id</CommandText>
         <CellDefinition>
           <ColumnIndex>0</ColumnIndex>
           <RowIndex>0</RowIndex>
-          <ParameterName>BeginTerminationDate</ParameterName>
-        </CellDefinition>
-        <CellDefinition>
-          <ColumnIndex>1</ColumnIndex>
-          <RowIndex>0</RowIndex>
-          <ParameterName>EndTerminationDate</ParameterName>
+          <ParameterName>DistStatus</ParameterName>
         </CellDefinition>
       </CellDefinitions>
     </GridLayoutDefinition>
