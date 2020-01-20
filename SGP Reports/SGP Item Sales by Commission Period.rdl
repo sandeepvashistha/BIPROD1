@@ -27,21 +27,26 @@
 	,ds."Pv Date"
 	,ds."Item Code"
 	,itd.item_name_1 as Description
+	,IPL.PRICE_2 [Wholesale PV]
 	--, ds.RMA
-	,ds."Order Source"
-	,sum(case when ds.RMA='C' then -1*ds."Shipped Amount Local" else ds."Shipped Amount Local" end) as Retail
-	,sum(case when ds.RMA='C' then -1*ds."Pv Amount" else ds."Pv Amount" end) as Pv
-	,sum(case when ds.RMA='C' then -1*ds."Qty Ordered" else ds."Qty Ordered" end) as "Qty Sold"
+	,cast(ods.ods_number as varchar)+' - '+ds."Order Source" "Order Source"
+	--,ods.ods_number
+	,sum(ds."Shipped Amount Local") as Retail
+	,sum(ds."Pv Amount") as Pv
+	,sum(ds."Qty Ordered") as "Qty Sold"
 FROM 
 	DW.dbo.DM_SHIPPED_SALES_PACKS ds 
 	LEFT OUTER JOIN DW.dbo.ITD 
 	ON ITD.ITEM_CODE = ds."Item Code" AND ITD.UNI_MKTING_UNIT = ds.[Uni Mkting Unit]
+	LEFT OUTER JOIN DW.dbo.ODS 
+	ON ODS.MKTING_UNIT=ds.[Uni Mkting Unit] and ODS.[DESCRIPTION]=ds."Order Source"
+	LEFT OUTER JOIN DW.DBO.IPL ON (IPL.item_code=ds."Item Code" AND IPL.MKTING_UNIT=ds.[Uni Mkting Unit] AND IPL.PRICE_LEVEL=1 AND IPL.COUNTRY_CODE=ds."Country Code")
 WHERE 
 	ds."Uni Mkting Unit" = 65 and  ds."Country Code"='SGP'
 	and ds."PV Date" between @PvDateBeg and @PvDateEnd
 	and ds.[Parent/Child] &lt;&gt; 'Child'
 GROUP BY 
-	ds."Uni Mkting Unit",ds."Country Code",ds."Pv Date",ds."Item Code", ITD.ITEM_NAME_1,ds."Order Source"--, ds.RMA
+	ds."Uni Mkting Unit",ds."Country Code",ds."Pv Date",ds."Item Code", ITD.ITEM_NAME_1,cast(ods.ods_number as varchar)+' - '+ds."Order Source",IPL.PRICE_2
 ORDER BY 
 	ds."Uni Mkting Unit",ds."Country Code",ds."Pv Date","Qty Sold" desc</CommandText>
       </Query>
@@ -65,6 +70,10 @@ ORDER BY
         <Field Name="Description">
           <DataField>Description</DataField>
           <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="Wholesale_PV">
+          <DataField>Wholesale PV</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
         <Field Name="Order_Source">
           <DataField>Order Source</DataField>
@@ -171,6 +180,62 @@ ORDER BY
                           </Paragraph>
                         </Paragraphs>
                         <rd:DefaultName>Textbox74</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
+                          <BackgroundColor>LightBlue</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                      <RowSpan>3</RowSpan>
+                    </CellContents>
+                  </TablixCornerCell>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox1">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Wholesale PV</Value>
+                                <Style>
+                                  <FontFamily>Arial</FontFamily>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox1</rd:DefaultName>
                         <Style>
                           <Border>
                             <Style>Solid</Style>
@@ -380,8 +445,10 @@ ORDER BY
                   <TablixCornerCell />
                   <TablixCornerCell />
                   <TablixCornerCell />
+                  <TablixCornerCell />
                 </TablixCornerRow>
                 <TablixCornerRow>
+                  <TablixCornerCell />
                   <TablixCornerCell />
                   <TablixCornerCell />
                   <TablixCornerCell />
@@ -1203,6 +1270,7 @@ ORDER BY
                     <GroupExpressions>
                       <GroupExpression>=Fields!Item_Code.Value</GroupExpression>
                       <GroupExpression>=Fields!Description.Value</GroupExpression>
+                      <GroupExpression>=Fields!Wholesale_PV.Value</GroupExpression>
                     </GroupExpressions>
                   </Group>
                   <SortExpressions>
@@ -1258,7 +1326,6 @@ ORDER BY
                           <PaddingBottom>2pt</PaddingBottom>
                         </Style>
                       </Textbox>
-                      <rd:Selected>true</rd:Selected>
                     </CellContents>
                   </TablixHeader>
                   <TablixMembers>
@@ -1319,22 +1386,23 @@ ORDER BY
                           <TablixHeader>
                             <Size>1in</Size>
                             <CellContents>
-                              <Textbox Name="Retail2">
+                              <Textbox Name="Wholesale_PV">
+                                <CanGrow>true</CanGrow>
                                 <KeepTogether>true</KeepTogether>
                                 <Paragraphs>
                                   <Paragraph>
                                     <TextRuns>
                                       <TextRun>
-                                        <Value>=Sum(Fields!Retail.Value)</Value>
+                                        <Value>=Fields!Wholesale_PV.Value</Value>
                                         <Style>
-                                          <FontWeight>Bold</FontWeight>
+                                          <FontFamily>Arial</FontFamily>
                                         </Style>
                                       </TextRun>
                                     </TextRuns>
                                     <Style />
                                   </Paragraph>
                                 </Paragraphs>
-                                <rd:DefaultName>Retail</rd:DefaultName>
+                                <rd:DefaultName>Wholesale_PV</rd:DefaultName>
                                 <Style>
                                   <Border>
                                     <Style>Solid</Style>
@@ -1372,15 +1440,14 @@ ORDER BY
                               <TablixHeader>
                                 <Size>1in</Size>
                                 <CellContents>
-                                  <Textbox Name="Pv2">
+                                  <Textbox Name="Retail2">
                                     <KeepTogether>true</KeepTogether>
                                     <Paragraphs>
                                       <Paragraph>
                                         <TextRuns>
                                           <TextRun>
-                                            <Value>=Sum(Fields!Pv.Value)</Value>
+                                            <Value>=Sum(Fields!Retail.Value)</Value>
                                             <Style>
-                                              <FontFamily>Arial</FontFamily>
                                               <FontWeight>Bold</FontWeight>
                                             </Style>
                                           </TextRun>
@@ -1388,7 +1455,7 @@ ORDER BY
                                         <Style />
                                       </Paragraph>
                                     </Paragraphs>
-                                    <rd:DefaultName>Pv</rd:DefaultName>
+                                    <rd:DefaultName>Retail</rd:DefaultName>
                                     <Style>
                                       <Border>
                                         <Style>Solid</Style>
@@ -1426,13 +1493,13 @@ ORDER BY
                                   <TablixHeader>
                                     <Size>1in</Size>
                                     <CellContents>
-                                      <Textbox Name="Qty_Sold2">
+                                      <Textbox Name="Pv2">
                                         <KeepTogether>true</KeepTogether>
                                         <Paragraphs>
                                           <Paragraph>
                                             <TextRuns>
                                               <TextRun>
-                                                <Value>=Sum(Fields!Qty_Sold.Value)</Value>
+                                                <Value>=Sum(Fields!Pv.Value)</Value>
                                                 <Style>
                                                   <FontFamily>Arial</FontFamily>
                                                   <FontWeight>Bold</FontWeight>
@@ -1442,7 +1509,7 @@ ORDER BY
                                             <Style />
                                           </Paragraph>
                                         </Paragraphs>
-                                        <rd:DefaultName>Qty_Sold</rd:DefaultName>
+                                        <rd:DefaultName>Pv</rd:DefaultName>
                                         <Style>
                                           <Border>
                                             <Style>Solid</Style>
@@ -1475,6 +1542,62 @@ ORDER BY
                                       </Textbox>
                                     </CellContents>
                                   </TablixHeader>
+                                  <TablixMembers>
+                                    <TablixMember>
+                                      <TablixHeader>
+                                        <Size>1in</Size>
+                                        <CellContents>
+                                          <Textbox Name="Qty_Sold2">
+                                            <KeepTogether>true</KeepTogether>
+                                            <Paragraphs>
+                                              <Paragraph>
+                                                <TextRuns>
+                                                  <TextRun>
+                                                    <Value>=Sum(Fields!Qty_Sold.Value)</Value>
+                                                    <Style>
+                                                      <FontFamily>Arial</FontFamily>
+                                                      <FontWeight>Bold</FontWeight>
+                                                    </Style>
+                                                  </TextRun>
+                                                </TextRuns>
+                                                <Style />
+                                              </Paragraph>
+                                            </Paragraphs>
+                                            <rd:DefaultName>Qty_Sold</rd:DefaultName>
+                                            <Style>
+                                              <Border>
+                                                <Style>Solid</Style>
+                                              </Border>
+                                              <TopBorder>
+                                                <Color>Black</Color>
+                                                <Style>Solid</Style>
+                                                <Width>1pt</Width>
+                                              </TopBorder>
+                                              <BottomBorder>
+                                                <Color>Black</Color>
+                                                <Style>Solid</Style>
+                                                <Width>1pt</Width>
+                                              </BottomBorder>
+                                              <LeftBorder>
+                                                <Color>Black</Color>
+                                                <Style>Solid</Style>
+                                                <Width>1pt</Width>
+                                              </LeftBorder>
+                                              <RightBorder>
+                                                <Color>Black</Color>
+                                                <Style>Solid</Style>
+                                                <Width>1pt</Width>
+                                              </RightBorder>
+                                              <PaddingLeft>2pt</PaddingLeft>
+                                              <PaddingRight>2pt</PaddingRight>
+                                              <PaddingTop>2pt</PaddingTop>
+                                              <PaddingBottom>2pt</PaddingBottom>
+                                            </Style>
+                                          </Textbox>
+                                        </CellContents>
+                                      </TablixHeader>
+                                    </TablixMember>
+                                  </TablixMembers>
                                 </TablixMember>
                               </TablixMembers>
                             </TablixMember>
@@ -1489,7 +1612,7 @@ ORDER BY
             <DataSetName>Sales_Query</DataSetName>
             <Top>0.25in</Top>
             <Height>1in</Height>
-            <Width>12in</Width>
+            <Width>13in</Width>
             <Style>
               <Border>
                 <Style>None</Style>
@@ -1552,7 +1675,7 @@ ORDER BY
         <Height>1.25in</Height>
         <Style />
       </Body>
-      <Width>12in</Width>
+      <Width>13in</Width>
       <Page>
         <LeftMargin>1in</LeftMargin>
         <RightMargin>1in</RightMargin>
