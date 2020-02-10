@@ -14,11 +14,17 @@
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
         <QueryParameters>
+          <QueryParameter Name="@DateSelection">
+            <Value>=Parameters!DateSelection.Value</Value>
+          </QueryParameter>
           <QueryParameter Name="@ReleasedStartDate">
             <Value>=Parameters!ReleasedStartDate.Value</Value>
           </QueryParameter>
           <QueryParameter Name="@ReleasedEndDate">
             <Value>=Parameters!ReleasedEndDate.Value</Value>
+          </QueryParameter>
+          <QueryParameter Name="@OrderSource">
+            <Value>=Parameters!OrderSource.Value</Value>
           </QueryParameter>
         </QueryParameters>
         <CommandText>select a.mkting_unit,a.country_code,a.dist_id,a.order_number,a.status,a.odh_type,a.order_type,
@@ -26,7 +32,8 @@ a.warehouse,a.Warehouse_desc,a.payment_number,a.receipt_type,a.receipt_desc,
 a.entry_init,a.operator_name,
 a.entry_date,a.entry_time,a.cc_type,a.cc_type2,a.pre_auth_transit,a.released_date,a.pv_date_date,a.roman_name_1,
 a.amount_recd,(case when a.rnk=1 then a.tot_invce_amount else 0 end) tot_invce_amount_1,
-a.tot_invce_amount,a.comment_3,a.rnk,a.report_date
+a.tot_invce_amount,a.comment_3,a.rnk,a.report_date,
+a.parameter_date,a.order_source,a.record_date,a.invoice_print_date,a.post_date
 from
 (
 select odp.mkting_unit,odp.country_code,odp.dist_id,odp.order_number,odh.status,odh.odh_type,oty.description order_type,
@@ -35,7 +42,18 @@ odp.entry_init,(case when usr.operator_name is null then odp.entry_init else usr
 odp.entry_date,odp.entry_time,odp.cc_type,odp.cc_type2,odp.pre_auth_transit,odh.released_date,odh.pv_date_date,dst.roman_name_1,
 (case when isnumeric(odp.amount_recd)=1 then (case when odh.odh_type='C' then -1*cast(odp.amount_recd as numeric) else cast(odp.amount_recd as numeric) end) else 0 end) amount_recd,
 odh.tot_invce_amount,odh.comment_3,
-row_number() over(partition by odh.order_number order by odp.payment_number) rnk,cast(getdate()-1 as date) report_date
+row_number() over(partition by odh.order_number order by odp.payment_number) rnk,cast(getdate()-1 as date) report_date,
+(case when @DateSelection='0' then odh.entry_date
+ when @DateSelection='1' then odh.released_date
+ when @DateSelection='2' then odh.record_date
+ when @DateSelection='3' then odh.invoice_print_date
+ when @DateSelection='4' then odh.released_date
+ when @DateSelection='5' then odh.post_date
+ when @DateSelection='6' then odh.pv_date_date end) parameter_date,
+odh.order_source,
+odh.record_date,
+odh.invoice_print_date,
+odh.post_date
 FROM DW.dbo.ODP odp 
 inner join dw.dbo.odh odh on odh.uni_mkting_unit=odp.mkting_unit and odh.order_number=odp.order_number
 left outer join dw.dbo.usr on odp.mkting_unit=usr.uni_mkting_unit and usr.user_initials=(case when odp.entry_init like '*%' then substring(odp.entry_init,2,5) else odp.entry_init end)
@@ -44,7 +62,14 @@ left outer join dw.dbo.oty on oty.mkting_unit=odh.uni_mkting_unit and oty.order_
 left outer join dw.dbo.whs on whs.mkting_unit=odh.uni_mkting_unit and whs.wh_number=odh.warehouse 
 left outer join dw.dbo.dst on odh.dist_id=dst.dist_id
 where odh.uni_mkting_unit=62 and odh.status in (2,3,4,5) and
-odh.released_date between @ReleasedStartDate and @ReleasedEndDate
+(case when @DateSelection='0' then odh.entry_date
+ when @DateSelection='1' then odh.released_date
+ when @DateSelection='2' then odh.record_date
+ when @DateSelection='3' then odh.invoice_print_date
+ when @DateSelection='4' then odh.released_date
+ when @DateSelection='5' then odh.post_date
+ when @DateSelection='6' then odh.pv_date_date end) between @ReleasedStartDate and @ReleasedEndDate
+and odh.order_source = @OrderSource
 ) a
 ;</CommandText>
       </Query>
@@ -161,6 +186,44 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
           <DataField>report_date</DataField>
           <rd:TypeName>System.DateTime</rd:TypeName>
         </Field>
+        <Field Name="parameter_date">
+          <DataField>parameter_date</DataField>
+          <rd:TypeName>System.DateTime</rd:TypeName>
+        </Field>
+        <Field Name="order_source">
+          <DataField>order_source</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="record_date">
+          <DataField>record_date</DataField>
+          <rd:TypeName>System.DateTime</rd:TypeName>
+        </Field>
+        <Field Name="invoice_print_date">
+          <DataField>invoice_print_date</DataField>
+          <rd:TypeName>System.DateTime</rd:TypeName>
+        </Field>
+        <Field Name="post_date">
+          <DataField>post_date</DataField>
+          <rd:TypeName>System.DateTime</rd:TypeName>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="SourceDescription">
+      <Query>
+        <DataSourceName>SQLPRODA</DataSourceName>
+        <CommandText>select ods.ods_number,cast(ods.ods_number as varchar)+' - '+ods.description descri
+from dw.dbo.ods where mkting_unit=62
+order by ods.ods_number</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="ods_number">
+          <DataField>ods_number</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="descri">
+          <DataField>descri</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
       </Fields>
     </DataSet>
   </DataSets>
@@ -239,7 +302,7 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                           <PaddingBottom>2pt</PaddingBottom>
                         </Style>
                       </Textbox>
-                      <RowSpan>4</RowSpan>
+                      <RowSpan>3</RowSpan>
                     </CellContents>
                   </TablixCornerCell>
                   <TablixCornerCell>
@@ -309,7 +372,7 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                           <PaddingBottom>2pt</PaddingBottom>
                         </Style>
                       </Textbox>
-                      <RowSpan>4</RowSpan>
+                      <RowSpan>3</RowSpan>
                     </CellContents>
                   </TablixCornerCell>
                   <TablixCornerCell>
@@ -365,7 +428,7 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                           <PaddingBottom>2pt</PaddingBottom>
                         </Style>
                       </Textbox>
-                      <RowSpan>4</RowSpan>
+                      <RowSpan>3</RowSpan>
                     </CellContents>
                   </TablixCornerCell>
                   <TablixCornerCell>
@@ -421,15 +484,9 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                           <PaddingBottom>2pt</PaddingBottom>
                         </Style>
                       </Textbox>
-                      <RowSpan>4</RowSpan>
+                      <RowSpan>3</RowSpan>
                     </CellContents>
                   </TablixCornerCell>
-                </TablixCornerRow>
-                <TablixCornerRow>
-                  <TablixCornerCell />
-                  <TablixCornerCell />
-                  <TablixCornerCell />
-                  <TablixCornerCell />
                 </TablixCornerRow>
                 <TablixCornerRow>
                   <TablixCornerCell />
@@ -566,31 +623,31 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
             <TablixColumnHierarchy>
               <TablixMembers>
                 <TablixMember>
-                  <Group Name="pv_date_date">
+                  <Group Name="released_date">
                     <GroupExpressions>
-                      <GroupExpression>=Fields!pv_date_date.Value</GroupExpression>
+                      <GroupExpression>=Fields!parameter_date.Value</GroupExpression>
                     </GroupExpressions>
                   </Group>
                   <SortExpressions>
                     <SortExpression>
-                      <Value>=Fields!pv_date_date.Value</Value>
+                      <Value>=Fields!parameter_date.Value</Value>
                     </SortExpression>
                   </SortExpressions>
                   <TablixHeader>
                     <Size>0.25in</Size>
                     <CellContents>
-                      <Textbox Name="pv_date_date">
+                      <Textbox Name="parameter_date">
                         <CanGrow>true</CanGrow>
                         <KeepTogether>true</KeepTogether>
                         <Paragraphs>
                           <Paragraph>
                             <TextRuns>
                               <TextRun>
-                                <Value>=Fields!pv_date_date.Value</Value>
+                                <Value>=Fields!parameter_date.Value</Value>
                                 <Style>
                                   <FontFamily>Arial</FontFamily>
                                   <FontWeight>Bold</FontWeight>
-                                  <Format>MM/yyyy</Format>
+                                  <Format>M/d/yyyy</Format>
                                 </Style>
                               </TextRun>
                             </TextRuns>
@@ -599,12 +656,12 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                             </Style>
                           </Paragraph>
                         </Paragraphs>
-                        <rd:DefaultName>pv_date_date</rd:DefaultName>
+                        <rd:DefaultName>parameter_date</rd:DefaultName>
                         <Style>
                           <Border>
                             <Style>Solid</Style>
                           </Border>
-                          <BackgroundColor>Yellow</BackgroundColor>
+                          <BackgroundColor>CornflowerBlue</BackgroundColor>
                           <PaddingLeft>2pt</PaddingLeft>
                           <PaddingRight>2pt</PaddingRight>
                           <PaddingTop>2pt</PaddingTop>
@@ -615,45 +672,62 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                   </TablixHeader>
                   <TablixMembers>
                     <TablixMember>
-                      <Group Name="released_date">
+                      <Group Name="receipt_desc">
                         <GroupExpressions>
-                          <GroupExpression>=Fields!released_date.Value</GroupExpression>
+                          <GroupExpression>=Fields!receipt_desc.Value</GroupExpression>
                         </GroupExpressions>
                       </Group>
                       <SortExpressions>
                         <SortExpression>
-                          <Value>=Fields!released_date.Value</Value>
+                          <Value>=Fields!receipt_desc.Value</Value>
                         </SortExpression>
                       </SortExpressions>
                       <TablixHeader>
                         <Size>0.25in</Size>
                         <CellContents>
-                          <Textbox Name="released_date1">
+                          <Textbox Name="receipt_desc">
                             <CanGrow>true</CanGrow>
                             <KeepTogether>true</KeepTogether>
                             <Paragraphs>
                               <Paragraph>
                                 <TextRuns>
                                   <TextRun>
-                                    <Value>=Fields!released_date.Value</Value>
+                                    <Value>=Fields!receipt_desc.Value</Value>
                                     <Style>
                                       <FontFamily>Arial</FontFamily>
                                       <FontWeight>Bold</FontWeight>
-                                      <Format>M/d/yyyy</Format>
                                     </Style>
                                   </TextRun>
                                 </TextRuns>
-                                <Style>
-                                  <TextAlign>Center</TextAlign>
-                                </Style>
+                                <Style />
                               </Paragraph>
                             </Paragraphs>
-                            <rd:DefaultName>released_date1</rd:DefaultName>
+                            <rd:DefaultName>receipt_desc</rd:DefaultName>
                             <Style>
                               <Border>
                                 <Style>Solid</Style>
                               </Border>
-                              <BackgroundColor>CornflowerBlue</BackgroundColor>
+                              <TopBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </TopBorder>
+                              <BottomBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </BottomBorder>
+                              <LeftBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </LeftBorder>
+                              <RightBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </RightBorder>
+                              <BackgroundColor>PaleTurquoise</BackgroundColor>
                               <PaddingLeft>2pt</PaddingLeft>
                               <PaddingRight>2pt</PaddingRight>
                               <PaddingTop>2pt</PaddingTop>
@@ -664,37 +738,33 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                       </TablixHeader>
                       <TablixMembers>
                         <TablixMember>
-                          <Group Name="receipt_desc">
+                          <Group Name="ColumnGroup">
                             <GroupExpressions>
-                              <GroupExpression>=Fields!receipt_desc.Value</GroupExpression>
+                              <GroupExpression />
                             </GroupExpressions>
                           </Group>
-                          <SortExpressions>
-                            <SortExpression>
-                              <Value>=Fields!receipt_desc.Value</Value>
-                            </SortExpression>
-                          </SortExpressions>
                           <TablixHeader>
                             <Size>0.25in</Size>
                             <CellContents>
-                              <Textbox Name="receipt_desc">
+                              <Textbox Name="Textbox2">
                                 <CanGrow>true</CanGrow>
                                 <KeepTogether>true</KeepTogether>
                                 <Paragraphs>
                                   <Paragraph>
                                     <TextRuns>
                                       <TextRun>
-                                        <Value>=Fields!receipt_desc.Value</Value>
+                                        <Value>amount recd</Value>
                                         <Style>
-                                          <FontFamily>Arial</FontFamily>
                                           <FontWeight>Bold</FontWeight>
                                         </Style>
                                       </TextRun>
                                     </TextRuns>
-                                    <Style />
+                                    <Style>
+                                      <TextAlign>Center</TextAlign>
+                                    </Style>
                                   </Paragraph>
                                 </Paragraphs>
-                                <rd:DefaultName>receipt_desc</rd:DefaultName>
+                                <rd:DefaultName>Textbox2</rd:DefaultName>
                                 <Style>
                                   <Border>
                                     <Style>Solid</Style>
@@ -719,7 +789,7 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                                     <Style>Solid</Style>
                                     <Width>1pt</Width>
                                   </RightBorder>
-                                  <BackgroundColor>PaleTurquoise</BackgroundColor>
+                                  <BackgroundColor>LightBlue</BackgroundColor>
                                   <PaddingLeft>2pt</PaddingLeft>
                                   <PaddingRight>2pt</PaddingRight>
                                   <PaddingTop>2pt</PaddingTop>
@@ -728,70 +798,6 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                               </Textbox>
                             </CellContents>
                           </TablixHeader>
-                          <TablixMembers>
-                            <TablixMember>
-                              <Group Name="ColumnGroup">
-                                <GroupExpressions>
-                                  <GroupExpression />
-                                </GroupExpressions>
-                              </Group>
-                              <TablixHeader>
-                                <Size>0.25in</Size>
-                                <CellContents>
-                                  <Textbox Name="Textbox2">
-                                    <CanGrow>true</CanGrow>
-                                    <KeepTogether>true</KeepTogether>
-                                    <Paragraphs>
-                                      <Paragraph>
-                                        <TextRuns>
-                                          <TextRun>
-                                            <Value>amount recd</Value>
-                                            <Style>
-                                              <FontWeight>Bold</FontWeight>
-                                            </Style>
-                                          </TextRun>
-                                        </TextRuns>
-                                        <Style>
-                                          <TextAlign>Center</TextAlign>
-                                        </Style>
-                                      </Paragraph>
-                                    </Paragraphs>
-                                    <rd:DefaultName>Textbox2</rd:DefaultName>
-                                    <Style>
-                                      <Border>
-                                        <Style>Solid</Style>
-                                      </Border>
-                                      <TopBorder>
-                                        <Color>Black</Color>
-                                        <Style>Solid</Style>
-                                        <Width>1pt</Width>
-                                      </TopBorder>
-                                      <BottomBorder>
-                                        <Color>Black</Color>
-                                        <Style>Solid</Style>
-                                        <Width>1pt</Width>
-                                      </BottomBorder>
-                                      <LeftBorder>
-                                        <Color>Black</Color>
-                                        <Style>Solid</Style>
-                                        <Width>1pt</Width>
-                                      </LeftBorder>
-                                      <RightBorder>
-                                        <Color>Black</Color>
-                                        <Style>Solid</Style>
-                                        <Width>1pt</Width>
-                                      </RightBorder>
-                                      <BackgroundColor>LightBlue</BackgroundColor>
-                                      <PaddingLeft>2pt</PaddingLeft>
-                                      <PaddingRight>2pt</PaddingRight>
-                                      <PaddingTop>2pt</PaddingTop>
-                                      <PaddingBottom>2pt</PaddingBottom>
-                                    </Style>
-                                  </Textbox>
-                                </CellContents>
-                              </TablixHeader>
-                            </TablixMember>
-                          </TablixMembers>
                         </TablixMember>
                       </TablixMembers>
                     </TablixMember>
@@ -1258,8 +1264,8 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
               </TablixMembers>
             </TablixRowHierarchy>
             <DataSetName>DataSet1</DataSetName>
-            <Top>0.25in</Top>
-            <Height>1.5in</Height>
+            <Top>0.52083in</Top>
+            <Height>1.25in</Height>
             <Width>6in</Width>
             <Style>
               <Border>
@@ -1338,7 +1344,7 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                           <PaddingBottom>2pt</PaddingBottom>
                         </Style>
                       </Textbox>
-                      <RowSpan>4</RowSpan>
+                      <RowSpan>3</RowSpan>
                     </CellContents>
                   </TablixCornerCell>
                   <TablixCornerCell>
@@ -1406,7 +1412,7 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                           <PaddingBottom>2pt</PaddingBottom>
                         </Style>
                       </Textbox>
-                      <RowSpan>4</RowSpan>
+                      <RowSpan>3</RowSpan>
                     </CellContents>
                   </TablixCornerCell>
                   <TablixCornerCell>
@@ -1462,7 +1468,7 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                           <PaddingBottom>2pt</PaddingBottom>
                         </Style>
                       </Textbox>
-                      <RowSpan>4</RowSpan>
+                      <RowSpan>3</RowSpan>
                     </CellContents>
                   </TablixCornerCell>
                   <TablixCornerCell>
@@ -1518,15 +1524,9 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                           <PaddingBottom>2pt</PaddingBottom>
                         </Style>
                       </Textbox>
-                      <RowSpan>4</RowSpan>
+                      <RowSpan>3</RowSpan>
                     </CellContents>
                   </TablixCornerCell>
-                </TablixCornerRow>
-                <TablixCornerRow>
-                  <TablixCornerCell />
-                  <TablixCornerCell />
-                  <TablixCornerCell />
-                  <TablixCornerCell />
                 </TablixCornerRow>
                 <TablixCornerRow>
                   <TablixCornerCell />
@@ -1663,31 +1663,31 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
             <TablixColumnHierarchy>
               <TablixMembers>
                 <TablixMember>
-                  <Group Name="pv_date_date2">
+                  <Group Name="released_date1">
                     <GroupExpressions>
-                      <GroupExpression>=Fields!pv_date_date.Value</GroupExpression>
+                      <GroupExpression>=Fields!parameter_date.Value</GroupExpression>
                     </GroupExpressions>
                   </Group>
                   <SortExpressions>
                     <SortExpression>
-                      <Value>=Fields!pv_date_date.Value</Value>
+                      <Value>=Fields!parameter_date.Value</Value>
                     </SortExpression>
                   </SortExpressions>
                   <TablixHeader>
                     <Size>0.25in</Size>
                     <CellContents>
-                      <Textbox Name="pv_date_date2">
+                      <Textbox Name="parameter_date1">
                         <CanGrow>true</CanGrow>
                         <KeepTogether>true</KeepTogether>
                         <Paragraphs>
                           <Paragraph>
                             <TextRuns>
                               <TextRun>
-                                <Value>=Fields!pv_date_date.Value</Value>
+                                <Value>=Fields!parameter_date.Value</Value>
                                 <Style>
                                   <FontFamily>Arial</FontFamily>
                                   <FontWeight>Bold</FontWeight>
-                                  <Format>MM/yyyy</Format>
+                                  <Format>M/d/yyyy</Format>
                                 </Style>
                               </TextRun>
                             </TextRuns>
@@ -1696,12 +1696,12 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                             </Style>
                           </Paragraph>
                         </Paragraphs>
-                        <rd:DefaultName>pv_date_date</rd:DefaultName>
+                        <rd:DefaultName>parameter_date1</rd:DefaultName>
                         <Style>
                           <Border>
                             <Style>Solid</Style>
                           </Border>
-                          <BackgroundColor>Yellow</BackgroundColor>
+                          <BackgroundColor>CornflowerBlue</BackgroundColor>
                           <PaddingLeft>2pt</PaddingLeft>
                           <PaddingRight>2pt</PaddingRight>
                           <PaddingTop>2pt</PaddingTop>
@@ -1712,45 +1712,62 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                   </TablixHeader>
                   <TablixMembers>
                     <TablixMember>
-                      <Group Name="released_date1">
+                      <Group Name="receipt_desc2">
                         <GroupExpressions>
-                          <GroupExpression>=Fields!released_date.Value</GroupExpression>
+                          <GroupExpression>=Fields!receipt_desc.Value</GroupExpression>
                         </GroupExpressions>
                       </Group>
                       <SortExpressions>
                         <SortExpression>
-                          <Value>=Fields!released_date.Value</Value>
+                          <Value>=Fields!receipt_desc.Value</Value>
                         </SortExpression>
                       </SortExpressions>
                       <TablixHeader>
                         <Size>0.25in</Size>
                         <CellContents>
-                          <Textbox Name="released_date11">
+                          <Textbox Name="receipt_desc2">
                             <CanGrow>true</CanGrow>
                             <KeepTogether>true</KeepTogether>
                             <Paragraphs>
                               <Paragraph>
                                 <TextRuns>
                                   <TextRun>
-                                    <Value>=Fields!released_date.Value</Value>
+                                    <Value>=Fields!receipt_desc.Value</Value>
                                     <Style>
                                       <FontFamily>Arial</FontFamily>
                                       <FontWeight>Bold</FontWeight>
-                                      <Format>M/d/yyyy</Format>
                                     </Style>
                                   </TextRun>
                                 </TextRuns>
-                                <Style>
-                                  <TextAlign>Center</TextAlign>
-                                </Style>
+                                <Style />
                               </Paragraph>
                             </Paragraphs>
-                            <rd:DefaultName>released_date11</rd:DefaultName>
+                            <rd:DefaultName>receipt_desc</rd:DefaultName>
                             <Style>
                               <Border>
                                 <Style>Solid</Style>
                               </Border>
-                              <BackgroundColor>CornflowerBlue</BackgroundColor>
+                              <TopBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </TopBorder>
+                              <BottomBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </BottomBorder>
+                              <LeftBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </LeftBorder>
+                              <RightBorder>
+                                <Color>Black</Color>
+                                <Style>Solid</Style>
+                                <Width>1pt</Width>
+                              </RightBorder>
+                              <BackgroundColor>PaleTurquoise</BackgroundColor>
                               <PaddingLeft>2pt</PaddingLeft>
                               <PaddingRight>2pt</PaddingRight>
                               <PaddingTop>2pt</PaddingTop>
@@ -1761,37 +1778,33 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                       </TablixHeader>
                       <TablixMembers>
                         <TablixMember>
-                          <Group Name="receipt_desc2">
+                          <Group Name="ColumnGroup2">
                             <GroupExpressions>
-                              <GroupExpression>=Fields!receipt_desc.Value</GroupExpression>
+                              <GroupExpression />
                             </GroupExpressions>
                           </Group>
-                          <SortExpressions>
-                            <SortExpression>
-                              <Value>=Fields!receipt_desc.Value</Value>
-                            </SortExpression>
-                          </SortExpressions>
                           <TablixHeader>
                             <Size>0.25in</Size>
                             <CellContents>
-                              <Textbox Name="receipt_desc2">
+                              <Textbox Name="Textbox3">
                                 <CanGrow>true</CanGrow>
                                 <KeepTogether>true</KeepTogether>
                                 <Paragraphs>
                                   <Paragraph>
                                     <TextRuns>
                                       <TextRun>
-                                        <Value>=Fields!receipt_desc.Value</Value>
+                                        <Value>amount recd</Value>
                                         <Style>
-                                          <FontFamily>Arial</FontFamily>
                                           <FontWeight>Bold</FontWeight>
                                         </Style>
                                       </TextRun>
                                     </TextRuns>
-                                    <Style />
+                                    <Style>
+                                      <TextAlign>Center</TextAlign>
+                                    </Style>
                                   </Paragraph>
                                 </Paragraphs>
-                                <rd:DefaultName>receipt_desc</rd:DefaultName>
+                                <rd:DefaultName>Textbox2</rd:DefaultName>
                                 <Style>
                                   <Border>
                                     <Style>Solid</Style>
@@ -1816,7 +1829,7 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                                     <Style>Solid</Style>
                                     <Width>1pt</Width>
                                   </RightBorder>
-                                  <BackgroundColor>PaleTurquoise</BackgroundColor>
+                                  <BackgroundColor>LightBlue</BackgroundColor>
                                   <PaddingLeft>2pt</PaddingLeft>
                                   <PaddingRight>2pt</PaddingRight>
                                   <PaddingTop>2pt</PaddingTop>
@@ -1825,70 +1838,6 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                               </Textbox>
                             </CellContents>
                           </TablixHeader>
-                          <TablixMembers>
-                            <TablixMember>
-                              <Group Name="ColumnGroup2">
-                                <GroupExpressions>
-                                  <GroupExpression />
-                                </GroupExpressions>
-                              </Group>
-                              <TablixHeader>
-                                <Size>0.25in</Size>
-                                <CellContents>
-                                  <Textbox Name="Textbox3">
-                                    <CanGrow>true</CanGrow>
-                                    <KeepTogether>true</KeepTogether>
-                                    <Paragraphs>
-                                      <Paragraph>
-                                        <TextRuns>
-                                          <TextRun>
-                                            <Value>amount recd</Value>
-                                            <Style>
-                                              <FontWeight>Bold</FontWeight>
-                                            </Style>
-                                          </TextRun>
-                                        </TextRuns>
-                                        <Style>
-                                          <TextAlign>Center</TextAlign>
-                                        </Style>
-                                      </Paragraph>
-                                    </Paragraphs>
-                                    <rd:DefaultName>Textbox2</rd:DefaultName>
-                                    <Style>
-                                      <Border>
-                                        <Style>Solid</Style>
-                                      </Border>
-                                      <TopBorder>
-                                        <Color>Black</Color>
-                                        <Style>Solid</Style>
-                                        <Width>1pt</Width>
-                                      </TopBorder>
-                                      <BottomBorder>
-                                        <Color>Black</Color>
-                                        <Style>Solid</Style>
-                                        <Width>1pt</Width>
-                                      </BottomBorder>
-                                      <LeftBorder>
-                                        <Color>Black</Color>
-                                        <Style>Solid</Style>
-                                        <Width>1pt</Width>
-                                      </LeftBorder>
-                                      <RightBorder>
-                                        <Color>Black</Color>
-                                        <Style>Solid</Style>
-                                        <Width>1pt</Width>
-                                      </RightBorder>
-                                      <BackgroundColor>LightBlue</BackgroundColor>
-                                      <PaddingLeft>2pt</PaddingLeft>
-                                      <PaddingRight>2pt</PaddingRight>
-                                      <PaddingTop>2pt</PaddingTop>
-                                      <PaddingBottom>2pt</PaddingBottom>
-                                    </Style>
-                                  </Textbox>
-                                </CellContents>
-                              </TablixHeader>
-                            </TablixMember>
-                          </TablixMembers>
                         </TablixMember>
                       </TablixMembers>
                     </TablixMember>
@@ -2356,8 +2305,8 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
             </TablixRowHierarchy>
             <DataSetName>DataSet1</DataSetName>
             <PageName>Summary by WH and Entry Init</PageName>
-            <Top>1.79167in</Top>
-            <Height>1.5in</Height>
+            <Top>2.0625in</Top>
+            <Height>1.25in</Height>
             <Width>6in</Width>
             <ZIndex>1</ZIndex>
             <Style>
@@ -2369,6 +2318,18 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
           <Tablix Name="Tablix3">
             <TablixBody>
               <TablixColumns>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
                 <TablixColumn>
                   <Width>1in</Width>
                 </TablixColumn>
@@ -2494,6 +2455,146 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="Textbox5">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value />
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox5</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>None</Style>
+                            </Border>
+                            <BackgroundColor>White</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox8">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value />
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox8</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>None</Style>
+                            </Border>
+                            <BackgroundColor>White</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox15">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value />
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox15</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>None</Style>
+                            </Border>
+                            <BackgroundColor>White</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox18">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value />
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox18</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>None</Style>
+                            </Border>
+                            <BackgroundColor>White</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="Textbox82">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
@@ -2501,7 +2602,7 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>="Order Released Date between "+format(Parameters!ReleasedStartDate.Value,"M/d/yyyy")+" and "+format(Parameters!ReleasedEndDate.Value,"M/d/yyyy")</Value>
+                                  <Value>=IIF(Parameters!DateSelection.Value="0","Entry ",IIF(Parameters!DateSelection.Value="1","Release ",IIF(Parameters!DateSelection.Value="2","Order ",IIF(Parameters!DateSelection.Value="3","Invoice ",IIF(Parameters!DateSelection.Value="4","Ship ",IIF(Parameters!DateSelection.Value="5","Post ",IIF(Parameters!DateSelection.Value="6","PV ","N/A ")))))))+"Date between "+format(Parameters!ReleasedStartDate.Value,"M/d/yyyy")+" and "+format(Parameters!ReleasedEndDate.Value,"M/d/yyyy")</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontWeight>Bold</FontWeight>
@@ -2981,6 +3082,222 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox52</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox6">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Entry Date</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox6</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox9">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Record Date</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox9</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox16">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Invoice Date</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox16</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox21">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Post Date</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox21</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -3850,6 +4167,126 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="entry_date">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!entry_date.Value</Value>
+                                  <Style>
+                                    <Format>d</Format>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>entry_date</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="record_date">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!record_date.Value</Value>
+                                  <Style>
+                                    <Format>d</Format>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>record_date</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="invoice_print_date">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!invoice_print_date.Value</Value>
+                                  <Style>
+                                    <Format>d</Format>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>invoice_print_date</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="post_date">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!post_date.Value</Value>
+                                  <Style>
+                                    <Format>d</Format>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>post_date</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="odh_type">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
@@ -4568,6 +5005,10 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                 <TablixMember />
                 <TablixMember />
                 <TablixMember />
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
               </TablixMembers>
             </TablixColumnHierarchy>
             <TablixRowHierarchy>
@@ -4602,9 +5043,9 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
                 <Value>=Fields!receipt_type.Value</Value>
               </SortExpression>
             </SortExpressions>
-            <Top>3.29167in</Top>
-            <Height>0.8125in</Height>
-            <Width>22.5in</Width>
+            <Top>3.3125in</Top>
+            <Height>0.81249in</Height>
+            <Width>26.5in</Width>
             <ZIndex>2</ZIndex>
             <Style>
               <Border>
@@ -4619,7 +5060,7 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
               <Paragraph>
                 <TextRuns>
                   <TextRun>
-                    <Value>="Order Released Date between "+format(Parameters!ReleasedStartDate.Value,"M/d/yyyy")+" and "+format(Parameters!ReleasedEndDate.Value,"M/d/yyyy")</Value>
+                    <Value>=IIF(Parameters!DateSelection.Value="0","Entry ",IIF(Parameters!DateSelection.Value="1","Release ",IIF(Parameters!DateSelection.Value="2","Order ",IIF(Parameters!DateSelection.Value="3","Invoice ",IIF(Parameters!DateSelection.Value="4","Ship ",IIF(Parameters!DateSelection.Value="5","Post ",IIF(Parameters!DateSelection.Value="6","PV ","N/A ")))))))+"Date between "+format(Parameters!ReleasedStartDate.Value,"M/d/yyyy")+" and "+format(Parameters!ReleasedEndDate.Value,"M/d/yyyy")</Value>
                     <Style>
                       <FontWeight>Bold</FontWeight>
                     </Style>
@@ -4665,11 +5106,66 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
               <PaddingBottom>2pt</PaddingBottom>
             </Style>
           </Textbox>
+          <Textbox Name="Textbox1">
+            <CanGrow>true</CanGrow>
+            <KeepTogether>true</KeepTogether>
+            <Paragraphs>
+              <Paragraph>
+                <TextRuns>
+                  <TextRun>
+                    <Value>="Order Source: "+Parameters!OrderSource.Value</Value>
+                    <Style>
+                      <FontStyle>Italic</FontStyle>
+                      <FontWeight>Bold</FontWeight>
+                    </Style>
+                  </TextRun>
+                </TextRuns>
+                <Style>
+                  <TextAlign>Center</TextAlign>
+                </Style>
+              </Paragraph>
+            </Paragraphs>
+            <rd:DefaultName>Textbox1</rd:DefaultName>
+            <Top>0.25in</Top>
+            <Left>1in</Left>
+            <Height>0.27083in</Height>
+            <Width>4in</Width>
+            <ZIndex>4</ZIndex>
+            <Style>
+              <Border>
+                <Style>Solid</Style>
+              </Border>
+              <TopBorder>
+                <Color>Black</Color>
+                <Style>Solid</Style>
+                <Width>1pt</Width>
+              </TopBorder>
+              <BottomBorder>
+                <Color>Black</Color>
+                <Style>Solid</Style>
+                <Width>1pt</Width>
+              </BottomBorder>
+              <LeftBorder>
+                <Color>Black</Color>
+                <Style>Solid</Style>
+                <Width>1pt</Width>
+              </LeftBorder>
+              <RightBorder>
+                <Color>Black</Color>
+                <Style>Solid</Style>
+                <Width>1pt</Width>
+              </RightBorder>
+              <PaddingLeft>2pt</PaddingLeft>
+              <PaddingRight>2pt</PaddingRight>
+              <PaddingTop>2pt</PaddingTop>
+              <PaddingBottom>2pt</PaddingBottom>
+            </Style>
+          </Textbox>
         </ReportItems>
-        <Height>4.10417in</Height>
+        <Height>4.12499in</Height>
         <Style />
       </Body>
-      <Width>22.5in</Width>
+      <Width>26.5in</Width>
       <Page>
         <LeftMargin>1in</LeftMargin>
         <RightMargin>1in</RightMargin>
@@ -4680,13 +5176,56 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
     </ReportSection>
   </ReportSections>
   <ReportParameters>
+    <ReportParameter Name="DateSelection">
+      <DataType>String</DataType>
+      <Prompt>Date Selection</Prompt>
+      <ValidValues>
+        <ParameterValues>
+          <ParameterValue>
+            <Value>0</Value>
+            <Label>Entry Date</Label>
+          </ParameterValue>
+          <ParameterValue>
+            <Value>1</Value>
+            <Label>Released Date</Label>
+          </ParameterValue>
+          <ParameterValue>
+            <Value>2</Value>
+            <Label>Order Date</Label>
+          </ParameterValue>
+          <ParameterValue>
+            <Value>3</Value>
+            <Label>Invoice Date</Label>
+          </ParameterValue>
+          <ParameterValue>
+            <Value>5</Value>
+            <Label>Post Date</Label>
+          </ParameterValue>
+          <ParameterValue>
+            <Value>6</Value>
+            <Label>PV Date</Label>
+          </ParameterValue>
+        </ParameterValues>
+      </ValidValues>
+    </ReportParameter>
     <ReportParameter Name="ReleasedStartDate">
       <DataType>DateTime</DataType>
-      <Prompt>Released Start Date</Prompt>
+      <Prompt>Start Date</Prompt>
     </ReportParameter>
     <ReportParameter Name="ReleasedEndDate">
       <DataType>DateTime</DataType>
-      <Prompt>Released End Date</Prompt>
+      <Prompt>End Date</Prompt>
+    </ReportParameter>
+    <ReportParameter Name="OrderSource">
+      <DataType>String</DataType>
+      <Prompt>Order Source</Prompt>
+      <ValidValues>
+        <DataSetReference>
+          <DataSetName>SourceDescription</DataSetName>
+          <ValueField>ods_number</ValueField>
+          <LabelField>descri</LabelField>
+        </DataSetReference>
+      </ValidValues>
     </ReportParameter>
   </ReportParameters>
   <ReportParametersLayout>
@@ -4695,14 +5234,24 @@ odh.released_date between @ReleasedStartDate and @ReleasedEndDate
       <NumberOfRows>2</NumberOfRows>
       <CellDefinitions>
         <CellDefinition>
-          <ColumnIndex>0</ColumnIndex>
+          <ColumnIndex>1</ColumnIndex>
           <RowIndex>0</RowIndex>
           <ParameterName>ReleasedStartDate</ParameterName>
         </CellDefinition>
         <CellDefinition>
-          <ColumnIndex>1</ColumnIndex>
+          <ColumnIndex>2</ColumnIndex>
           <RowIndex>0</RowIndex>
           <ParameterName>ReleasedEndDate</ParameterName>
+        </CellDefinition>
+        <CellDefinition>
+          <ColumnIndex>0</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>DateSelection</ParameterName>
+        </CellDefinition>
+        <CellDefinition>
+          <ColumnIndex>3</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>OrderSource</ParameterName>
         </CellDefinition>
       </CellDefinitions>
     </GridLayoutDefinition>
