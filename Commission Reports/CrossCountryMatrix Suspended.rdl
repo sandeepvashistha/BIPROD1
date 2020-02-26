@@ -58,10 +58,11 @@ FROM UNCBonusResults.dbo.BonusDetail d WITH(NOLOCK)
 LEFT OUTER JOIN UNCBonusCACHE.dbo.CACHE_ConversionRate sr WITH(NOLOCK) ON sr.BatchId = @BatchId AND d.SourceCurrencyCode = sr.CurrencyCode --SourceRate
 LEFT OUTER JOIN UNCBonusCACHE.dbo.CACHE_ConversionRate tr WITH(NOLOCK) ON tr.BatchId = @BatchId AND d.TargetCurrencyCode = tr.CurrencyCode --TargetRate
 LEFT OUTER JOIN UNCBonusResults.dbo.CustomerResults cr WITH(NOLOCK) ON cr.BatchId = @BatchId AND cr.UnicityId = d.FromUnicityId
+LEFT OUTER JOIN UNCBonusResults.dbo.CustomerResults crt WITH(NOLOCK) ON crt.BatchId = @BatchId AND crt.UnicityId = d.UnicityId
 WHERE d.BatchId = @BatchId
 AND d.UnicityId &gt; 5
 AND d.CommissionProfitCenterID NOT IN (17)      --17=LSB --local cost and it is posted in the manual adjustments so there should not be a cross country charge for this bonus type
-AND cr.CustomerStatus = 'Suspended' 
+AND (cr.CustomerStatus = 'Suspended' OR crt.CustomerStatus = 'Suspended' )
 GROUP BY d.FromUnicityId --SourceUnicityId
 ,d.UnicityId --TargetUnicityId
 ,d.TargetCountryCode
@@ -70,41 +71,7 @@ GROUP BY d.FromUnicityId --SourceUnicityId
 ,sr.BonusConversion
 ,CASE WHEN d.IsNFR = 1 THEN d.SourceCountryCode+'N' ELSE d.SourceCountryCode END
 ,d.SourceCurrencyCode
-UNION ALL 
-SELECT d.FromUnicityId SourceUnicityId
-,CASE WHEN d.IsNFR = 1 THEN d.SourceCountryCode+'N' ELSE d.SourceCountryCode END SourceCountryCode
-,d.SourceCurrencyCode
-,d.UnicityId TargetUnicityId
-,d.TargetCountryCode
-,d.TargetCurrencyCode
-,sr.BonusConversion SourceRate
-,tr.BonusConversion TargetRate
-,SUM(d.BonusValue) BonusValue
-,SUM(d.ConvertedBonusValue) ConvertedBonusValue
-,(SELECT TOP 1 exchange_rate_amount FROM [SQLPRODA\SQLA].DW.dbo.VW_NAV_CURRENCY_ALL
-       WHERE from_currency = d.TargetCurrencyCode
-       AND to_Currency = 'USD'
-       AND left(convert(varchar,[starting_date],112),6) = dbo.fnCommissionmonth(@CommissionMonth,1)
-       ORDER BY starting_date) NavRateToUSD
 
-FROM UNCBonusResults.dbo.BonusDetail d WITH(NOLOCK)
---INNER JOIN UnityDb.dbo.Customer csr ON csr.CustomerId_Unicity = d.FromUnicityId 
---INNER JOIN UnityDb.dbo.Customer ctr ON ctr.CustomerId_Unicity = d.UnicityId
-LEFT OUTER JOIN UNCBonusCACHE.dbo.CACHE_ConversionRate sr WITH(NOLOCK) ON sr.BatchId = @BatchId AND d.SourceCurrencyCode = sr.CurrencyCode --SourceRate
-LEFT OUTER JOIN UNCBonusCACHE.dbo.CACHE_ConversionRate tr WITH(NOLOCK) ON tr.BatchId = @BatchId AND d.TargetCurrencyCode = tr.CurrencyCode --TargetRate
-LEFT OUTER JOIN UNCBonusResults.dbo.CustomerResults cr WITH(NOLOCK) ON cr.BatchId = @BatchId AND cr.UnicityId = d.UnicityId
-WHERE d.BatchId = @BatchId
-AND d.UnicityId &gt; 5
-AND d.CommissionProfitCenterID NOT IN (17)      --17=LSB --local cost and it is posted in the manual adjustments so there should not be a cross country charge for this bonus type
-AND cr.CustomerStatus = 'Suspended' 
-GROUP BY d.FromUnicityId --SourceUnicityId
-,d.UnicityId --TargetUnicityId
-,d.TargetCountryCode
-,d.TargetCurrencyCode
-,tr.BonusConversion
-,sr.BonusConversion
-,CASE WHEN d.IsNFR = 1 THEN d.SourceCountryCode+'N' ELSE d.SourceCountryCode END
-,d.SourceCurrencyCode
 
 
 SELECT 'CrossCountryMatrixSummary' ReportName
@@ -292,10 +259,11 @@ FROM
 	LEFT OUTER JOIN UNCBonusCACHE.dbo.CACHE_ConversionRate sr WITH(NOLOCK) ON sr.BatchId = @BatchId AND d.SourceCurrencyCode = sr.CurrencyCode --SourceRate
 	LEFT OUTER JOIN UNCBonusCACHE.dbo.CACHE_ConversionRate tr WITH(NOLOCK) ON tr.BatchId = @BatchId AND d.TargetCurrencyCode = tr.CurrencyCode --TargetRate
 	LEFT OUTER JOIN UNCBonusResults.dbo.CustomerResults cr WITH(NOLOCK) ON cr.BatchId = @BatchId AND cr.UnicityId = d.FromUnicityId
+	LEFT OUTER JOIN UNCBonusResults.dbo.CustomerResults crt WITH(NOLOCK) ON crt.BatchId = @BatchId AND crt.UnicityId = d.UnicityId
 	WHERE d.BatchId = @BatchId
 	AND d.UnicityId &gt; 5
 	AND d.CommissionProfitCenterID NOT IN (17)      --17=LSB --local cost and it is posted in the manual adjustments so there should not be a cross country charge for this bonus type
-	AND cr.CustomerStatus = 'Suspended' 
+	AND (cr.CustomerStatus = 'Suspended' OR crt.CustomerStatus = 'Suspended' )
 	GROUP BY d.FromUnicityId --SourceUnicityId
 	,d.UnicityId --TargetUnicityId
 	,d.TargetCountryCode
@@ -304,41 +272,7 @@ FROM
 	,sr.BonusConversion
 	,CASE WHEN d.IsNFR = 1 THEN d.SourceCountryCode+'N' ELSE d.SourceCountryCode END
 	,d.SourceCurrencyCode
-	UNION ALL 
-	SELECT d.FromUnicityId SourceUnicityId
-	,CASE WHEN d.IsNFR = 1 THEN d.SourceCountryCode+'N' ELSE d.SourceCountryCode END SourceCountryCode
-	,d.SourceCurrencyCode
-	,d.UnicityId TargetUnicityId
-	,d.TargetCountryCode
-	,d.TargetCurrencyCode
-	,sr.BonusConversion SourceRate
-	,tr.BonusConversion TargetRate
-	,SUM(d.BonusValue) BonusValue
-	,SUM(d.ConvertedBonusValue) ConvertedBonusValue
-	,(SELECT TOP 1 exchange_rate_amount FROM [SQLPRODA\SQLA].DW.dbo.VW_NAV_CURRENCY_ALL
-		   WHERE from_currency = d.TargetCurrencyCode
-		   AND to_Currency = 'USD'
-		   AND left(convert(varchar,[starting_date],112),6) = dbo.fnCommissionmonth(@CommissionMonth,1)
-		   ORDER BY starting_date) NavRateToUSD
-
-	FROM UNCBonusResults.dbo.BonusDetail d WITH(NOLOCK)
-	--INNER JOIN UnityDb.dbo.Customer csr ON csr.CustomerId_Unicity = d.FromUnicityId 
-	--INNER JOIN UnityDb.dbo.Customer ctr ON ctr.CustomerId_Unicity = d.UnicityId
-	LEFT OUTER JOIN UNCBonusCACHE.dbo.CACHE_ConversionRate sr WITH(NOLOCK) ON sr.BatchId = @BatchId AND d.SourceCurrencyCode = sr.CurrencyCode --SourceRate
-	LEFT OUTER JOIN UNCBonusCACHE.dbo.CACHE_ConversionRate tr WITH(NOLOCK) ON tr.BatchId = @BatchId AND d.TargetCurrencyCode = tr.CurrencyCode --TargetRate
-	LEFT OUTER JOIN UNCBonusResults.dbo.CustomerResults cr WITH(NOLOCK) ON cr.BatchId = @BatchId AND cr.UnicityId = d.UnicityId
-	WHERE d.BatchId = @BatchId
-	AND d.UnicityId &gt; 5
-	AND d.CommissionProfitCenterID NOT IN (17)      --17=LSB --local cost and it is posted in the manual adjustments so there should not be a cross country charge for this bonus type
-	AND cr.CustomerStatus = 'Suspended' 
-	GROUP BY d.FromUnicityId --SourceUnicityId
-	,d.UnicityId --TargetUnicityId
-	,d.TargetCountryCode
-	,d.TargetCurrencyCode
-	,tr.BonusConversion
-	,sr.BonusConversion
-	,CASE WHEN d.IsNFR = 1 THEN d.SourceCountryCode+'N' ELSE d.SourceCountryCode END
-	,d.SourceCurrencyCode
+	
 ) a 
 GROUP BY SourceUnicityId
 , SourceCountryCode
