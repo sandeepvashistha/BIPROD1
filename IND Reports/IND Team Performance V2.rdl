@@ -24,44 +24,61 @@
             <Value>=Parameters!Top_Sponsor_ID.Value</Value>
           </QueryParameter>
         </QueryParameters>
-        <CommandText>SELECT
-	Distinct GENIE.TOP_MSPON,
-	SAPDW_GENIE2.DIST_NAME As Top_Dist_Name,
-	GENIE.MDIST,
-	GENIE.DIST_NAME,
-	BWT.VOL1 As PV,
-	BWT.VOL3 As OV,
-	BWT.WRK15 As LEG_1,
-	BWT.WRK16 As LEG_2,
-	BWT.WRK17 As LEG_3,
-	ERN.EARNINGS_AMOUNT,
-                   DST.DIST_STATUS,
-	DST.ENTRY_DATE,
-	--DST.UNI_MKTING_UNIT,
-	DST.CITY,
-	DST.STATE,
-	DST.POSTAL_CODE,
-	DST.COUNTRY_CODE,
-	BWT.PAID_RANK,
-    Paid_As_Rank_Desc.TITLE,
-	DW.dbo.DM_HIGHEST_ACHIEVED_RANK.END_RANK As Highest_Ach_Rank,
-    DW.dbo.DM_HIGHEST_ACHIEVED_RANK.RANK_NAME As Highest_Ach_Rank_Name,
-	CONVERT(DATETIME,LTRIM(RTRIM(BWT.PV_DATE))+'01',103) PV_DATE,
-	GENIE.GROUP_LEVEL
-FROM
-	DW.DBO.GENIE GENIE INNER JOIN DW.DBO.GENIE  SAPDW_GENIE2 ON (GENIE.TOP_MSPON=SAPDW_GENIE2.MDIST)
-	INNER JOIN DW.DBO.DST DST ON (GENIE.MDIST=DST.MDIST)
-	INNER JOIN DW.DBO.BWT BWT ON (BWT.DIST_ID=DST.DIST_ID)
-	INNER JOIN DW.dbo.RANK  Paid_As_Rank_Desc ON  ( Paid_As_Rank_Desc.RANK = BWT.PAID_RANK and Paid_As_Rank_Desc.MARKET = BWT.MARKETING_UNIT )
-	LEFT OUTER JOIN ERN ON ( BWT.PV_DATE_DATE = ERN.PV_DATE_DATE and BWT.MDIST=ERN.MDIST )
-	LEFT OUTER JOIN DW.dbo.DM_HIGHEST_ACHIEVED_RANK ON ( DW.dbo.DM_HIGHEST_ACHIEVED_RANK.MDIST = BWT.MDIST )
-WHERE 
-	--CONVERT(DATETIME,LTRIM(RTRIM(BWT.PV_DATE))+'01',103)  Between  '01-NOV-2014' and '01-NOV-2014'  --Prompt
-                   CONVERT(DATETIME,LTRIM(RTRIM(BWT.PV_DATE))+'01',103)  Between  @Start_PV_Month and @End_PV_Month  --Prompt
-	--AND GENIE.TOP_MSPON  =  '91-114446701'  --Prompt
-                   AND GENIE.TOP_MSPON  =  @Top_Sponsor_ID  --Prompt
-Order by
-    GENIE.GROUP_LEVEL</CommandText>
+        <CommandText>Select 
+   A.TOP_MSPON,
+   A.Top_Dist_Name,
+   A.MDIST,
+   A.DIST_NAME,
+   DW.dbo.BWT.VOL1 As PV,
+   DW.dbo.BWT.VOL3 As OV,
+   DW.dbo.BWT.WRK15 As LEG_1,
+   DW.dbo.BWT.WRK16 As LEG_2,
+   DW.dbo.BWT.WRK17 As LEG_3,
+   A.EARNINGS_AMOUNT,
+   A.DIST_STATUS,
+   A.ENTRY_DATE,
+   A.CITY,
+   A.STATE,
+   A.POSTAL_CODE,
+   A.COUNTRY_CODE,
+   DW.dbo.BWT.PAID_RANK,
+   dbo.fnGetRankName(BWT.MDIST,BWT.PV_DATE_DATE,BWT.PAID_RANK) as TITLE,
+   DW.dbo.DM_HIGHEST_ACHIEVED_RANK.END_RANK As Highest_Ach_Rank,
+   DW.dbo.DM_HIGHEST_ACHIEVED_RANK.RANK_NAME As Highest_Ach_Rank_Name,
+   DW.dbo.BWT.PV_DATE_DATE As PV_DATE,
+   A.GROUP_LEVEL
+FROM 
+  (
+   SELECT
+     Distinct GENIE.TOP_MSPON,
+     SAPDW_GENIE2.DIST_NAME As Top_Dist_Name,
+     GENIE.MDIST,
+     GENIE.DIST_NAME,
+     ERN.EARNINGS_AMOUNT,
+     DST.DIST_STATUS,
+     DST.ENTRY_DATE,
+     DST.CITY,
+     DST.STATE,
+     DST.POSTAL_CODE,
+     DST.COUNTRY_CODE,
+     ERN.PV_DATE_DATE,
+     GENIE.GROUP_LEVEL
+   FROM
+     DW.DBO.GENIE GENIE 
+	 INNER JOIN DW.DBO.GENIE  SAPDW_GENIE2 ON ( GENIE.TOP_MSPON = SAPDW_GENIE2.MDIST )
+     INNER JOIN DW.DBO.DST DST ON ( GENIE.MDIST = DST.MDIST )
+     LEFT OUTER JOIN DW.DBO.ERN ON (DST.DIST_ID = ERN.DIST_ID and ERN.PV_DATE_DATE Between @Start_PV_Month and @End_PV_Month /*'01-Jan-2020' and '01-Jan-2020'*/)
+   WHERE 
+     --GENIE.TOP_MSPON  =  '91-114446701'  --Prompt
+     --AND 
+    GENIE.TOP_MSPON  =  @Top_Sponsor_ID  --Prompt
+  ) A
+     INNER JOIN DW.dbo.BWT On ( A.MDIST = DW.dbo.BWT.MDIST )
+     INNER JOIN DW.dbo.DM_HIGHEST_ACHIEVED_RANK ON ( DW.dbo.DM_HIGHEST_ACHIEVED_RANK.MDIST = A.MDIST )
+WHERE
+  BWT.PV_DATE_DATE Between @Start_PV_Month and @End_PV_Month /*'01-Jan-2020' and '01-Jan-2020'*/
+ORDER BY
+  A.GROUP_LEVEL</CommandText>
       </Query>
       <Fields>
         <Field Name="TOP_MSPON">
@@ -2943,7 +2960,7 @@ Group by
               <Paragraph>
                 <TextRuns>
                   <TextRun>
-                    <Value>="Information whose Highest Achieved Rank is Manager and Above ( Total Count:  " &amp;Sum(IIF(Fields!Highest_Ach_Rank.Value &gt;= "5", 1,0 ), "Top_Dist_and_Downline") &amp;" )"</Value>
+                    <Value>="Information whose Highest Achieved Rank is Manager and Above ( Total Count:  " &amp;Sum(IIF(Fields!Highest_Ach_Rank.Value &gt;= "3", 1,0 ), "Top_Dist_and_Downline") &amp;" )"</Value>
                     <Style>
                       <FontFamily>Arial</FontFamily>
                       <FontWeight>Bold</FontWeight>
@@ -5391,7 +5408,7 @@ Group by
             </Filters>
             <Top>3.98833in</Top>
             <Height>1in</Height>
-            <Width>11.13544in</Width>
+            <Width>11.13545in</Width>
             <ZIndex>5</ZIndex>
             <Style>
               <Border>
