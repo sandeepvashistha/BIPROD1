@@ -21,44 +21,50 @@
             <Value>=Parameters!End_PV_Month.Value</Value>
           </QueryParameter>
         </QueryParameters>
-        <CommandText>SELECT
-   DW.dbo.DST.Dist_ID,
-   DW.dbo.DST.Roman_Name_1,
-   DW.dbo.DST.Entry_Date As Dist_Entry_Date,
-   DW.dbo.DST.Dist_Status,
-   DW.dbo.DST.Addr,
-   DW.dbo.DST.Addr_2,
-   DW.dbo.DST.Addr_3,
-   DW.dbo.DST.City,
-   DW.dbo.DST.State,
-   DW.dbo.DST.Postal_Code,
-   DW.dbo.DST.Email_Addr,
-   DW.dbo.DST.Home_Phone,
-   DW.dbo.DST.Work_Phone,
-   DW.dbo.DST.Cell_Phone,
-   DW.DBO.BWT.Paid_Rank As Paid_Rank,
-   Paid_Rank_Desc.TITLE As Old_Paid_Rank_Desc,
-   dw.dbo.fnGetRankName(DW.dbo.BWT.MDIST,DW.dbo.BWT.PV_DATE_DATE,DW.dbo.BWT.PAID_RANK) As Paid_Rank_Desc,
-   DW.DBO.BWT.PV_DATE_DATE As PV_Month,
-   DM_INDIA_PCM.PCM_ID,
-   DM_INDIA_PCM.PCM_NAME,
-   DM_Highest_Achieved_Rank.End_Rank As High_Ach_Rank,
-   DM_Highest_Achieved_Rank.Rank_Name As High_Ach_Rank_Desc
-FROM
-   DW.DBO.BWT
-   INNER JOIN DW.dbo.DST ON ( DW.DBO.BWT.MDist = DW.dbo.DST.MDist )
-   INNER JOIN DW.DBO.RANK  Paid_Rank_Desc ON (DW.DBO.BWT.Paid_Rank = Paid_Rank_Desc.RANK and DW.DBO.BWT.MARKETING_UNIT = Paid_Rank_Desc.MARKET)
-   Inner Join DM_Highest_Achieved_Rank ON ( DM_Highest_Achieved_Rank.MDist = DW.DBO.BWT.MDist )
-   LEFT OUTER JOIN DW.dbo.DM_INDIA_PCM ON ( DW.dbo.DST.MDIST = DM_INDIA_PCM.MDIST )
-WHERE 
-   DW.DBO.BWT.Paid_Rank &gt; 1 
-   AND DW.DBO.BWT.PV_DATE_DATE Between @Start_PV_Month and @End_PV_Month --@Prompt
-   --AND DW.DBO.BWT.PV_DATE_DATE Between '01-Jan-2020' and '01-Jan-2020'
-   AND DW.dbo.DST.Uni_Mkting_Unit  =  '91'
-   And DW.dbo.DST.Country_Code = 'IND'
-   And DW.dbo.DST.Dist_Status in ('A','B','S','T')
+        <CommandText>Select 
+  A.*,
+  DM_Highest_Achieved_Rank.End_Rank As High_Ach_Rank,
+  DM_Highest_Achieved_Rank.Rank_Name As High_Ach_Rank_Desc
+From
+  (
+   SELECT
+      DW.dbo.DST.Dist_ID,
+      DW.dbo.DST.Roman_Name_1,
+      DW.dbo.DST.Entry_Date As Dist_Entry_Date,
+      DW.dbo.DST.Dist_Status,
+      DW.dbo.DST.Uni_Mkting_Unit,
+      DW.dbo.DST.Addr,
+      DW.dbo.DST.Addr_2,
+      DW.dbo.DST.Addr_3,
+      DW.dbo.DST.City,
+      DW.dbo.DST.State,
+      DW.dbo.DST.Postal_Code,
+      DW.dbo.DST.Email_Addr,
+      DW.dbo.DST.Home_Phone,
+      DW.dbo.DST.Work_Phone,
+      DW.dbo.DST.Cell_Phone,
+      DW.DBO.BWT.Paid_Rank As Paid_Rank,
+      Paid_Rank_Desc.TITLE As Old_Paid_Rank_Desc,
+      dw.dbo.fnGetRankName(DW.dbo.BWT.MDIST,DW.dbo.BWT.PV_DATE_DATE,DW.dbo.BWT.PAID_RANK) As Paid_Rank_Desc,
+      DW.DBO.BWT.PV_DATE_DATE As PV_Month,
+      DM_INDIA_PCM.PCM_ID,
+      DM_INDIA_PCM.PCM_NAME
+   FROM
+      DW.DBO.BWT
+      INNER JOIN DW.dbo.DST ON ( DW.DBO.BWT.MDist = DW.dbo.DST.MDist )
+      INNER JOIN DW.DBO.RANK  Paid_Rank_Desc ON (DW.DBO.BWT.Paid_Rank = Paid_Rank_Desc.RANK and DW.DBO.BWT.MARKETING_UNIT = Paid_Rank_Desc.MARKET)
+      LEFT OUTER JOIN DW.dbo.DM_INDIA_PCM ON ( DW.dbo.DST.MDIST = DM_INDIA_PCM.MDIST )
+   WHERE 
+      DW.dbo.DST.Uni_Mkting_Unit  =  '91'
+      And DW.dbo.DST.Country_Code = 'IND'
+      And DW.dbo.DST.Dist_Status in ('A','B','S','T')
+      And DW.DBO.BWT.Paid_Rank &gt; 1 
+      AND DW.DBO.BWT.PV_DATE_DATE Between @Start_PV_Month and @End_PV_Month --@Prompt
+      --AND DW.DBO.BWT.PV_DATE_DATE Between '01-Dec-2019' and '01-Jan-2020'
+  ) A
+  Inner Join DM_Highest_Achieved_Rank ON ( DM_Highest_Achieved_Rank.Dist_ID = A.Dist_ID and DM_Highest_Achieved_Rank.Marketing_Unit = A.Uni_Mkting_Unit )
 Order by
-   DW.dbo.DST.Dist_ID</CommandText>
+  A.Dist_ID</CommandText>
         <Timeout>63</Timeout>
       </Query>
       <Fields>
@@ -77,6 +83,10 @@ Order by
         <Field Name="Dist_Status">
           <DataField>Dist_Status</DataField>
           <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="Uni_Mkting_Unit">
+          <DataField>Uni_Mkting_Unit</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
         <Field Name="Addr">
           <DataField>Addr</DataField>
@@ -1785,7 +1795,6 @@ Order by
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
-                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -1839,7 +1848,6 @@ Order by
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
-                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -1893,7 +1901,6 @@ Order by
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
-                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                   </TablixCells>
@@ -1950,7 +1957,6 @@ Order by
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
-                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -2002,7 +2008,6 @@ Order by
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
-                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -2054,7 +2059,6 @@ Order by
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
-                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                   </TablixCells>
@@ -2072,6 +2076,7 @@ Order by
                   <SortExpressions>
                     <SortExpression>
                       <Value>=Fields!PV_Month.Value</Value>
+                      <Direction>Descending</Direction>
                     </SortExpression>
                   </SortExpressions>
                   <TablixHeader>
@@ -2110,6 +2115,7 @@ Order by
                           <PaddingBottom>2pt</PaddingBottom>
                         </Style>
                       </Textbox>
+                      <rd:Selected>true</rd:Selected>
                     </CellContents>
                   </TablixHeader>
                   <TablixMembers>
@@ -2556,7 +2562,6 @@ Order by
                                                                                           <PaddingBottom>2pt</PaddingBottom>
                                                                                         </Style>
                                                                                       </Textbox>
-                                                                                      <rd:Selected>true</rd:Selected>
                                                                                     </CellContents>
                                                                                   </TablixHeader>
                                                                                   <TablixMembers>
@@ -2623,7 +2628,6 @@ Order by
                                                                                               <PaddingBottom>2pt</PaddingBottom>
                                                                                             </Style>
                                                                                           </Textbox>
-                                                                                          <rd:Selected>true</rd:Selected>
                                                                                         </CellContents>
                                                                                       </TablixHeader>
                                                                                       <TablixMembers>
@@ -2671,7 +2675,6 @@ Order by
                                                                                                   <PaddingBottom>2pt</PaddingBottom>
                                                                                                 </Style>
                                                                                               </Textbox>
-                                                                                              <rd:Selected>true</rd:Selected>
                                                                                             </CellContents>
                                                                                           </TablixHeader>
                                                                                           <TablixMembers>
@@ -2738,7 +2741,6 @@ Order by
                                                                                                       <PaddingBottom>2pt</PaddingBottom>
                                                                                                     </Style>
                                                                                                   </Textbox>
-                                                                                                  <rd:Selected>true</rd:Selected>
                                                                                                 </CellContents>
                                                                                               </TablixHeader>
                                                                                               <TablixMembers>
@@ -2805,7 +2807,6 @@ Order by
                                                                                                           <PaddingBottom>2pt</PaddingBottom>
                                                                                                         </Style>
                                                                                                       </Textbox>
-                                                                                                      <rd:Selected>true</rd:Selected>
                                                                                                     </CellContents>
                                                                                                   </TablixHeader>
                                                                                                   <TablixMembers>
@@ -2872,7 +2873,6 @@ Order by
                                                                                                               <PaddingBottom>2pt</PaddingBottom>
                                                                                                             </Style>
                                                                                                           </Textbox>
-                                                                                                          <rd:Selected>true</rd:Selected>
                                                                                                         </CellContents>
                                                                                                       </TablixHeader>
                                                                                                       <TablixMembers>
@@ -2939,7 +2939,6 @@ Order by
                                                                                                                   <PaddingBottom>2pt</PaddingBottom>
                                                                                                                 </Style>
                                                                                                               </Textbox>
-                                                                                                              <rd:Selected>true</rd:Selected>
                                                                                                             </CellContents>
                                                                                                           </TablixHeader>
                                                                                                           <TablixMembers>
@@ -3006,7 +3005,6 @@ Order by
                                                                                                                       <PaddingBottom>2pt</PaddingBottom>
                                                                                                                     </Style>
                                                                                                                   </Textbox>
-                                                                                                                  <rd:Selected>true</rd:Selected>
                                                                                                                 </CellContents>
                                                                                                               </TablixHeader>
                                                                                                               <TablixMembers>
@@ -3073,7 +3071,6 @@ Order by
                                                                                                                           <PaddingBottom>2pt</PaddingBottom>
                                                                                                                         </Style>
                                                                                                                       </Textbox>
-                                                                                                                      <rd:Selected>true</rd:Selected>
                                                                                                                     </CellContents>
                                                                                                                   </TablixHeader>
                                                                                                                   <TablixMembers>
@@ -3140,7 +3137,6 @@ Order by
                                                                                                                               <PaddingBottom>2pt</PaddingBottom>
                                                                                                                             </Style>
                                                                                                                           </Textbox>
-                                                                                                                          <rd:Selected>true</rd:Selected>
                                                                                                                         </CellContents>
                                                                                                                       </TablixHeader>
                                                                                                                       <TablixMembers>
@@ -3207,7 +3203,6 @@ Order by
                                                                                                                                   <PaddingBottom>2pt</PaddingBottom>
                                                                                                                                 </Style>
                                                                                                                               </Textbox>
-                                                                                                                              <rd:Selected>true</rd:Selected>
                                                                                                                             </CellContents>
                                                                                                                           </TablixHeader>
                                                                                                                           <TablixMembers>
@@ -3274,7 +3269,6 @@ Order by
                                                                                                                                       <PaddingBottom>2pt</PaddingBottom>
                                                                                                                                     </Style>
                                                                                                                                   </Textbox>
-                                                                                                                                  <rd:Selected>true</rd:Selected>
                                                                                                                                 </CellContents>
                                                                                                                               </TablixHeader>
                                                                                                                               <TablixMembers>
@@ -3341,7 +3335,6 @@ Order by
                                                                                                                                           <PaddingBottom>2pt</PaddingBottom>
                                                                                                                                         </Style>
                                                                                                                                       </Textbox>
-                                                                                                                                      <rd:Selected>true</rd:Selected>
                                                                                                                                     </CellContents>
                                                                                                                                   </TablixHeader>
                                                                                                                                   <TablixMembers>
@@ -3408,7 +3401,6 @@ Order by
                                                                                                                                               <PaddingBottom>2pt</PaddingBottom>
                                                                                                                                             </Style>
                                                                                                                                           </Textbox>
-                                                                                                                                          <rd:Selected>true</rd:Selected>
                                                                                                                                         </CellContents>
                                                                                                                                       </TablixHeader>
                                                                                                                                       <TablixMembers>
@@ -3475,7 +3467,6 @@ Order by
                                                                                                                                                   <PaddingBottom>2pt</PaddingBottom>
                                                                                                                                                 </Style>
                                                                                                                                               </Textbox>
-                                                                                                                                              <rd:Selected>true</rd:Selected>
                                                                                                                                             </CellContents>
                                                                                                                                           </TablixHeader>
                                                                                                                                           <TablixMembers>
@@ -3542,7 +3533,6 @@ Order by
                                                                                                                                                       <PaddingBottom>2pt</PaddingBottom>
                                                                                                                                                     </Style>
                                                                                                                                                   </Textbox>
-                                                                                                                                                  <rd:Selected>true</rd:Selected>
                                                                                                                                                 </CellContents>
                                                                                                                                               </TablixHeader>
                                                                                                                                               <TablixMembers>
@@ -3609,7 +3599,6 @@ Order by
                                                                                                                                                           <PaddingBottom>2pt</PaddingBottom>
                                                                                                                                                         </Style>
                                                                                                                                                       </Textbox>
-                                                                                                                                                      <rd:Selected>true</rd:Selected>
                                                                                                                                                     </CellContents>
                                                                                                                                                   </TablixHeader>
                                                                                                                                                   <TablixMembers>
@@ -3676,7 +3665,6 @@ Order by
                                                                                                                                                               <PaddingBottom>2pt</PaddingBottom>
                                                                                                                                                             </Style>
                                                                                                                                                           </Textbox>
-                                                                                                                                                          <rd:Selected>true</rd:Selected>
                                                                                                                                                         </CellContents>
                                                                                                                                                       </TablixHeader>
                                                                                                                                                     </TablixMember>
@@ -3800,7 +3788,6 @@ Order by
                           <PaddingBottom>2pt</PaddingBottom>
                         </Style>
                       </Textbox>
-                      <rd:Selected>true</rd:Selected>
                     </CellContents>
                   </TablixHeader>
                   <TablixMembers>
@@ -3855,7 +3842,6 @@ Order by
                               <PaddingBottom>2pt</PaddingBottom>
                             </Style>
                           </Textbox>
-                          <rd:Selected>true</rd:Selected>
                         </CellContents>
                       </TablixHeader>
                       <TablixMembers>
@@ -3910,7 +3896,6 @@ Order by
                                   <PaddingBottom>2pt</PaddingBottom>
                                 </Style>
                               </Textbox>
-                              <rd:Selected>true</rd:Selected>
                             </CellContents>
                           </TablixHeader>
                           <TablixMembers>
@@ -3965,7 +3950,6 @@ Order by
                                       <PaddingBottom>2pt</PaddingBottom>
                                     </Style>
                                   </Textbox>
-                                  <rd:Selected>true</rd:Selected>
                                 </CellContents>
                               </TablixHeader>
                               <TablixMembers>
@@ -4020,7 +4004,6 @@ Order by
                                           <PaddingBottom>2pt</PaddingBottom>
                                         </Style>
                                       </Textbox>
-                                      <rd:Selected>true</rd:Selected>
                                     </CellContents>
                                   </TablixHeader>
                                   <TablixMembers>
@@ -4075,7 +4058,6 @@ Order by
                                               <PaddingBottom>2pt</PaddingBottom>
                                             </Style>
                                           </Textbox>
-                                          <rd:Selected>true</rd:Selected>
                                         </CellContents>
                                       </TablixHeader>
                                       <TablixMembers>
@@ -4130,7 +4112,6 @@ Order by
                                                   <PaddingBottom>2pt</PaddingBottom>
                                                 </Style>
                                               </Textbox>
-                                              <rd:Selected>true</rd:Selected>
                                             </CellContents>
                                           </TablixHeader>
                                           <TablixMembers>
@@ -4185,7 +4166,6 @@ Order by
                                                       <PaddingBottom>2pt</PaddingBottom>
                                                     </Style>
                                                   </Textbox>
-                                                  <rd:Selected>true</rd:Selected>
                                                 </CellContents>
                                               </TablixHeader>
                                               <TablixMembers>
@@ -4240,7 +4220,6 @@ Order by
                                                           <PaddingBottom>2pt</PaddingBottom>
                                                         </Style>
                                                       </Textbox>
-                                                      <rd:Selected>true</rd:Selected>
                                                     </CellContents>
                                                   </TablixHeader>
                                                   <TablixMembers>
@@ -4295,7 +4274,6 @@ Order by
                                                               <PaddingBottom>2pt</PaddingBottom>
                                                             </Style>
                                                           </Textbox>
-                                                          <rd:Selected>true</rd:Selected>
                                                         </CellContents>
                                                       </TablixHeader>
                                                       <TablixMembers>
@@ -4350,7 +4328,6 @@ Order by
                                                                   <PaddingBottom>2pt</PaddingBottom>
                                                                 </Style>
                                                               </Textbox>
-                                                              <rd:Selected>true</rd:Selected>
                                                             </CellContents>
                                                           </TablixHeader>
                                                           <TablixMembers>
@@ -4405,7 +4382,6 @@ Order by
                                                                       <PaddingBottom>2pt</PaddingBottom>
                                                                     </Style>
                                                                   </Textbox>
-                                                                  <rd:Selected>true</rd:Selected>
                                                                 </CellContents>
                                                               </TablixHeader>
                                                               <TablixMembers>
@@ -4460,7 +4436,6 @@ Order by
                                                                           <PaddingBottom>2pt</PaddingBottom>
                                                                         </Style>
                                                                       </Textbox>
-                                                                      <rd:Selected>true</rd:Selected>
                                                                     </CellContents>
                                                                   </TablixHeader>
                                                                   <TablixMembers>
@@ -4515,7 +4490,6 @@ Order by
                                                                               <PaddingBottom>2pt</PaddingBottom>
                                                                             </Style>
                                                                           </Textbox>
-                                                                          <rd:Selected>true</rd:Selected>
                                                                         </CellContents>
                                                                       </TablixHeader>
                                                                       <TablixMembers>
@@ -4570,7 +4544,6 @@ Order by
                                                                                   <PaddingBottom>2pt</PaddingBottom>
                                                                                 </Style>
                                                                               </Textbox>
-                                                                              <rd:Selected>true</rd:Selected>
                                                                             </CellContents>
                                                                           </TablixHeader>
                                                                           <TablixMembers>
@@ -4625,7 +4598,6 @@ Order by
                                                                                       <PaddingBottom>2pt</PaddingBottom>
                                                                                     </Style>
                                                                                   </Textbox>
-                                                                                  <rd:Selected>true</rd:Selected>
                                                                                 </CellContents>
                                                                               </TablixHeader>
                                                                               <TablixMembers>
@@ -4680,7 +4652,6 @@ Order by
                                                                                           <PaddingBottom>2pt</PaddingBottom>
                                                                                         </Style>
                                                                                       </Textbox>
-                                                                                      <rd:Selected>true</rd:Selected>
                                                                                     </CellContents>
                                                                                   </TablixHeader>
                                                                                   <TablixMembers>
@@ -4735,7 +4706,6 @@ Order by
                                                                                               <PaddingBottom>2pt</PaddingBottom>
                                                                                             </Style>
                                                                                           </Textbox>
-                                                                                          <rd:Selected>true</rd:Selected>
                                                                                         </CellContents>
                                                                                       </TablixHeader>
                                                                                     </TablixMember>
