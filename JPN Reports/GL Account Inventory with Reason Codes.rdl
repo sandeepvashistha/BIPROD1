@@ -14,6 +14,9 @@
       <Query>
         <DataSourceName>ProdNavision</DataSourceName>
         <QueryParameters>
+          <QueryParameter Name="@GLAccountNo">
+            <Value>=Parameters!GLAccountNo.Value</Value>
+          </QueryParameter>
           <QueryParameter Name="@BeginPostingDate">
             <Value>=Parameters!BeginPostingDate.Value</Value>
           </QueryParameter>
@@ -48,7 +51,7 @@
 from 
 	prod_navision.dbo.g_l_entry_nc_vw 
 where 
-	uni_company_name='Japan' and [G_L Account No_]='1491'
+	uni_company_name='Japan' and [G_L Account No_]=@GLAccountNo
 	and cast(g_l_entry_nc_vw.[Posting Date] as date) between @BeginPostingDate and @EndPostingDate
 	--and [document no_]='IJ06014168'
 order by 
@@ -117,17 +120,34 @@ order by
           <QueryParameter Name="@EndPostingDate">
             <Value>=Parameters!EndPostingDate.Value</Value>
           </QueryParameter>
+          <QueryParameter Name="@GLAccountNo">
+            <Value>=Parameters!GLAccountNo.Value</Value>
+          </QueryParameter>
         </QueryParameters>
         <CommandText>select  distinct warehouse_entry_nc_vw.[source no_],warehouse_entry_nc_vw.[source line no_],warehouse_entry_nc_vw.[entry no_],
 warehouse_entry_nc_vw.[registering date],warehouse_entry_nc_vw.[item no_],item_nc_vw.[Description] [Item Name],
-(-1*warehouse_entry_nc_vw.[Quantity]) [Quantity],warehouse_entry_nc_vw.[Reason Code]
+(-1*warehouse_entry_nc_vw.[Quantity]) [Quantity],warehouse_entry_nc_vw.[Reason Code],rc.[Description], rc.[Gen_ Prod_ Posting Group],
+rc.[Inventory Adjmt_ Account]
 from prod_navision.dbo.warehouse_entry_nc_vw
 inner join prod_navision.dbo.g_l_entry_nc_vw on warehouse_entry_nc_vw.uni_company_name=g_l_entry_nc_vw.uni_company_name and warehouse_entry_nc_vw.[source no_]=g_l_entry_nc_vw.[Document no_]
 left outer join prod_navision.dbo.item_nc_vw on item_nc_vw.uni_company_name=warehouse_entry_nc_vw.uni_company_name and item_nc_vw.[No_]=warehouse_entry_nc_vw.[item no_]
+left outer join
+(
+select a.uni_company_name, a.Code as [Reason Code], a.[Description], a.[Gen_ Prod_ Posting Group], b.[Inventory Adjmt_ Account]
+from prod_navision.dbo.reason_code_nc_vw a
+join
+(
+       select uni_company_name, [Gen_ Prod_ Posting Group], [Inventory Adjmt_ Account]
+       from prod_navision.dbo.General_Posting_Setup_nc_vw
+       where uni_company_name='Japan' and [Gen_ Bus_ Posting Group] = ''
+) b
+on a.uni_company_name = b.uni_company_name
+and a.[Gen_ Prod_ Posting Group] = b.[Gen_ Prod_ Posting Group]
+) rc on rc.uni_company_name=warehouse_entry_nc_vw.uni_company_name and rc.[Reason Code]=warehouse_entry_nc_vw.[Reason Code] 
 where warehouse_entry_nc_vw.uni_company_name='Japan' and warehouse_entry_nc_vw.[entry type] = 0 
 --and warehouse_entry_nc_vw.[registering date] between '2020-01-01' and '2020-01-31'
 and cast(g_l_entry_nc_vw.[Posting Date] as date) between @BeginPostingDate and @EndPostingDate --'2020-01-01' and '2020-01-31'
-and g_l_entry_nc_vw.[G_L Account No_]='1491'
+and g_l_entry_nc_vw.[G_L Account No_]=@GLAccountNo
 --and warehouse_entry_nc_vw.[source no_]='IJ06014133'
 order by 
 warehouse_entry_nc_vw.[registering date],warehouse_entry_nc_vw.[source no_],
@@ -166,6 +186,18 @@ warehouse_entry_nc_vw.[source line no_],warehouse_entry_nc_vw.[entry no_]</Comma
           <DataField>Reason Code</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
+        <Field Name="Description">
+          <DataField>Description</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="Gen__Prod__Posting_Group">
+          <DataField>Gen_ Prod_ Posting Group</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="Inventory_Adjmt__Account">
+          <DataField>Inventory Adjmt_ Account</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
       </Fields>
     </DataSet>
   </DataSets>
@@ -180,7 +212,7 @@ warehouse_entry_nc_vw.[source line no_],warehouse_entry_nc_vw.[entry no_]</Comma
               <Paragraph>
                 <TextRuns>
                   <TextRun>
-                    <Value>="Selected Posting Date between "+format(Parameters!BeginPostingDate.Value,"M/d/yyyy")+" and "+format(Parameters!EndPostingDate.Value,"M/d/yyyy")</Value>
+                    <Value>="Selected GL Account: "+Parameters!GLAccountNo.Value+" and "+"Posting Date between "+format(Parameters!BeginPostingDate.Value,"M/d/yyyy")+" and "+format(Parameters!EndPostingDate.Value,"M/d/yyyy")</Value>
                     <Style>
                       <FontWeight>Bold</FontWeight>
                     </Style>
@@ -192,9 +224,9 @@ warehouse_entry_nc_vw.[source line no_],warehouse_entry_nc_vw.[entry no_]</Comma
               </Paragraph>
             </Paragraphs>
             <rd:DefaultName>Textbox1</rd:DefaultName>
-            <Left>2in</Left>
+            <Left>1in</Left>
             <Height>0.25in</Height>
-            <Width>5in</Width>
+            <Width>8in</Width>
             <Style>
               <Border>
                 <Style>Solid</Style>
@@ -1573,7 +1605,16 @@ warehouse_entry_nc_vw.[source line no_],warehouse_entry_nc_vw.[entry no_]</Comma
                   <Width>1in</Width>
                 </TablixColumn>
                 <TablixColumn>
+                  <Width>2in</Width>
+                </TablixColumn>
+                <TablixColumn>
                   <Width>3in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>2in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
                 </TablixColumn>
               </TablixColumns>
               <TablixRows>
@@ -2017,6 +2058,171 @@ warehouse_entry_nc_vw.[source line no_],warehouse_entry_nc_vw.[entry no_]</Comma
                         </Textbox>
                       </CellContents>
                     </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox3">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Description</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox3</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox7">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Gen Prod Posting Group</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox7</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox11">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Inventory Adjmt Account</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox11</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
                   </TablixCells>
                 </TablixRow>
                 <TablixRow>
@@ -2397,12 +2603,165 @@ warehouse_entry_nc_vw.[source line no_],warehouse_entry_nc_vw.[entry no_]</Comma
                         </Textbox>
                       </CellContents>
                     </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Description1">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!Description.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Description1</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Gen__Prod__Posting_Group">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!Gen__Prod__Posting_Group.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Gen__Prod__Posting_Group</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Inventory_Adjmt__Account">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!Inventory_Adjmt__Account.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Inventory_Adjmt__Account</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
                   </TablixCells>
                 </TablixRow>
               </TablixRows>
             </TablixBody>
             <TablixColumnHierarchy>
               <TablixMembers>
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
                 <TablixMember />
                 <TablixMember />
                 <TablixMember />
@@ -2427,7 +2786,7 @@ warehouse_entry_nc_vw.[source line no_],warehouse_entry_nc_vw.[entry no_]</Comma
             <Top>0.25in</Top>
             <Left>14.58208in</Left>
             <Height>0.5in</Height>
-            <Width>12in</Width>
+            <Width>17in</Width>
             <ZIndex>2</ZIndex>
             <Style>
               <Border>
@@ -2439,7 +2798,7 @@ warehouse_entry_nc_vw.[source line no_],warehouse_entry_nc_vw.[entry no_]</Comma
         <Height>0.75in</Height>
         <Style />
       </Body>
-      <Width>26.58208in</Width>
+      <Width>31.58208in</Width>
       <Page>
         <LeftMargin>1in</LeftMargin>
         <RightMargin>1in</RightMargin>
@@ -2450,6 +2809,10 @@ warehouse_entry_nc_vw.[source line no_],warehouse_entry_nc_vw.[entry no_]</Comma
     </ReportSection>
   </ReportSections>
   <ReportParameters>
+    <ReportParameter Name="GLAccountNo">
+      <DataType>String</DataType>
+      <Prompt>GL Account No</Prompt>
+    </ReportParameter>
     <ReportParameter Name="BeginPostingDate">
       <DataType>DateTime</DataType>
       <Prompt>Begin Posting Date</Prompt>
@@ -2461,18 +2824,23 @@ warehouse_entry_nc_vw.[source line no_],warehouse_entry_nc_vw.[entry no_]</Comma
   </ReportParameters>
   <ReportParametersLayout>
     <GridLayoutDefinition>
-      <NumberOfColumns>4</NumberOfColumns>
-      <NumberOfRows>2</NumberOfRows>
+      <NumberOfColumns>3</NumberOfColumns>
+      <NumberOfRows>1</NumberOfRows>
       <CellDefinitions>
         <CellDefinition>
-          <ColumnIndex>0</ColumnIndex>
+          <ColumnIndex>1</ColumnIndex>
           <RowIndex>0</RowIndex>
           <ParameterName>BeginPostingDate</ParameterName>
         </CellDefinition>
         <CellDefinition>
-          <ColumnIndex>1</ColumnIndex>
+          <ColumnIndex>2</ColumnIndex>
           <RowIndex>0</RowIndex>
           <ParameterName>EndPostingDate</ParameterName>
+        </CellDefinition>
+        <CellDefinition>
+          <ColumnIndex>0</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>GLAccountNo</ParameterName>
         </CellDefinition>
       </CellDefinitions>
     </GridLayoutDefinition>
