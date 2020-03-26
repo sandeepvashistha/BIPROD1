@@ -15,7 +15,7 @@
         <DataSourceName>SQLPRODA</DataSourceName>
         <CommandText>SELECT 
       ODH.VERIFY_DATE,
-      DATEADD(MONTH, DATEDIFF(MONTH, 0, ODH.VERIFY_DATE), 0) VERIFY_MONTH,
+      CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, ODH.VERIFY_DATE), 0) AS DATE) VERIFY_MONTH,
       (
        CASE WHEN DATEADD(MONTH, DATEDIFF(MONTH, 0, ODH.VERIFY_DATE), 0)=DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0) THEN 'CURRENT'
 	WHEN DATEADD(MONTH, DATEDIFF(MONTH, 0, ODH.VERIFY_DATE), 0)=DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) THEN 'LAST' ELSE 'HISTORY' END
@@ -32,11 +32,13 @@
        SUM(CASE WHEN ODH.ORDER_SOURCE=913 THEN 1 ELSE 0 END) AS ID_NFR,
        SUM(CASE WHEN ODH.ORDER_SOURCE=914 THEN 1 ELSE 0 END) AS PH_NFR,
        SUM(CASE WHEN ODH.ORDER_SOURCE=915 THEN 1 ELSE 0 END) AS AU_NFR,
-       CONVERT(DATE,'1/'+ODH.PV_DATE,103) PV_DATE
+	   SUM(CASE WHEN ODH.ORDER_SOURCE=916 THEN 1 ELSE 0 END) AS NZ_NFR,
+	   SUM(CASE WHEN ODH.ORDER_SOURCE=918 THEN 1 ELSE 0 END) AS KR_NFR,
+       ODH.PV_DATE_DATE PV_DATE
 FROM DW.DBO.ODH ODH
-WHERE ODH.UNI_MKTING_UNIT=65 AND DATEADD(MONTH, DATEDIFF(MONTH, 0, ODH.VERIFY_DATE), 0)&gt;='01-JAN-2017'
+WHERE ODH.UNI_MKTING_UNIT=65 AND CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, ODH.VERIFY_DATE), 0) AS DATE) &gt;= CAST(DATEADD(YEAR, DATEDIFF(YEAR, 0,DATEADD(YEAR, -2, GETDATE())), 0) AS DATE)
 AND STATUS IN (2,3,4,5) 
-AND (ODH.ORDER_SOURCE IN (100,903,101,904,900,906,912,913,914,915) OR (ODH.ORDER_SOURCE=901 AND ODH.COUNTRY_CODE IN ('USA','JPNN')))
+AND (ODH.ORDER_SOURCE IN (100,903,101,904,900,906,912,913,914,915,916,918) OR (ODH.ORDER_SOURCE=901 AND ODH.COUNTRY_CODE IN ('USA','JPNN')))
 GROUP BY
        ODH.VERIFY_DATE,
        DATEADD(MONTH, DATEDIFF(MONTH, 0, ODH.VERIFY_DATE), 0),
@@ -44,7 +46,7 @@ GROUP BY
         CASE WHEN DATEADD(MONTH, DATEDIFF(MONTH, 0, ODH.VERIFY_DATE), 0)=DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0) THEN 'CURRENT'
 	WHEN DATEADD(MONTH, DATEDIFF(MONTH, 0, ODH.VERIFY_DATE), 0)=DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE())-1, 0) THEN 'LAST' ELSE 'HISTORY' END
         ),
-CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
+	   ODH.PV_DATE_DATE</CommandText>
       </Query>
       <Fields>
         <Field Name="VERIFY_DATE">
@@ -111,6 +113,14 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
           <DataField>AU_NFR</DataField>
           <rd:TypeName>System.Int32</rd:TypeName>
         </Field>
+        <Field Name="NZ_NFR">
+          <DataField>NZ_NFR</DataField>
+          <rd:TypeName>System.Int32</rd:TypeName>
+        </Field>
+        <Field Name="KR_NFR">
+          <DataField>KR_NFR</DataField>
+          <rd:TypeName>System.Int32</rd:TypeName>
+        </Field>
       </Fields>
     </DataSet>
   </DataSets>
@@ -150,6 +160,9 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1.5in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1in</Width>
@@ -767,7 +780,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>ID NFR</Value>
+                                  <Value>NZ NFR</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -885,6 +898,59 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox80</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox56">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>KR NFR</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox56</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -1497,14 +1563,14 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="ID_NFR">
+                        <Textbox Name="NZ_NFR">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!ID_NFR.Value</Value>
+                                  <Value>=Fields!NZ_NFR.Value</Value>
                                   <Style />
                                 </TextRun>
                               </TextRuns>
@@ -1513,7 +1579,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                               </Style>
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>ID_NFR</rd:DefaultName>
+                          <rd:DefaultName>NZ_NFR</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -1650,13 +1716,64 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="KR_NFR">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!KR_NFR.Value</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>KR_NFR</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="Textbox19">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!WALK_IN.Value+Fields!AUTOSHIP.Value+Fields!EMAIL.Value+Fields!RMA.Value+Fields!ONLINE_ORDER.Value+Fields!LADDAWAN.Value+Fields!ONLINE_ORDER_JPN.Value+Fields!VOICE_ORDER_JPN.Value+Fields!MY_NFR.Value+Fields!ID_NFR.Value+Fields!PH_NFR.Value+Fields!AU_NFR.Value</Value>
+                                  <Value>=Fields!WALK_IN.Value+Fields!AUTOSHIP.Value+Fields!EMAIL.Value+Fields!RMA.Value+Fields!ONLINE_ORDER.Value+Fields!LADDAWAN.Value+Fields!ONLINE_ORDER_JPN.Value+Fields!VOICE_ORDER_JPN.Value+Fields!MY_NFR.Value+Fields!NZ_NFR.Value+Fields!PH_NFR.Value+Fields!AU_NFR.Value+Fields!KR_NFR.Value</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -2302,14 +2419,14 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="Textbox67">
+                        <Textbox Name="NZ_NFR1">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Sum(Fields!ID_NFR.Value)</Value>
+                                  <Value>=Sum(Fields!NZ_NFR.Value)</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -2320,7 +2437,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                               </Style>
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>Textbox67</rd:DefaultName>
+                          <rd:DefaultName>NZ_NFR1</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -2464,6 +2581,60 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="Textbox67">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Sum(Fields!KR_NFR.Value)</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox67</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightGrey</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="Textbox28">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
@@ -2471,7 +2642,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=sum(Fields!WALK_IN.Value+Fields!AUTOSHIP.Value+Fields!EMAIL.Value+Fields!RMA.Value+Fields!ONLINE_ORDER.Value+Fields!LADDAWAN.Value+Fields!ONLINE_ORDER_JPN.Value+Fields!VOICE_ORDER_JPN.Value+Fields!MY_NFR.Value+Fields!ID_NFR.Value+Fields!PH_NFR.Value+Fields!AU_NFR.Value)</Value>
+                                  <Value>=sum(Fields!WALK_IN.Value+Fields!AUTOSHIP.Value+Fields!EMAIL.Value+Fields!RMA.Value+Fields!ONLINE_ORDER.Value+Fields!LADDAWAN.Value+Fields!ONLINE_ORDER_JPN.Value+Fields!VOICE_ORDER_JPN.Value+Fields!MY_NFR.Value+Fields!NZ_NFR.Value+Fields!PH_NFR.Value+Fields!AU_NFR.Value+Fields!KR_NFR.Value)</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -2537,6 +2708,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                 <TablixMember />
                 <TablixMember />
                 <TablixMember />
+                <TablixMember />
               </TablixMembers>
             </TablixColumnHierarchy>
             <TablixRowHierarchy>
@@ -2576,7 +2748,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
             </SortExpressions>
             <Top>0.25in</Top>
             <Height>0.75in</Height>
-            <Width>19.53125in</Width>
+            <Width>20.53125in</Width>
             <Style>
               <Border>
                 <Style>None</Style>
@@ -2668,6 +2840,9 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1.5in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1in</Width>
@@ -3096,6 +3271,39 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox95</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>None</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox71">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value />
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox71</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>None</Style>
@@ -3742,7 +3950,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>ID NFR</Value>
+                                  <Value>NZ NFR</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -3860,6 +4068,59 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox96</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox81">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>KR NFR</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox81</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -4472,14 +4733,14 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="ID_NFR1">
+                        <Textbox Name="NZ_NFR5">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!ID_NFR.Value</Value>
+                                  <Value>=Fields!NZ_NFR.Value</Value>
                                   <Style />
                                 </TextRun>
                               </TextRuns>
@@ -4488,7 +4749,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                               </Style>
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>ID_NFR1</rd:DefaultName>
+                          <rd:DefaultName>NZ_NFR5</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -4625,13 +4886,64 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="KR_NFR1">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!KR_NFR.Value</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>KR_NFR1</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="Textbox23">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!WALK_IN.Value + Fields!AUTOSHIP.Value + Fields!EMAIL.Value + Fields!RMA.Value + Fields!ONLINE_ORDER.Value + Fields!LADDAWAN.Value + Fields!ONLINE_ORDER_JPN.Value+Fields!VOICE_ORDER_JPN.Value+Fields!MY_NFR.Value+Fields!ID_NFR.Value+Fields!PH_NFR.Value+Fields!AU_NFR.Value</Value>
+                                  <Value>=Fields!WALK_IN.Value+Fields!AUTOSHIP.Value+Fields!EMAIL.Value+Fields!RMA.Value+Fields!ONLINE_ORDER.Value+Fields!LADDAWAN.Value+Fields!ONLINE_ORDER_JPN.Value+Fields!VOICE_ORDER_JPN.Value+Fields!MY_NFR.Value+Fields!NZ_NFR.Value+Fields!PH_NFR.Value+Fields!AU_NFR.Value+Fields!KR_NFR.Value</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -5277,14 +5589,14 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="Textbox90">
+                        <Textbox Name="NZ_NFR4">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Sum(Fields!ID_NFR.Value)</Value>
+                                  <Value>=Sum(Fields!NZ_NFR.Value)</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -5295,7 +5607,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                               </Style>
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>Textbox90</rd:DefaultName>
+                          <rd:DefaultName>NZ_NFR4</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -5439,6 +5751,60 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="Textbox89">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Sum(Fields!KR_NFR.Value)</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox89</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightGrey</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="Textbox41">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
@@ -5446,7 +5812,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Sum(Fields!WALK_IN.Value + Fields!AUTOSHIP.Value + Fields!EMAIL.Value + Fields!RMA.Value + Fields!ONLINE_ORDER.Value + Fields!LADDAWAN.Value + Fields!ONLINE_ORDER_JPN.Value+Fields!VOICE_ORDER_JPN.Value+Fields!MY_NFR.Value+Fields!ID_NFR.Value+Fields!PH_NFR.Value+Fields!AU_NFR.Value)</Value>
+                                  <Value>=sum(Fields!WALK_IN.Value+Fields!AUTOSHIP.Value+Fields!EMAIL.Value+Fields!RMA.Value+Fields!ONLINE_ORDER.Value+Fields!LADDAWAN.Value+Fields!ONLINE_ORDER_JPN.Value+Fields!VOICE_ORDER_JPN.Value+Fields!MY_NFR.Value+Fields!NZ_NFR.Value+Fields!PH_NFR.Value+Fields!AU_NFR.Value+Fields!KR_NFR.Value)</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -5512,6 +5878,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                 <TablixMember />
                 <TablixMember />
                 <TablixMember />
+                <TablixMember />
               </TablixMembers>
             </TablixColumnHierarchy>
             <TablixRowHierarchy>
@@ -5554,7 +5921,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
             </SortExpressions>
             <Top>0.98264in</Top>
             <Height>1.03125in</Height>
-            <Width>19.53125in</Width>
+            <Width>20.53125in</Width>
             <ZIndex>2</ZIndex>
             <Style>
               <Border>
@@ -5771,6 +6138,9 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                 <TablixColumn>
                   <Width>1in</Width>
                 </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
               </TablixColumns>
               <TablixRows>
                 <TablixRow>
@@ -5921,6 +6291,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                               <Style>Solid</Style>
                               <Width>1pt</Width>
                             </RightBorder>
+                            <BackgroundColor>Gold</BackgroundColor>
                             <PaddingLeft>2pt</PaddingLeft>
                             <PaddingRight>2pt</PaddingRight>
                             <PaddingTop>2pt</PaddingTop>
@@ -6023,6 +6394,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                               <Style>Solid</Style>
                               <Width>1pt</Width>
                             </RightBorder>
+                            <BackgroundColor>Gold</BackgroundColor>
                             <PaddingLeft>2pt</PaddingLeft>
                             <PaddingRight>2pt</PaddingRight>
                             <PaddingTop>2pt</PaddingTop>
@@ -6074,6 +6446,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                               <Style>Solid</Style>
                               <Width>1pt</Width>
                             </RightBorder>
+                            <BackgroundColor>Gold</BackgroundColor>
                             <PaddingLeft>2pt</PaddingLeft>
                             <PaddingRight>2pt</PaddingRight>
                             <PaddingTop>2pt</PaddingTop>
@@ -6125,6 +6498,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                               <Style>Solid</Style>
                               <Width>1pt</Width>
                             </RightBorder>
+                            <BackgroundColor>Gold</BackgroundColor>
                             <PaddingLeft>2pt</PaddingLeft>
                             <PaddingRight>2pt</PaddingRight>
                             <PaddingTop>2pt</PaddingTop>
@@ -6237,14 +6611,14 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="ID_NFR2">
+                        <Textbox Name="NZ_NFR2">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Sum(Fields!ID_NFR.Value)</Value>
+                                  <Value>=Sum(Fields!NZ_NFR.Value)</Value>
                                   <Style />
                                 </TextRun>
                               </TextRuns>
@@ -6253,7 +6627,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                               </Style>
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>ID_NFR2</rd:DefaultName>
+                          <rd:DefaultName>NZ_NFR2</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -6390,6 +6764,57 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="KR_NFR2">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Sum(Fields!KR_NFR.Value)</Value>
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>KR_NFR2</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="Textbox132">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
@@ -6397,7 +6822,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=sum(Fields!WALK_IN.Value+Fields!AUTOSHIP.Value+Fields!EMAIL.Value+Fields!RMA.Value+Fields!ONLINE_ORDER.Value+Fields!LADDAWAN.Value+Fields!ONLINE_ORDER_JPN.Value+Fields!VOICE_ORDER_JPN.Value+Fields!MY_NFR.Value+Fields!ID_NFR.Value+Fields!PH_NFR.Value+Fields!AU_NFR.Value)</Value>
+                                  <Value>=Fields!WALK_IN.Value+Fields!AUTOSHIP.Value+Fields!EMAIL.Value+Fields!RMA.Value+Fields!ONLINE_ORDER.Value+Fields!LADDAWAN.Value+Fields!ONLINE_ORDER_JPN.Value+Fields!VOICE_ORDER_JPN.Value+Fields!MY_NFR.Value+Fields!NZ_NFR.Value+Fields!PH_NFR.Value+Fields!AU_NFR.Value+Fields!KR_NFR.Value</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -6935,14 +7360,14 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="Textbox104">
+                        <Textbox Name="NZ_NFR3">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Sum(Fields!ID_NFR.Value)</Value>
+                                  <Value>=Sum(Fields!NZ_NFR.Value)</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -6953,7 +7378,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                               </Style>
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>Textbox104</rd:DefaultName>
+                          <rd:DefaultName>NZ_NFR3</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -7097,6 +7522,60 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="Textbox100">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Sum(Fields!KR_NFR.Value)</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox100</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>LightGrey</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="Textbox134">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
@@ -7104,7 +7583,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Sum(Fields!WALK_IN.Value + Fields!AUTOSHIP.Value + Fields!EMAIL.Value + Fields!RMA.Value + Fields!ONLINE_ORDER.Value + Fields!LADDAWAN.Value + Fields!ONLINE_ORDER_JPN.Value+Fields!VOICE_ORDER_JPN.Value+Fields!MY_NFR.Value+Fields!ID_NFR.Value+Fields!PH_NFR.Value+Fields!AU_NFR.Value)</Value>
+                                  <Value>=sum(Fields!WALK_IN.Value+Fields!AUTOSHIP.Value+Fields!EMAIL.Value+Fields!RMA.Value+Fields!ONLINE_ORDER.Value+Fields!LADDAWAN.Value+Fields!ONLINE_ORDER_JPN.Value+Fields!VOICE_ORDER_JPN.Value+Fields!MY_NFR.Value+Fields!NZ_NFR.Value+Fields!PH_NFR.Value+Fields!AU_NFR.Value+Fields!KR_NFR.Value)</Value>
                                   <Style>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
@@ -7679,7 +8158,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                           <Paragraph>
                             <TextRuns>
                               <TextRun>
-                                <Value>ID NFR</Value>
+                                <Value>NZ NFR</Value>
                                 <Style>
                                   <FontWeight>Bold</FontWeight>
                                 </Style>
@@ -7803,6 +8282,62 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                           </Paragraph>
                         </Paragraphs>
                         <rd:DefaultName>Textbox108</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixHeader>
+                </TablixMember>
+                <TablixMember>
+                  <TablixHeader>
+                    <Size>0.25in</Size>
+                    <CellContents>
+                      <Textbox Name="Textbox93">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>KR NFR</Value>
+                                <Style>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox93</rd:DefaultName>
                         <Style>
                           <Border>
                             <Style>Solid</Style>
@@ -8108,7 +8643,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
             <PageName>Monthly Summary</PageName>
             <Top>2.26389in</Top>
             <Height>0.75in</Height>
-            <Width>19.53125in</Width>
+            <Width>20.53125in</Width>
             <ZIndex>4</ZIndex>
             <Style>
               <Border>
@@ -8164,13 +8699,16 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                   <Label>MY NFR</Label>
                 </ChartMember>
                 <ChartMember>
-                  <Label>ID NFR</Label>
+                  <Label>NZ NFR</Label>
                 </ChartMember>
                 <ChartMember>
                   <Label>PH NFR</Label>
                 </ChartMember>
                 <ChartMember>
                   <Label>AU NFR</Label>
+                </ChartMember>
+                <ChartMember>
+                  <Label>KR NFR</Label>
                 </ChartMember>
               </ChartMembers>
             </ChartSeriesHierarchy>
@@ -8473,14 +9011,15 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                     <MinMovingDistance>0pt</MinMovingDistance>
                   </ChartSmartLabel>
                 </ChartSeries>
-                <ChartSeries Name="ID_NFR">
+                <ChartSeries Name="NZ_NFR">
                   <ChartDataPoints>
                     <ChartDataPoint>
                       <ChartDataPointValues>
-                        <Y>=Sum(Fields!ID_NFR.Value)</Y>
+                        <Y>=Sum(Fields!NZ_NFR.Value)</Y>
                       </ChartDataPointValues>
                       <ChartDataLabel>
                         <Style />
+                        <UseValueAsLabel>true</UseValueAsLabel>
                       </ChartDataLabel>
                       <Style />
                       <ChartMarker>
@@ -8544,6 +9083,39 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
                     <ChartDataPoint>
                       <ChartDataPointValues>
                         <Y>=Sum(Fields!AU_NFR.Value)</Y>
+                      </ChartDataPointValues>
+                      <ChartDataLabel>
+                        <Style />
+                      </ChartDataLabel>
+                      <Style />
+                      <ChartMarker>
+                        <Style />
+                      </ChartMarker>
+                      <DataElementOutput>Output</DataElementOutput>
+                    </ChartDataPoint>
+                  </ChartDataPoints>
+                  <Style />
+                  <ChartEmptyPoints>
+                    <Style />
+                    <ChartMarker>
+                      <Style />
+                    </ChartMarker>
+                    <ChartDataLabel>
+                      <Style />
+                    </ChartDataLabel>
+                  </ChartEmptyPoints>
+                  <ValueAxisName>Primary</ValueAxisName>
+                  <CategoryAxisName>Primary</CategoryAxisName>
+                  <ChartSmartLabel>
+                    <CalloutLineColor>Black</CalloutLineColor>
+                    <MinMovingDistance>0pt</MinMovingDistance>
+                  </ChartSmartLabel>
+                </ChartSeries>
+                <ChartSeries Name="KR_NFR">
+                  <ChartDataPoints>
+                    <ChartDataPoint>
+                      <ChartDataPointValues>
+                        <Y>=Sum(Fields!KR_NFR.Value)</Y>
                       </ChartDataPointValues>
                       <ChartDataLabel>
                         <Style />
@@ -8860,7 +9432,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
             <DataSetName>Query_1</DataSetName>
             <Top>3.01389in</Top>
             <Height>2.62028in</Height>
-            <Width>13in</Width>
+            <Width>13.03125in</Width>
             <ZIndex>5</ZIndex>
             <Style>
               <Border>
@@ -8875,7 +9447,7 @@ CONVERT(DATE,'1/'+ODH.PV_DATE,103)</CommandText>
         <Height>5.63417in</Height>
         <Style />
       </Body>
-      <Width>19.53125in</Width>
+      <Width>20.53125in</Width>
       <Page>
         <LeftMargin>1in</LeftMargin>
         <RightMargin>1in</RightMargin>
