@@ -108,7 +108,7 @@
       <Query>
         <DataSourceName>ProdNavision</DataSourceName>
         <CommandText>SELECT 
-iv.[uni_company_name], 
+iv.[uni_company_name] as Market , 
 iv.[No_] as "Item", 
 iv.[Description],
 iv.[Buyer] as "Byr",
@@ -116,17 +116,19 @@ iv.[Buyer] as "Byr",
 CAST(ROUND(indepOH.[NV OH],0) AS INT)+CAST(ROUND(indepOH.[ATL OH],0) AS INT)+isnull(CAST(ROUND(ATLit.[Qty],0) AS INT),0)+isnull(CAST(ROUND(PRit.[Qty],0) AS INT),0)+CAST(ROUND(indepOH.[PR OH],0) AS INT) as 'US OH',
 CAST(ROUND(indepFC.IndependentFC,0) AS INT) as "Tot Fcast", 
 CAST((((CAST(ROUND(indepOH.[NV OH],0) AS INT)+CAST(ROUND(indepOH.[ATL OH],0) AS INT))/indepFC.IndependentFC)*4.35) AS decimal (38,2)) as "Wks OH",
+/*ISNULL(*/CAST((((indepOH.[NV OH]+(isnull(CAST(ROUND(US_IT.[Qty],0) AS INT),0))-ISNULL(SOone.[1stMoSOs],0)-ISNULL(SOtwo.[2ndMoSOs],0))/indepFC.IndependentFC)*4.35) AS decimal (38,2))/*,0)*/ as "Actual Net Wks",
 ISNULL(POone.[PO Number], '') AS "PO #",
 ISNULL(CAST(ROUND(POone.POqty1,0) AS INT), '') as "Next PO Qty",
 ISNULL(CONVERT(VARCHAR(24),POone.POdate1,1), '') as "Next PO Date",
 '' as 'Promised',
 ISNULL(CAST(ROUND(SOone.[1stMoSOs],0) AS INT),'') as "SO Mo.1",
 ISNULL(CAST(ROUND(SOtwo.[2ndMoSOs],0) AS INT), '') as "SO Mo.2",
-/*ISNULL(*/CAST((((indepOH.[NV OH]-ISNULL(SOone.[1stMoSOs],0)-ISNULL(SOtwo.[2ndMoSOs],0))/indepFC.IndependentFC)*4.35) AS decimal (38,2))/*,0)*/ as "Net Wks" ,
+--/*ISNULL(*/CAST((((indepOH.[NV OH]+(isnull(CAST(ROUND(US_IT.[Qty],0) AS INT),0))-ISNULL(SOone.[1stMoSOs],0)-ISNULL(SOtwo.[2ndMoSOs],0))/indepFC.IndependentFC)*4.35) AS decimal (38,2))/*,0)*/ as "Actual Net Wks",
 
 
 CAST(ROUND(indepOH.[NV OH],0) AS INT) as "NV OH",
 isnull(CAST(ROUND(US_IT.[Qty],0) AS INT),0) as "US IT",
+--CAST((((CAST(ROUND(indepOH.[NV OH],0) AS INT)+(isnull(CAST(ROUND(US_IT.[Qty],0) AS INT),0)))/indepFC.IndependentFC)*4.35) AS decimal (38,2)) as "NV Wks OH",
 CAST(ROUND(indepOH.[ATL OH],0) AS INT) as "ATL OH",
 isnull(CAST(ROUND(ATLit.[Qty],0) AS INT),0) as "ATL IT",
 (CAST(ROUND(indepOH.[PR OH],0) AS INT)+isnull(CAST(ROUND(PRit.[Qty],0) AS INT),0)) as "PR OH/IT",
@@ -226,15 +228,15 @@ ON (iv.[No_] = SOtwo.[No_])
 left join --***Atlanta In-Transit***-
 		(SELECT
 		tl.[uni_company_name],
-		tl.[Document No_] as 'Order No.', 
+		--tl.[Document No_] as 'Order No.', 
 		tl.[Item No_],
 		tl.[Description], 
-		tl.[Outstanding Quantity] as 'Qty',
+		sum(tl.[Outstanding Quantity]) as 'Qty',
 		tl.[Transfer-to Code],
 		case when tl.[status] = 0 then 'Sales Order'
 			when tl.[status] = 1 then 'In Transit'
-			else '' end as 'Status',
-		convert(varchar(10),tl.[Shipment Date],110) as 'Shipment Date'
+			else '' end as 'Status'
+		--convert(varchar(10),tl.[Shipment Date],110) as 'Shipment Date'
 		FROM [Prod_Navision].[dbo].[Transfer_Line_nc_vw] tl
 		left outer join Prod_Navision.dbo.Item_nc_vw as iv
 			on (tl.[Item No_] = iv.[Vendor Item No_] and tl.[uni_company_name]=iv.[uni_company_name])
@@ -243,21 +245,28 @@ left join --***Atlanta In-Transit***-
 		and tl.[Outstanding Quantity] &gt; 0
 		and tl.[Transfer-to Code] = 'ATLSC'
 		and tl.[Status] = 1
+		group by
+		tl.[uni_company_name],
+		--tl.[Document No_], 
+		tl.[Item No_],
+		tl.[Description], 
+		tl.[Transfer-to Code],
+		tl.[status]
 		) as ATLit
 		on  ATLit.[uni_company_name]=iv.[uni_company_name] and ATLit.[Item No_]=iv.[No_]
 
 left join --***PR In-Transit***-
 		(SELECT
 		tl.[uni_company_name],
-		tl.[Document No_] as 'Order No.', 
+		--tl.[Document No_] as 'Order No.', 
 		tl.[Item No_],
 		tl.[Description], 
-		tl.[Outstanding Quantity] as 'Qty',
+		sum(tl.[Outstanding Quantity]) as 'Qty',
 		tl.[Transfer-to Code],
 		case when tl.[status] = 0 then 'Sales Order'
 			when tl.[status] = 1 then 'In Transit'
-			else '' end as 'Status',
-		convert(varchar(10),tl.[Shipment Date],110) as 'Shipment Date'
+			else '' end as 'Status'
+		--convert(varchar(10),tl.[Shipment Date],110) as 'Shipment Date'
 		FROM [Prod_Navision].[dbo].[Transfer_Line_nc_vw] tl
 		left outer join Prod_Navision.dbo.Item_nc_vw as iv
 			on (tl.[Item No_] = iv.[Vendor Item No_] and tl.[uni_company_name]=iv.[uni_company_name])
@@ -266,6 +275,13 @@ left join --***PR In-Transit***-
 		and tl.[Outstanding Quantity] &gt; 0
 		and tl.[Transfer-to Code] = 'Puertorico'
 		and tl.[Status] = 1
+		group by
+		tl.[uni_company_name],
+		--tl.[Document No_], 
+		tl.[Item No_],
+		tl.[Description], 
+		tl.[Transfer-to Code],
+		tl.[status]
 		) as PRit
 		on  PRit.[uni_company_name]=iv.[uni_company_name] and PRit.[Item No_]=iv.[No_]
 
@@ -353,14 +369,12 @@ ATLit.[Qty],
 US_IT.[Qty]
 
 ORDER BY
-(indepOH.[NV OH]/indepFC.IndependentFC)*4.35 asc
-
-
+14 asc
 </CommandText>
       </Query>
       <Fields>
-        <Field Name="uni_company_name">
-          <DataField>uni_company_name</DataField>
+        <Field Name="Market">
+          <DataField>Market</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
         <Field Name="Item">
@@ -387,6 +401,10 @@ ORDER BY
           <DataField>Wks OH</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
+        <Field Name="Actual_Net_Wks">
+          <DataField>Actual Net Wks</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
         <Field Name="PO__">
           <DataField>PO #</DataField>
           <rd:TypeName>System.String</rd:TypeName>
@@ -410,10 +428,6 @@ ORDER BY
         <Field Name="SO_Mo_2">
           <DataField>SO Mo.2</DataField>
           <rd:TypeName>System.Int32</rd:TypeName>
-        </Field>
-        <Field Name="Net_Wks">
-          <DataField>Net Wks</DataField>
-          <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
         <Field Name="NV_OH">
           <DataField>NV OH</DataField>
@@ -2986,10 +3000,10 @@ ssheader.[uni_company_name] asc
                   <Width>1in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1.17708in</Width>
+                  <Width>1in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1in</Width>
+                  <Width>1.17708in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1in</Width>
@@ -3031,14 +3045,14 @@ ssheader.[uni_company_name] asc
                   <TablixCells>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="Textbox12">
+                        <Textbox Name="Textbox4">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Uni Company Name</Value>
+                                  <Value>Market</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontSize>9pt</FontSize>
@@ -3051,7 +3065,7 @@ ssheader.[uni_company_name] asc
                               </Style>
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>Textbox12</rd:DefaultName>
+                          <rd:DefaultName>Textbox4</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -3423,6 +3437,62 @@ ssheader.[uni_company_name] asc
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="Textbox16">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Actual Net Wks</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox16</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>PaleTurquoise</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="Textbox71">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
@@ -3759,62 +3829,6 @@ ssheader.[uni_company_name] asc
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="Textbox57">
-                          <CanGrow>true</CanGrow>
-                          <KeepTogether>true</KeepTogether>
-                          <Paragraphs>
-                            <Paragraph>
-                              <TextRuns>
-                                <TextRun>
-                                  <Value>Net Wks</Value>
-                                  <Style>
-                                    <FontFamily>Arial</FontFamily>
-                                    <FontSize>9pt</FontSize>
-                                    <FontWeight>Bold</FontWeight>
-                                  </Style>
-                                </TextRun>
-                              </TextRuns>
-                              <Style>
-                                <TextAlign>Center</TextAlign>
-                              </Style>
-                            </Paragraph>
-                          </Paragraphs>
-                          <rd:DefaultName>Textbox57</rd:DefaultName>
-                          <Style>
-                            <Border>
-                              <Style>Solid</Style>
-                            </Border>
-                            <TopBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </TopBorder>
-                            <BottomBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </BottomBorder>
-                            <LeftBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </LeftBorder>
-                            <RightBorder>
-                              <Color>Black</Color>
-                              <Style>Solid</Style>
-                              <Width>1pt</Width>
-                            </RightBorder>
-                            <BackgroundColor>PaleTurquoise</BackgroundColor>
-                            <PaddingLeft>2pt</PaddingLeft>
-                            <PaddingRight>2pt</PaddingRight>
-                            <PaddingTop>2pt</PaddingTop>
-                            <PaddingBottom>2pt</PaddingBottom>
-                          </Style>
-                        </Textbox>
-                      </CellContents>
-                    </TablixCell>
-                    <TablixCell>
-                      <CellContents>
                         <Textbox Name="Textbox55">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
@@ -3878,7 +3892,7 @@ ssheader.[uni_company_name] asc
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>US IT</Value>
+                                  <Value>NV IT</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontSize>9pt</FontSize>
@@ -4324,13 +4338,14 @@ ssheader.[uni_company_name] asc
                   <TablixCells>
                     <TablixCell>
                       <CellContents>
-                        <Textbox Name="uni_company_name">
+                        <Textbox Name="Market1">
+                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>=Fields!uni_company_name.Value</Value>
+                                  <Value>=Fields!Market.Value</Value>
                                   <Style>
                                     <FontFamily>Arial</FontFamily>
                                     <FontSize>9pt</FontSize>
@@ -4340,7 +4355,7 @@ ssheader.[uni_company_name] asc
                               <Style />
                             </Paragraph>
                           </Paragraphs>
-                          <rd:DefaultName>uni_company_name</rd:DefaultName>
+                          <rd:DefaultName>Market1</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -4630,6 +4645,41 @@ ssheader.[uni_company_name] asc
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="Actual_Net_Wks">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!Actual_Net_Wks.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                    <Format>#,0.00;(#,0.00)</Format>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Right</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Actual_Net_Wks</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="PO__1">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
@@ -4873,40 +4923,6 @@ ssheader.[uni_company_name] asc
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>SO_Mo_21</rd:DefaultName>
-                          <Style>
-                            <Border>
-                              <Style>Solid</Style>
-                            </Border>
-                            <PaddingLeft>2pt</PaddingLeft>
-                            <PaddingRight>2pt</PaddingRight>
-                            <PaddingTop>2pt</PaddingTop>
-                            <PaddingBottom>2pt</PaddingBottom>
-                          </Style>
-                        </Textbox>
-                      </CellContents>
-                    </TablixCell>
-                    <TablixCell>
-                      <CellContents>
-                        <Textbox Name="Net_Wks">
-                          <KeepTogether>true</KeepTogether>
-                          <Paragraphs>
-                            <Paragraph>
-                              <TextRuns>
-                                <TextRun>
-                                  <Value>=IIF(Fields!Net_Wks.Value = 0,Nothing,Fields!Net_Wks.Value)</Value>
-                                  <Style>
-                                    <FontFamily>Arial</FontFamily>
-                                    <FontSize>9pt</FontSize>
-                                    <Format>0.00</Format>
-                                  </Style>
-                                </TextRun>
-                              </TextRuns>
-                              <Style>
-                                <TextAlign>Right</TextAlign>
-                              </Style>
-                            </Paragraph>
-                          </Paragraphs>
-                          <rd:DefaultName>Net_Wks</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
