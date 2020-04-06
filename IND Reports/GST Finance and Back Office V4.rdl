@@ -22,9 +22,9 @@
           </QueryParameter>
         </QueryParameters>
         <CommandText>SELECT
-  Cust_Ledger_Entry_nc_vw."Posting Date",
-  Cust_Ledger_Entry_nc_vw."Document No_",
-  substring([Cust_Ledger_Entry_nc_vw].[description],7,20) SO_No,
+  Sales_Invoice_Line_nc_vw.[Posting Date],
+  Sales_Invoice_Line_nc_vw.[Document No_],
+  substring(Sales_Invoice_header_nc_vw.[posting description],7,20) SO_No,
   Location_nc_vw.[VAT Registration No_] [Supplier GST No],
   Customer_nc_vw.[VAT Registration No_] [Recipient GST No],
   Customer_nc_vw.Name,
@@ -33,59 +33,39 @@
   Customer_nc_vw.County,
   Location_nc_vw.County AS [Supplier State],
   Customer_nc_vw.County Place_Of_Supply,
-  item_nc_vw.[VAT Prod_ Posting Group] AS [Rate Of Tax],
+  Sales_Invoice_Line_nc_vw.[VAT Prod_ Posting Group] AS [Rate Of Tax],
   item_nc_vw.[No_] AS [Item Code],
   item_nc_vw.[Tariff No_] AS [HSN Code],
-  cast(sum(-1*Value_Entry_nc_vw.[invoiced quantity]) as numeric(20)) Quantity,
-  cast(sum(Value_Entry_nc_vw.[Sales Amount (Actual)]) as numeric(20,2)) TotalValue,
+  cast(Sales_Invoice_Line_nc_vw.Quantity as numeric(20)) Quantity,
+  Sales_Invoice_Line_nc_vw.[line amount] TotalValue,
   --(cast(sum(Value_Entry_nc_vw.[Sales Amount (Actual)]) as numeric(20,2))*cast(replace(item_nc_vw.[VAT Prod_ Posting Group],'%','') as numeric(4,2)))/100 AS GST,
-  (case when Customer_nc_vw.[VAT Bus_ Posting Group]='C+SGST' then ((cast(sum(Value_Entry_nc_vw.[Sales Amount (Actual)]) as numeric(20,2))*cast(replace(item_nc_vw.[VAT Prod_ Posting Group],'%','') as numeric(4,2)))/100)/2 else 0 end) SGST,
-  (case when Customer_nc_vw.[VAT Bus_ Posting Group]='C+SGST' then ((cast(sum(Value_Entry_nc_vw.[Sales Amount (Actual)]) as numeric(20,2))*cast(replace(item_nc_vw.[VAT Prod_ Posting Group],'%','') as numeric(4,2)))/100)/2 else 0 end) CGST,
-  (case when Customer_nc_vw.[VAT Bus_ Posting Group]='IGST' then ((cast(sum(Value_Entry_nc_vw.[Sales Amount (Actual)]) as numeric(20,2))*cast(replace(item_nc_vw.[VAT Prod_ Posting Group],'%','') as numeric(4,2)))/100) else 0 end) IGST,
-  cast(sum(Value_Entry_nc_vw.[Sales Amount (Actual)]) as numeric(20,2))+(cast(sum(Value_Entry_nc_vw.[Sales Amount (Actual)]) as numeric(20,2))*cast(replace(item_nc_vw.[VAT Prod_ Posting Group],'%','') as numeric(4,2)))/100 AS [Total Invoice Value],
-(case when Value_Entry_nc_vw.[Location Code] in ('JAYEM BHW') then 1 when Value_Entry_nc_vw.[Location Code] in ('GURGAON') then 2 when Value_Entry_nc_vw.[Location Code] in ('JAYEM GUJ') then 3 when Value_Entry_nc_vw.[Location Code] in ('GUW') then 4 when Value_Entry_nc_vw.[Location Code] in ('INDIA KEL') then 5 when Value_Entry_nc_vw.[Location Code] in ('JAYEM CGH') then 6  when Value_Entry_nc_vw.[Location Code] in ('INDIA GUJ') then 7 when Value_Entry_nc_vw.[Location Code] in ('INDIA DEL') then 8 when Value_Entry_nc_vw.[Location Code] in ('UNI INDIA') then 9 else 0 end) Bang_Sales
+  cast((case when Sales_Invoice_Line_nc_vw.[VAT Bus_ Posting Group]='C+SGST' then cast((Sales_Invoice_Line_nc_vw.[Amount Including VAT]-Sales_Invoice_Line_nc_vw.[line amount]) as numeric(20,2))/2  else 0.0 end) as numeric(20,2)) SGST,
+  cast((case when Sales_Invoice_Line_nc_vw.[VAT Bus_ Posting Group]='C+SGST' then cast((Sales_Invoice_Line_nc_vw.[Amount Including VAT]-Sales_Invoice_Line_nc_vw.[line amount]) as numeric(20,2))/2 else 0.0 end) as numeric(20,2)) CGST,
+  cast((case when Sales_Invoice_Line_nc_vw.[VAT Bus_ Posting Group]='IGST' then (Sales_Invoice_Line_nc_vw.[Amount Including VAT]-Sales_Invoice_Line_nc_vw.[line amount]) else 0 end) as numeric(20,2)) IGST,
+  cast(Sales_Invoice_Line_nc_vw.[Amount Including VAT] as numeric(20,2)) AS [Total Invoice Value],
+ --(case when Customer_nc_vw.[customer price group] in ('UPP-MAH','UPP-CHA') then 1 when Customer_nc_vw.[customer price group] in ('UPP-HAR','UPP-RAJ','UPP- UP','UPP-BIHAR','UPP-DELHI') then 2 when Customer_nc_vw.[customer price group]='UPP-GUJ' then 3 when Customer_nc_vw.[customer price group] in ('UPP-ASSAM','UPP- NAG') then 4 when Customer_nc_vw.[customer price group] in ('UPP-KERALA') then 5 when Customer_nc_vw.[customer price group] in ('UPP-AP','UPP-CHA','UPP-MIZA') then 6 when Customer_nc_vw.[customer price group] in ('UPP-GUJ') then 7 when Customer_nc_vw.[customer price group] in ('UPP-DELHI') then 8 else 0 end) Bang_Sales,
+ (case when Sales_Invoice_Line_nc_vw.[Location Code] in ('JAYEM BHW') then 1 when Sales_Invoice_Line_nc_vw.[Location Code] in ('GURGAON') then 2 when Sales_Invoice_Line_nc_vw.[Location Code] in ('JAYEM GUJ') then 3 when Sales_Invoice_Line_nc_vw.[Location Code] in ('GUW') then 4 when Sales_Invoice_Line_nc_vw.[Location Code] in ('INDIA KEL') then 5 when Sales_Invoice_Line_nc_vw.[Location Code] in ('JAYEM CGH') then 6  when Sales_Invoice_Line_nc_vw.[Location Code] in ('INDIA GUJ') then 7 when Sales_Invoice_Line_nc_vw.[Location Code] in ('INDIA DEL') then 8 when Sales_Invoice_Line_nc_vw.[Location Code] in ('UNI INDIA') then 9 else 0 end) Bang_Sales,
+ CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0) as date) [Begin Date],
+  CAST(GETDATE() as date) [End Date]
 FROM
-  UNINAV.Prod_Navision.dbo.Customer_nc_vw 
-  INNER JOIN UNINAV.Prod_Navision.dbo.Cust_Ledger_Entry_nc_vw 
-  ON (Customer_nc_vw.uni_company_name=Cust_Ledger_Entry_nc_vw.uni_company_name and 
-  Customer_nc_vw.No_=Cust_Ledger_Entry_nc_vw."Customer No_")
-  INNER JOIN UNINAV.Prod_Navision.dbo.Sales_Invoice_Header_nc_vw
-  ON (Cust_Ledger_Entry_nc_vw.uni_company_name=Sales_Invoice_Header_nc_vw.uni_company_name and 
-  Cust_Ledger_Entry_nc_vw."Document No_"=Sales_Invoice_Header_nc_vw.No_)
-  INNER JOIN UNINAV.Prod_Navision.dbo.Value_Entry_nc_vw
-  ON (Cust_Ledger_Entry_nc_vw.uni_company_name=Value_Entry_nc_vw.uni_company_name and 
-  Cust_Ledger_Entry_nc_vw.[document no_]=Value_Entry_nc_vw.[document no_] and 
-  Cust_Ledger_Entry_nc_vw.[posting date]=Value_Entry_nc_vw.[posting date] and
-  Cust_Ledger_Entry_nc_vw.[document type]=Value_Entry_nc_vw.[document type])
+  UNINAV.Prod_Navision.dbo.Customer_nc_vw INNER JOIN UNINAV.Prod_Navision.dbo.Sales_Invoice_Line_nc_vw 
+  ON (Customer_nc_vw.uni_company_name=Sales_Invoice_Line_nc_vw.uni_company_name and 
+  Customer_nc_vw.No_=Sales_Invoice_Line_nc_vw.[sell-to Customer No_])
+  inner join UNINAV.Prod_Navision.dbo.Sales_Invoice_header_nc_vw 
+  ON (Sales_Invoice_header_nc_vw.uni_company_name=Sales_Invoice_Line_nc_vw.uni_company_name and Sales_Invoice_header_nc_vw.[No_]=Sales_Invoice_Line_nc_vw.[Document No_])
   LEFT OUTER JOIN UNINAV.Prod_Navision.dbo.Item_nc_vw 
-  ON (Item_nc_vw.No_=Value_Entry_nc_vw.[Item No_] and Item_nc_vw.uni_company_name=Value_Entry_nc_vw.uni_company_name)
-  LEFT OUTER JOIN UNINAV.Prod_Navision.dbo.Location_nc_vw ON (Location_nc_vw.uni_company_name=Value_Entry_nc_vw.uni_company_name and
-  Location_nc_vw.code=Value_Entry_nc_vw.[Location Code])
+  ON (Item_nc_vw.No_=Sales_Invoice_Line_nc_vw.[No_] and Item_nc_vw.uni_company_name=Sales_Invoice_Line_nc_vw.uni_company_name)
+  LEFT OUTER JOIN UNINAV.Prod_Navision.dbo.Location_nc_vw ON (Location_nc_vw.uni_company_name=Sales_Invoice_Line_nc_vw.uni_company_name and
+  Location_nc_vw.code=Sales_Invoice_Line_nc_vw.[Location Code])
 WHERE
   (
-   Cust_Ledger_Entry_nc_vw.uni_company_name  =  'India'
-   AND Cust_Ledger_Entry_nc_vw."Posting Date"  BETWEEN  @StartDate AND @EndDate --'2019-01-01' and '2019-01-10'
-   AND Cust_Ledger_Entry_nc_vw."Document Type"  =  2
-   --AND Cust_Ledger_Entry_nc_vw."Document No_" in ('PS1009472','PS1009468')
+   Sales_Invoice_Line_nc_vw.uni_company_name  =  'India'
+   AND CAST(Sales_Invoice_Line_nc_vw.[Posting Date] as date)  BETWEEN  @StartDate AND @EndDate--CAST(DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0) as date) AND CAST(GETDATE() as date)
+   AND Sales_Invoice_Line_nc_vw.[Type]  =  2
+   AND Sales_Invoice_Line_nc_vw.[line amount]&lt;&gt;0
+   --AND Sales_Invoice_Line_nc_vw."Document No_" in ('PS1010921')
    --AND Cust_Ledger_Entry_nc_vw."Posting Date"  BETWEEN  '2017-01-01' and '2017-07-10'
-   )
-  group by   Cust_Ledger_Entry_nc_vw."Posting Date",
-  Cust_Ledger_Entry_nc_vw."Document No_",
-  substring([Cust_Ledger_Entry_nc_vw].[description],7,20),
-  Location_nc_vw.[VAT Registration No_],
-  Customer_nc_vw.[VAT Registration No_],
-  Customer_nc_vw.Name,
-  Customer_nc_vw.Address,
-  Customer_nc_vw.[Address 2],
-  Customer_nc_vw.County,
-  Location_nc_vw.County,
-  Customer_nc_vw.County,
-  item_nc_vw.[VAT Prod_ Posting Group],
-  item_nc_vw.[Tariff No_],
-  item_nc_vw.[No_],
-  Customer_nc_vw.[VAT Bus_ Posting Group],
-  (case when Value_Entry_nc_vw.[Location Code] in ('JAYEM BHW') then 1 when Value_Entry_nc_vw.[Location Code] in ('GURGAON') then 2 when Value_Entry_nc_vw.[Location Code] in ('JAYEM GUJ') then 3 when Value_Entry_nc_vw.[Location Code] in ('GUW') then 4 when Value_Entry_nc_vw.[Location Code] in ('INDIA KEL') then 5 when Value_Entry_nc_vw.[Location Code] in ('JAYEM CGH') then 6  when Value_Entry_nc_vw.[Location Code] in ('INDIA GUJ') then 7 when Value_Entry_nc_vw.[Location Code] in ('INDIA DEL') then 8 when Value_Entry_nc_vw.[Location Code] in ('UNI INDIA') then 9 else 0 end)
-  having sum(-1*Value_Entry_nc_vw.[invoiced quantity])&gt;=0</CommandText>
+   )</CommandText>
       </Query>
       <Fields>
         <Field Name="Posting_Date">
@@ -171,6 +151,14 @@ WHERE
         <Field Name="Bang_Sales">
           <DataField>Bang_Sales</DataField>
           <rd:TypeName>System.Int32</rd:TypeName>
+        </Field>
+        <Field Name="Begin_Date">
+          <DataField>Begin Date</DataField>
+          <rd:TypeName>System.DateTime</rd:TypeName>
+        </Field>
+        <Field Name="End_Date">
+          <DataField>End Date</DataField>
+          <rd:TypeName>System.DateTime</rd:TypeName>
         </Field>
       </Fields>
     </DataSet>
