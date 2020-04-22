@@ -181,11 +181,11 @@ ORDER BY SourceCountryCode,TargetCountryCode</CommandText>
     </DataSet>
     <DataSet Name="pSourceCountry">
       <Query>
-        <DataSourceName>UnityDB</DataSourceName>
-        <CommandText>SELECT DISTINCT CASE WHEN d.IsNFR = 1 THEN d.SourceCountryCode+'N' ELSE d.SourceCountryCode END SourceCountryCode
-FROM UNCBonusResults.dbo.BonusDetail d WITH(NOLOCK)
-WHERE d.BatchId IN (SELECT DISTINCT batchId FROM UNCBonusResults.dbo.BonusDetail)
-ORDER BY 1</CommandText>
+        <DataSourceName>SQLPRODA</DataSourceName>
+        <CommandText>select distinct country_code SourceCountryCode from dw.dbo.dm_location_manager
+where len(country_code) between 3 and 4
+and backoffice_mkting_unit is not null
+order by 1</CommandText>
       </Query>
       <Fields>
         <Field Name="SourceCountryCode">
@@ -196,28 +196,16 @@ ORDER BY 1</CommandText>
     </DataSet>
     <DataSet Name="pTargetCountry">
       <Query>
-        <DataSourceName>UnityDB</DataSourceName>
-        <CommandText>SELECT DISTINCT CASE WHEN d.IsNFR = 1 THEN d.TargetCountryCode+'N' ELSE d.TargetCountryCode END TargetCountryCode
-FROM UNCBonusResults.dbo.BonusDetail d WITH(NOLOCK)
-WHERE d.BatchId IN (SELECT DISTINCT batchId FROM UNCBonusResults.dbo.BonusDetail)
-ORDER BY 1</CommandText>
+        <DataSourceName>SQLPRODA</DataSourceName>
+        <CommandText>select distinct country_code TargetCountryCode from dw.dbo.dm_location_manager
+where len(country_code) between 3 and 4
+and backoffice_mkting_unit is not null
+order by 1</CommandText>
       </Query>
       <Fields>
         <Field Name="TargetCountryCode">
           <DataField>TargetCountryCode</DataField>
           <rd:TypeName>System.String</rd:TypeName>
-        </Field>
-      </Fields>
-    </DataSet>
-    <DataSet Name="BatchId">
-      <Query>
-        <DataSourceName>UnityDB</DataSourceName>
-        <CommandText>SELECT DISTINCT batchId FROM UNCBonusResults.dbo.BonusDetail ORDER BY 1</CommandText>
-      </Query>
-      <Fields>
-        <Field Name="batchId">
-          <DataField>batchId</DataField>
-          <rd:TypeName>System.Int32</rd:TypeName>
         </Field>
       </Fields>
     </DataSet>
@@ -287,6 +275,9 @@ FROM
 	AND d.CommissionProfitCenterID NOT IN (17)      --17=LSB --local cost and it is posted in the manual adjustments so there should not be a cross country charge for this bonus type
 	AND cr.CustomerStatus IN ( @FromStatus) 
 	AND crt.CustomerStatus IN ( @TargetStatus)
+	AND d.SourceCountryCode &lt;&gt; d.TargetCountryCode
+	AND d.SourceCountryCode IN (@SourceCountryCode) 
+	AND d.TargetCountryCode IN (@TargetCountryCode) 
 	GROUP BY d.FromUnicityId --SourceUnicityId
 	,d.UnicityId --TargetUnicityId
 	,d.TargetCountryCode
@@ -297,9 +288,6 @@ FROM
 	,d.SourceCurrencyCode
 	
 ) a 
-WHERE SourceCountryCode &lt;&gt; TargetCountryCode
-AND SourceCountryCode IN (@SourceCountryCode) 
-AND TargetCountryCode IN (@TargetCountryCode) 
 GROUP BY SourceUnicityId
 , SourceCountryCode
 , SourceCurrencyCode
@@ -2593,12 +2581,12 @@ GROUP BY SourceUnicityId
       <NumberOfRows>2</NumberOfRows>
       <CellDefinitions>
         <CellDefinition>
-          <ColumnIndex>1</ColumnIndex>
+          <ColumnIndex>0</ColumnIndex>
           <RowIndex>0</RowIndex>
           <ParameterName>CommissionMonth</ParameterName>
         </CellDefinition>
         <CellDefinition>
-          <ColumnIndex>0</ColumnIndex>
+          <ColumnIndex>1</ColumnIndex>
           <RowIndex>0</RowIndex>
           <ParameterName>BatchId</ParameterName>
         </CellDefinition>
