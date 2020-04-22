@@ -13,43 +13,95 @@
     <DataSet Name="Query_1">
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
-        <CommandText>select 
-	dst.dist_id [Distributor ID],
-	dst.real_native_name_1 [Distributor Native Name],
-	dst.roman_name_1 [Distributor Roman Name],
-	dst.real_native_name_2 [Spouse Native Name],
-	dst.roman_name_2 [Spouse Roman Name],
-	dst.birth_date [Birth Date],
-	dst.spouse_birth_date [Spouse Birth Date],
-	dst.addr [Address],
-	dst.addr_2 [Address 2],
-	dst.addr_3 [Address 3],
-	dst.home_phone [Home Phone],
-	dst.work_phone [Work Phone],
-	dst.cell_phone [Cell Phone],
-	dst.fax_phone [Fax Number],
-	dst.entry_date [Entered],
-	dst.entry_pv_date [Entry Period],
-	dst.next_renew_date [Renewal Date],
+        <CommandText>select
+	b.[Distributor ID],
+	b.[Distributor Native Name],
+	b.[Distributor Roman Name],
+	b.[Spouse Native Name],
+	b.[Spouse Roman Name],
+	b.[Birth Date],
+	b.[Spouse Birth Date],
+	b.[Address],
+	b.[Address 2],
+	b.[Address 3],
+	b.[Home Phone],
+	b.[Work Phone],
+	b.[Cell Phone],
+	b.[Fax Number],
+	b.[Entered],
+	b.[Entry Period],
+	b.[Renewal Date],
 	bt.end_rank [Rank Number],
 	rnk.title [Rank Name],
-	dst.dist_status [Status],
-	dst.sponsor_dist_id [Sponsor ID],
+	b.[Status],
+	b.[Sponsor ID],
 	spo.roman_name_1 [Sponsor Name],
 	sta.ship_to_name [Ship to Name],
 	sta.addr_1 [Ship to address],
 	sta.addr_2 [Ship to address 2],
 	sta.addr_3 [Ship to address 3]
-from 
-	dw.dbo.dst
-	left outer join dw.dbo.dst spo on dst.sponsor_dist_id=spo.dist_id
-	left outer join dw.dbo.sta on dst.dist_id=sta.dist_id and dst.uni_mkting_unit=sta.mkting_unit and sta.ship_address_num=1
-	left outer join dw.dbo.bwt_current bt on dst.dist_id=bt.dist_id
-	left outer join dw.dbo.rank rnk on rnk.rank=bt.end_rank and rnk.market=bt.marketing_unit
-where 
+from
+(
+select
+	a.[Distributor ID],
+	a.[Distributor Native Name],
+	a.[Distributor Roman Name],
+	a.[Spouse Native Name],
+	a.[Spouse Roman Name],
+	a.[Birth Date],
+	a.[Spouse Birth Date],
+	a.[Address],
+	a.[Address 2],
+	a.[Address 3],
+	a.[Home Phone],
+	a.[Work Phone],
+	a.[Cell Phone],
+	a.[Fax Number],
+	a.[Entered],
+	a.[Entry Period],
+	a.[Renewal Date],
+	a.[Status],
+	a.[Sponsor ID],
+	a.uni_mkting_unit
+from
+	(
+	select 
+		dst.dist_id [Distributor ID],
+		dst.real_native_name_1 [Distributor Native Name],
+		dst.roman_name_1 [Distributor Roman Name],
+		dst.real_native_name_2 [Spouse Native Name],
+		dst.roman_name_2 [Spouse Roman Name],
+		dst.birth_date [Birth Date],
+		dst.spouse_birth_date [Spouse Birth Date],
+		dst.addr [Address],
+		dst.addr_2 [Address 2],
+		dst.addr_3 [Address 3],
+		dst.home_phone [Home Phone],
+		dst.work_phone [Work Phone],
+		dst.cell_phone [Cell Phone],
+		dst.fax_phone [Fax Number],
+		dst.entry_date [Entered],
+		dst.entry_pv_date [Entry Period],
+		isnull(rnw.next_renew_date,dst.next_renew_date) [Renewal Date],
+		--bt.end_rank [Rank Number],
+		--rnk.title [Rank Name],
+		dst.dist_status [Status],
+		dst.sponsor_dist_id [Sponsor ID],
+		dst.uni_mkting_unit,
+		row_number() over(partition by dst.dist_id order by rnw.last_renew_date desc) rnk_num
+	from
+		dw.dbo.dst left outer join dw.dbo.rnw on rnw.dist_id=dst.dist_id
+	where
 	dst.uni_mkting_unit=81 and dst.country_code='JPN' and dst.dist_status &lt;&gt;'T'
-	--and dst.dist_id=34682481
-order by dst.entry_date</CommandText>
+	--and dst.dist_id in (5649081,5676981,5825081,101785181,102302081,102304381)
+	)a
+	where a.rnk_num=1
+	)b
+left outer join dw.dbo.dst spo on b.[Sponsor ID]=spo.dist_id
+left outer join dw.dbo.sta on b.[Distributor ID]=sta.dist_id and b.uni_mkting_unit=sta.mkting_unit and sta.ship_address_num=1
+left outer join dw.dbo.bwt_current bt on b.[Distributor ID]=bt.dist_id
+left outer join dw.dbo.rank rnk on rnk.rank=bt.end_rank and rnk.market=bt.marketing_unit
+</CommandText>
       </Query>
       <Fields>
         <Field Name="Distributor_ID">
