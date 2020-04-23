@@ -48,6 +48,7 @@ GROUP BY
   HAVING  SUM(CASE WHEN ODH.ODH_TYPE='C' THEN -1*PRICE_2 ELSE PRICE_2 END) IS NOT NULL
 UNION ALL
 --The query is for TOP SPONSOR DOWNLINE PV
+(
 SELECT
   GENIE.TOP_MSPON,
   TOPMSPON_NAME.ROMAN_NAME_1,
@@ -60,6 +61,7 @@ FROM
   inner join DW.dbo.DST on ( GENIE.DIST_ID=DST.DIST_ID  )
   left outer join DW.dbo.ODH on (DST.DIST_ID=ODH.DIST_ID AND ODH.STATUS IN (2,3,4,5) 
   AND ODH.PV_DATE_DATE between @BeginPeriod and @EndPeriod ) --@prompt 
+  AND ODH.PV_DATE_DATE &gt; (select top 1 pv_date_date from dw.dbo.bwt_current)
 WHERE
 (
    GENIE.TOP_MSPON in (@TopMSPON)  --@prompt 
@@ -70,7 +72,29 @@ GROUP BY
   TOPMSPON_NAME.ROMAN_NAME_1,
   ODH.PV_DATE_DATE--,
   --ODH.POST_DATE
-  HAVING  SUM(CASE WHEN ODH.ODH_TYPE='C' THEN -1*PRICE_2 ELSE PRICE_2 END) IS NOT NULL</CommandText>
+  HAVING  SUM(CASE WHEN ODH.ODH_TYPE='C' THEN -1*PRICE_2 ELSE PRICE_2 END) IS NOT NULL
+UNION ALL
+SELECT
+  GENIE.TOP_MSPON,
+  TOPMSPON_NAME.ROMAN_NAME_1,
+  BWT.PV_DATE_DATE AS PV_Month,
+  --ODH.POST_DATE,
+  0 AS OWN_PV,
+  sum(BWT.VOL1) AS DOWNLINE_PV
+FROM
+  DW.dbo.GENIE inner join DW.dbo.DST  TOPMSPON_NAME on ( GENIE.TOP_MSPON=TOPMSPON_NAME.MDIST  )
+  inner join DW.dbo.DST on ( GENIE.DIST_ID=DST.DIST_ID  )
+  inner join DW.dbo.BWT on (DST.DIST_ID=BWT.DIST_ID and BWT.PV_DATE_DATE between @BeginPeriod and @EndPeriod)  --@prompt 
+WHERE
+(
+   GENIE.TOP_MSPON in (@TopMSPON)  --@prompt 
+   AND SUBSTRING(GENIE.TOP_MSPON,1,2)  =  84
+  )
+GROUP BY  
+  GENIE.TOP_MSPON,
+  TOPMSPON_NAME.ROMAN_NAME_1,
+  BWT.PV_DATE_DATE
+)</CommandText>
       </Query>
       <Fields>
         <Field Name="TOP_MSPON">
