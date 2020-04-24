@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report MustUnderstand="df" xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition" xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner" xmlns:df="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition/defaultfontfamily">
+  <df:DefaultFontFamily>Segoe UI</df:DefaultFontFamily>
+  <AutoRefresh>0</AutoRefresh>
+  <DataSources>
+    <DataSource Name="SQLPRODA">
+      <DataSourceReference>SQLPRODA</DataSourceReference>
+      <rd:SecurityType>None</rd:SecurityType>
+      <rd:DataSourceID>0a096111-00d2-4cee-b453-58e4b71b21e5</rd:DataSourceID>
+    </DataSource>
+  </DataSources>
+  <DataSets>
+    <DataSet Name="Final">
+      <Query>
+        <DataSourceName>SQLPRODA</DataSourceName>
+        <CommandText>SELECT * FROM DW.dbo.DM_ACTIVATE_SUMMIT 
+</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="DIST_ID">
+          <DataField>DIST_ID</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="ROMAN_NAME_1">
+          <DataField>ROMAN_NAME_1</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="UNI_MKTING_UNIT">
+          <DataField>UNI_MKTING_UNIT</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="COUNTRY_CODE">
+          <DataField>COUNTRY_CODE</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="BASE_RANK">
+          <DataField>BASE_RANK</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="EMAIL_ADDR">
+          <DataField>EMAIL_ADDR</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="ADV">
+          <DataField>ADV</DataField>
+          <rd:TypeName>System.Int32</rd:TypeName>
+        </Field>
+        <Field Name="MTN">
+          <DataField>MTN</DataField>
+          <rd:TypeName>System.Int32</rd:TypeName>
+        </Field>
+        <Field Name="ID_35_Credit">
+          <DataField>$35 Credit</DataField>
+          <rd:TypeName>System.Int32</rd:TypeName>
+        </Field>
+        <Field Name="ID_100_Credit">
+          <DataField>$100 Credit</DataField>
+          <rd:TypeName>System.Int32</rd:TypeName>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="Breakout">
+      <Query>
+        <DataSourceName>SQLPRODA</DataSourceName>
+        <CommandText>SELECT * FROM  DW.dbo.DM_ACTIVATE_SUMMIT_BREAKOUT</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="Enroller_Dist_Id">
+          <DataField>Enroller_Dist_Id</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="Enroller_Name">
+          <DataField>Enroller_Name</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="Dist_id">
+          <DataField>Dist_id</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="Name">
+          <DataField>Name</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="Status">
+          <DataField>Status</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="Pv_Date">
+          <DataField>Pv_Date</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="Pv">
+          <DataField>Pv</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="group">
+          <DataField>group</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="Live">
+      <Query>
+        <DataSourceName>SQLPRODA</DataSourceName>
+        <CommandText>SELECT b.EnrollerId 
+, cee.CustomerId_Unicity as EnrollerID_Unicity
+, b.CustomerId_Unicity
+, b.CommissionMonth
+, b.QualificationVolume as pv 
+, case 
+		when b.QualificationVolume &gt; 99 and b.QualificationVolume &lt; 250 then '$35' 
+		when b.QualificationVolume &gt; 249 then '$100' 
+  end new_person_credit
+
+--INTO ##UnityEnrollers
+FROM 
+(
+	SELECT * 
+	, ROW_NUMBER() OVER(PARTITION BY UnicityId ORDER BY CommissionMonth) as rw 
+	FROM 
+	(
+		SELECT t.UnicityId,
+		ct.CustomerId_Unicity, 
+		t.CommissionMonth, 
+		t.EnrollerId , 
+		SUM(t.QualificationVolume) as QualificationVolume
+		FROM DW.dbo.UnityTBI t  
+		INNER JOIN [SQLPRODC\SQLC].UnityDB.dbo.Customer ct ON ct.CustomerId = t.CustomerId 
+		WHERE ct.CustomerId_Unicity IN (SELECT DIST_ID FROM DW.dbo.DST WHERE entry_date &gt;= '2020-03-01' AND entry_date &lt; '2020-08-01' AND UNI_MKTING_UNIT IN (1,2,58) AND  DIST_STATUS  IN ('A','B','M') )
+		AND t.CommissionMonth &gt; (SELECT MAX(PV_DATE) FROM DW.dbo.BWT_CURRENT) 
+		AND ct.CustomerId_Unicity  NOT IN ( SELECT DISTINCT DIST_ID FROM DW.dbo.BWT_CURRENT WHERE MARKETING_UNIT IN (1,2,58) ) 
+		--AND ct.CustomerId_UNicity  = 2833108
+		GROUP BY  t.UnicityId,
+		t.CommissionMonth, 
+		t.EnrollerId,
+		ct.CustomerId_Unicity
+	) a 
+) b
+INNER JOIN [SQLPRODC\SQLC].UnityDB.dbo.Customer ce ON ce.CustomerId = b.EnrollerID
+INNER JOIN [SQLPRODC\SQLC].UnityDB.dbo.Customer cee ON cee.customerId = ce.customerid 
+WHERE rw = 1 
+AND CommissionMonth &gt; (SELECT MAX(PV_DATE) FROM DW.dbo.BWT_CURRENT)
+AND b.QualificationVolume &gt; 99
+</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="EnrollerId">
+          <DataField>EnrollerId</DataField>
+          <rd:TypeName>System.Int64</rd:TypeName>
+        </Field>
+        <Field Name="EnrollerID_Unicity">
+          <DataField>EnrollerID_Unicity</DataField>
+          <rd:TypeName>System.Int64</rd:TypeName>
+        </Field>
+        <Field Name="CustomerId_Unicity">
+          <DataField>CustomerId_Unicity</DataField>
+          <rd:TypeName>System.Int64</rd:TypeName>
+        </Field>
+        <Field Name="CommissionMonth">
+          <DataField>CommissionMonth</DataField>
+          <rd:TypeName>System.Int32</rd:TypeName>
+        </Field>
+        <Field Name="pv">
+          <DataField>pv</DataField>
+          <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="new_person_credit">
+          <DataField>new_person_credit</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+      </Fields>
+    </DataSet>
+  </DataSets>
+  <ReportSections>
+    <ReportSection>
+      <Body>
+        <Height>2in</Height>
+        <Style />
+      </Body>
+      <Width>6.5in</Width>
+      <Page>
+        <LeftMargin>1in</LeftMargin>
+        <RightMargin>1in</RightMargin>
+        <TopMargin>1in</TopMargin>
+        <BottomMargin>1in</BottomMargin>
+        <Style />
+      </Page>
+    </ReportSection>
+  </ReportSections>
+  <ReportParametersLayout>
+    <GridLayoutDefinition>
+      <NumberOfColumns>4</NumberOfColumns>
+      <NumberOfRows>2</NumberOfRows>
+    </GridLayoutDefinition>
+  </ReportParametersLayout>
+  <rd:ReportUnitType>Inch</rd:ReportUnitType>
+  <rd:ReportID>26a02001-191a-4c08-89b3-2dfa79f27863</rd:ReportID>
+</Report>
