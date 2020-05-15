@@ -14,57 +14,80 @@
       <Query>
         <DataSourceName>SQLPRODA</DataSourceName>
         <QueryParameters>
-          <QueryParameter Name="@PV_DATE">
-            <Value>=Parameters!PV_DATE.Value</Value>
+          <QueryParameter Name="@MarketingUnit">
+            <Value>=Parameters!MarketingUnit.Value</Value>
           </QueryParameter>
           <QueryParameter Name="@CountryCode">
             <Value>=Parameters!CountryCode.Value</Value>
           </QueryParameter>
+          <QueryParameter Name="@PV_DATE">
+            <Value>=Parameters!PV_DATE.Value</Value>
+          </QueryParameter>
         </QueryParameters>
         <CommandText>SELECT
-   DW.dbo.BWT.NM1,
-   DW.dbo.DST.ROMAN_NAME_2,
-   DW.dbo.DST.MDIST,
-   DW.dbo.DST.HOME_PHONE,
-   DW.dbo.BWT.PV_DATE_DATE as PV_DATE,
+   BWT.NM1,
+   DST.ROMAN_NAME_2,
+   DST.MDIST,
+   DST.HOME_PHONE,
+   BWT.PV_DATE_DATE as PV_DATE,
    --End_Rank_Desc.TITLE as END_RANK_NAME,
-   dbo.fnGetRankName(DW.dbo.BWT.MDIST,DW.dbo.BWT.PV_DATE_DATE,DW.dbo.BWT.END_RANK) as END_RANK_NAME,
+   DW.dbo.fnGetRankName(BWT.MDIST,BWT.PV_DATE_DATE,BWT.BEGIN_RANK) as BEGIN_RANK_NAME, 
+   DW.dbo.fnGetRankName(BWT.MDIST,BWT.PV_DATE_DATE,BWT.PAID_RANK) as PAID_RANK_NAME, 
+   DW.dbo.fnGetRankName(BWT.MDIST,BWT.PV_DATE_DATE,BWT.END_RANK) as END_RANK_NAME,
    --Begin_Rank_Desc.TITLE as BEGIN_RANK_NAME,
-   dbo.fnGetRankName(DW.dbo.BWT.MDIST,DW.dbo.BWT.PV_DATE_DATE,DW.dbo.BWT.BEGIN_RANK) as BEGIN_RANK_NAME, 
-   DW.dbo.BWT.MARKETING_UNIT,
-   DW.dbo.DST.EMAIL_ADDR,
-   DW.dbo.DST.FLAG_4,
-   DW.dbo.DST.ADDR,
-   DW.dbo.DST.ADDR_2,
-   DW.dbo.DST.ADDR_3,
-   DW.dbo.DST.CITY,
-   DW.dbo.DST.STATE,
-   DW.dbo.DST.POSTAL_CODE,
-   DW.dbo.DST.ENTRY_DATE,
-   DW.dbo.BWT.END_RANK,
-   DW.dbo.BWT.BEGIN_RANK,
-   DW.dbo.MARKET.MARKET_NAME,
-   DW.dbo.BWT.COUNTRY_CODE,
-   COALESCE(DW.dbo.DST.CELL_PHONE, DW.dbo.DST.HOME_PHONE, DW.dbo.DST.WORK_PHONE) as PHONE
+   --ISNULL(fnGetRankName(BWT.MDIST,'2019-04-01',(SELECT BwtApril.PAID_RANK FROM BWT BwtApril WHERE BwtApril.PV_DATE_DATE = '2019-04-01' AND BwtApril.DIST_ID = DST.DIST_ID AND BwtApril.MARKETING_UNIT IN (1,2,58,91,63,82))),'New Distributor') as April2019Rank,
+   ISNULL(DW.dbo.fnGetRankName(BWT.MDIST,'2019-04-01',BwtApril.PAID_RANK),'New Distributor') as April2019Rank,
+   CASE 
+	--WHEN ISNULL((SELECT BwtApril.PAID_RANK FROM BWT BwtApril WHERE BwtApril.PV_DATE_DATE = '2019-04-01' AND BwtApril.DIST_ID = DST.DIST_ID AND BwtApril.MARKETING_UNIT IN (1,2,58,91,63,82)),0) &lt; BWT.PAID_RANK THEN 'Advance'
+	--WHEN ISNULL((SELECT BwtApril.PAID_RANK FROM BWT BwtApril WHERE BwtApril.PV_DATE_DATE = '2019-04-01' AND BwtApril.DIST_ID = DST.DIST_ID AND BwtApril.MARKETING_UNIT IN (1,2,58,91,63,82)),0) = BWT.PAID_RANK THEN 'Same'
+	WHEN ISNULL(BwtApril.PAID_RANK,0) &lt; BWT.PAID_RANK THEN 'Advance'
+	WHEN ISNULL(BwtApril.PAID_RANK,0) = BWT.PAID_RANK THEN 'Same'
+   ELSE 'Decrease' 
+   END as ChangeFromApril2019,
+   BWT.MARKETING_UNIT,
+   DST.EMAIL_ADDR,
+   DST.FLAG_4,
+   DST.ADDR,
+   DST.ADDR_2,
+   DST.ADDR_3,
+   DST.CITY,
+   DST.STATE,
+   DST.POSTAL_CODE,
+   DST.ENTRY_DATE,
+   BWT.END_RANK,
+   BWT.BEGIN_RANK,
+   MARKET.MARKET_NAME,
+   BWT.COUNTRY_CODE,
+   COALESCE(DST.CELL_PHONE, DST.HOME_PHONE, DST.WORK_PHONE) as PHONE
 FROM
-   DW.DBO.DST  
-   INNER JOIN DW.DBO.BWT ON (DW.dbo.DST.MDIST = DW.dbo.BWT.MDIST)
-   INNER JOIN DW.dbo.MARKET ON (DW.dbo.Market.UNI_MKTING_UNIT = DW.dbo.BWT.MARKETING_UNIT)
-   --INNER JOIN DW.DBO.RANK  Begin_Rank_Desc ON (BWT.BEGIN_RANK=Begin_Rank_Desc.RANK and BWT.MARKETING_UNIT=Begin_Rank_Desc.MARKET)
-   --INNER JOIN DW.DBO.RANK  End_Rank_Desc ON (BWT.END_RANK=End_Rank_Desc.RANK and BWT.MARKETING_UNIT=End_Rank_Desc.MARKET)
+   DW.dbo.DST  
+   INNER JOIN DW.dbo.BWT ON (DST.MDIST = BWT.MDIST)
+   INNER JOIN DW.dbo.MARKET ON (Market.UNI_MKTING_UNIT = BWT.MARKETING_UNIT)
+   --INNER JOIN RANK  Begin_Rank_Desc ON (BWT.BEGIN_RANK=Begin_Rank_Desc.RANK and BWT.MARKETING_UNIT=Begin_Rank_Desc.MARKET)
+   --INNER JOIN RANK  End_Rank_Desc ON (BWT.END_RANK=End_Rank_Desc.RANK and BWT.MARKETING_UNIT=End_Rank_Desc.MARKET)
+   LEFT OUTER JOIN
+   (
+	SELECT BwtApril.MDIST,BwtApril.DIST_ID,BwtApril.MARKETING_UNIT, BwtApril.PAID_RANK 
+	FROM DW.dbo.BWT BwtApril
+	WHERE
+		BwtApril.MARKETING_UNIT IN (@MarketingUnit) AND BwtApril.PV_DATE_DATE = '2019-04-01'   
+   )BwtApril ON (BwtApril.DIST_ID = DST.DIST_ID)
 WHERE 
   (
-   DW.dbo.DST.UNI_MKTING_UNIT IN (1,2,58,91,63,82)
+   DST.UNI_MKTING_UNIT IN (1,2,58,91,63,82)
    AND
-   DW.dbo.BWT.COUNTRY_CODE IN (@CountryCode)
+   BWT.COUNTRY_CODE IN (@CountryCode)
    AND
-   DW.dbo.BWT.PV_DATE_DATE = @PV_DATE
+   DST.UNI_MKTING_UNIT IN (@MarketingUnit)
+   AND
+   BWT.PV_DATE_DATE = @PV_DATE
    AND 
-   DW.dbo.BWT.END_RANK &gt; 2 
+   BWT.END_RANK &gt; 2 
    AND 
-   DW.dbo.BWT.END_RANK &gt; DW.dbo.BWT.BEGIN_RANK
-   --AND DW.dbo.DST.MDIST = '91-316568391'
-  )</CommandText>
+   BWT.END_RANK &gt; BWT.BEGIN_RANK
+   --AND DST.MDIST = '91-316568391'
+  )
+</CommandText>
       </Query>
       <Fields>
         <Field Name="NM1">
@@ -87,12 +110,24 @@ WHERE
           <DataField>PV_DATE</DataField>
           <rd:TypeName>System.DateTime</rd:TypeName>
         </Field>
+        <Field Name="BEGIN_RANK_NAME">
+          <DataField>BEGIN_RANK_NAME</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="PAID_RANK_NAME">
+          <DataField>PAID_RANK_NAME</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
         <Field Name="END_RANK_NAME">
           <DataField>END_RANK_NAME</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
-        <Field Name="BEGIN_RANK_NAME">
-          <DataField>BEGIN_RANK_NAME</DataField>
+        <Field Name="April2019Rank">
+          <DataField>April2019Rank</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="ChangeFromApril2019">
+          <DataField>ChangeFromApril2019</DataField>
           <rd:TypeName>System.String</rd:TypeName>
         </Field>
         <Field Name="MARKETING_UNIT">
@@ -217,10 +252,19 @@ WHERE
                   <Width>0.875in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1.35417in</Width>
+                  <Width>1.5in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1.39583in</Width>
+                  <Width>1.5in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1.5in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1.5in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1.5in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>2.375in</Width>
@@ -810,6 +854,62 @@ WHERE
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="Textbox6">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Paid Rank Name</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox6</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>CornflowerBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="Textbox9">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
@@ -856,6 +956,118 @@ WHERE
                               <Width>1pt</Width>
                             </RightBorder>
                             <BackgroundColor>CornflowerBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox10">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>April2019Rank</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox10</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>Khaki</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox14">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Change From April2019</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox14</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>Khaki</BackgroundColor>
                             <PaddingLeft>2pt</PaddingLeft>
                             <PaddingRight>2pt</PaddingRight>
                             <PaddingTop>2pt</PaddingTop>
@@ -1795,6 +2007,59 @@ WHERE
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="PAID_RANK_NAME">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!PAID_RANK_NAME.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Left</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>PAID_RANK_NAME</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="END_RANK_NAME">
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
@@ -1814,6 +2079,112 @@ WHERE
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>END_RANK_NAME</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="April2019Rank">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!April2019Rank.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Left</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>April2019Rank</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="ChangeFromApril2019">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!ChangeFromApril2019.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Left</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>ChangeFromApril2019</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -2241,6 +2612,9 @@ WHERE
                 <TablixMember />
                 <TablixMember />
                 <TablixMember />
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
               </TablixMembers>
             </TablixColumnHierarchy>
             <TablixRowHierarchy>
@@ -2255,7 +2629,7 @@ WHERE
             </TablixRowHierarchy>
             <DataSetName>Query1</DataSetName>
             <Height>0.5in</Height>
-            <Width>24.89583in</Width>
+            <Width>29.64583in</Width>
             <Style>
               <Border>
                 <Style>None</Style>
@@ -2263,10 +2637,10 @@ WHERE
             </Style>
           </Tablix>
         </ReportItems>
-        <Height>2in</Height>
+        <Height>0.5in</Height>
         <Style />
       </Body>
-      <Width>35.55083in</Width>
+      <Width>29.64583in</Width>
       <Page>
         <LeftMargin>1in</LeftMargin>
         <RightMargin>1in</RightMargin>
