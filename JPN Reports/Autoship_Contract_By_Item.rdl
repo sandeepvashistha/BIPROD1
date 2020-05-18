@@ -19,44 +19,64 @@
           </QueryParameter>
         </QueryParameters>
         <CommandText>SELECT
-  DW.dbo.DST.DIST_ID,
-  DW.dbo.ASH.ORDER_NUMBER,
-  DW.dbo.ASL.ITEM_CODE,
-  DW.dbo.ASL.ITEM_NAME_1,
-  DW.dbo.ASL.QTY_ORDERED,
-  ISNULL(DW.dbo.DST.REAL_NATIVE_NAME_1,DW.dbo.DST.NATIVE_NAME_1) as Native_Name,
-  sum(DW.dbo.ASH.PRICE_2) as PV,
-  DW.dbo.DST.ADDR,
-  DW.dbo.DST.ADDR_2,
-  DW.dbo.DST.ADDR_3,
-  DW.dbo.ASH.AUTO_BATCH
+  DST.DIST_ID,
+  ASH.ORDER_NUMBER,
+  (CASE WHEN ASH.STATUS=1 THEN '1 - Autoship'
+		WHEN ASH.STATUS=2 THEN '2 - Inactive AS'
+		WHEN ASH.STATUS=3 THEN '3 - Bussiness Protect'
+		WHEN ASH.STATUS=4 THEN '4 - Inactive BP'
+		WHEN ASH.STATUS=5 THEN '5 - Subscription Billing'
+		WHEN ASH.STATUS=6 THEN '6 - Inactive Sub Bill'
+		WHEN ASH.STATUS=9 THEN '9 - Deleted'
+		ELSE 'N/A'
+  END) Autoship_Status,
+  ASL.ITEM_CODE,
+  ASL.ITEM_NAME_1,
+  ASL.QTY_ORDERED,
+  ISNULL(DST.REAL_NATIVE_NAME_1,DST.NATIVE_NAME_1) as Native_Name,
+  sum(ASH.PRICE_2) as PV,
+  DST.ADDR,
+  DST.ADDR_2,
+  DST.ADDR_3,
+  ASH.AUTO_BATCH,
+  ASH.DISTRIBUTOR_STATUS Dist_Status
 FROM
   DW.dbo.ASH
-  INNER JOIN DW.dbo.ASL ON ( DW.dbo.ASH.MORDER = DW.dbo.ASL.MORDER )
-  LEFT OUTER JOIN DW.dbo.DST ON ( DW.dbo.DST.MDIST = DW.dbo.ASH.MDIST )
+  INNER JOIN DW.dbo.ASL ON ( ASH.MORDER = ASL.MORDER )
+  LEFT OUTER JOIN DW.dbo.DST ON ( DST.MDIST = ASH.MDIST )
 WHERE
-  ( (DW.dbo.DST.UNI_MKTING_UNIT = 81 OR DW.dbo.DST.HFLAG_2 = 'X') )
+  ( (DST.UNI_MKTING_UNIT = 81 OR DST.HFLAG_2 = 'X') )
   And
-  DW.dbo.DST.Country_Code = 'JPN'
+  DST.Country_Code = 'JPN'
   AND  
   (
-   substring(DW.dbo.ASH.MDIST,1,2)  =  '81'
+   substring(ASH.MDIST,1,2)  =  '81'
    AND
-   DW.dbo.ASH.STATUS  =  1
+   ASH.STATUS  =  1
    AND
-   DW.dbo.ASL.ITEM_CODE  =  @Item_Code
+   ASL.ITEM_CODE  =  @Item_Code
   )
 GROUP BY
-  DW.dbo.DST.DIST_ID, 
-  DW.dbo.ASH.ORDER_NUMBER, 
-  DW.dbo.ASL.ITEM_CODE, 
-  DW.dbo.ASL.ITEM_NAME_1, 
-  DW.dbo.ASL.QTY_ORDERED, 
-  ISNULL(DW.dbo.DST.REAL_NATIVE_NAME_1,DW.dbo.DST.NATIVE_NAME_1), 
-  DW.dbo.DST.ADDR, 
-  DW.dbo.DST.ADDR_2, 
-  DW.dbo.DST.ADDR_3, 
-  DW.dbo.ASH.AUTO_BATCH</CommandText>
+  DST.DIST_ID, 
+  ASH.ORDER_NUMBER, 
+  (CASE WHEN ASH.STATUS=1 THEN '1 - Autoship'
+		WHEN ASH.STATUS=2 THEN '2 - Inactive AS'
+		WHEN ASH.STATUS=3 THEN '3 - Bussiness Protect'
+		WHEN ASH.STATUS=4 THEN '4 - Inactive BP'
+		WHEN ASH.STATUS=5 THEN '5 - Subscription Billing'
+		WHEN ASH.STATUS=6 THEN '6 - Inactive Sub Bill'
+		WHEN ASH.STATUS=9 THEN '9 - Deleted'
+		ELSE 'N/A'
+  END),
+  ASL.ITEM_CODE, 
+  ASL.ITEM_NAME_1, 
+  ASL.QTY_ORDERED, 
+  ISNULL(DST.REAL_NATIVE_NAME_1,DST.NATIVE_NAME_1), 
+  DST.ADDR, 
+  DST.ADDR_2, 
+  DST.ADDR_3, 
+  ASH.AUTO_BATCH,
+  ASH.DISTRIBUTOR_STATUS</CommandText>
       </Query>
       <Fields>
         <Field Name="DIST_ID">
@@ -66,6 +86,10 @@ GROUP BY
         <Field Name="ORDER_NUMBER">
           <DataField>ORDER_NUMBER</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="Autoship_Status">
+          <DataField>Autoship_Status</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
         </Field>
         <Field Name="ITEM_CODE">
           <DataField>ITEM_CODE</DataField>
@@ -103,6 +127,10 @@ GROUP BY
           <DataField>AUTO_BATCH</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
+        <Field Name="Dist_Status">
+          <DataField>Dist_Status</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
       </Fields>
     </DataSet>
   </DataSets>
@@ -118,6 +146,9 @@ GROUP BY
                 </TablixColumn>
                 <TablixColumn>
                   <Width>0.83333in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1.5in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>0.70833in</Width>
@@ -145,6 +176,9 @@ GROUP BY
                 </TablixColumn>
                 <TablixColumn>
                   <Width>0.79167in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1in</Width>
                 </TablixColumn>
               </TablixColumns>
               <TablixRows>
@@ -230,6 +264,62 @@ GROUP BY
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox7</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>CornflowerBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox2">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Autoship Status</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox2</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -767,6 +857,62 @@ GROUP BY
                         </Textbox>
                       </CellContents>
                     </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox6">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Dist Status</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox6</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <BackgroundColor>CornflowerBlue</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
                   </TablixCells>
                 </TablixRow>
                 <TablixRow>
@@ -775,7 +921,6 @@ GROUP BY
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="DIST_ID">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -829,7 +974,6 @@ GROUP BY
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="ORDER_NUMBER">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -882,8 +1026,60 @@ GROUP BY
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="Autoship_Status">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!Autoship_Status.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Left</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Autoship_Status</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="ITEM_CODE">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -937,7 +1133,6 @@ GROUP BY
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="ITEM_NAME_1">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -991,7 +1186,6 @@ GROUP BY
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="QTY_ORDERED">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -1045,7 +1239,6 @@ GROUP BY
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="Native_Name">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -1099,7 +1292,6 @@ GROUP BY
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="PV">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -1153,7 +1345,6 @@ GROUP BY
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="ADDR">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -1207,7 +1398,6 @@ GROUP BY
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="ADDR_2">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -1261,7 +1451,6 @@ GROUP BY
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="ADDR_3">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -1315,7 +1504,6 @@ GROUP BY
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="AUTO_BATCH">
-                          <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -1366,12 +1554,67 @@ GROUP BY
                         </Textbox>
                       </CellContents>
                     </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Dist_Status">
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!Dist_Status.Value</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <FontSize>9pt</FontSize>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Right</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Dist_Status</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
                   </TablixCells>
                 </TablixRow>
               </TablixRows>
             </TablixBody>
             <TablixColumnHierarchy>
               <TablixMembers>
+                <TablixMember />
+                <TablixMember />
                 <TablixMember />
                 <TablixMember />
                 <TablixMember />
@@ -1397,7 +1640,7 @@ GROUP BY
             </TablixRowHierarchy>
             <DataSetName>BISQL01</DataSetName>
             <Height>0.5in</Height>
-            <Width>14.71875in</Width>
+            <Width>17.21875in</Width>
             <Style>
               <Border>
                 <Style>None</Style>
@@ -1405,10 +1648,10 @@ GROUP BY
             </Style>
           </Tablix>
         </ReportItems>
-        <Height>2in</Height>
+        <Height>0.5in</Height>
         <Style />
       </Body>
-      <Width>14.71875in</Width>
+      <Width>17.21875in</Width>
       <Page>
         <LeftMargin>1in</LeftMargin>
         <RightMargin>1in</RightMargin>
