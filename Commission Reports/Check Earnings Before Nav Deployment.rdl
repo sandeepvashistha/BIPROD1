@@ -30,10 +30,15 @@ select ERN.dist_id as DistId,
 --ERN.COUNTRY_CODE,
 ERN.pv_date_date as PvDate, 
 BWT.PAID_RANK,
-SUM(ERN.EARNINGS_AMOUNT) as GrossAmount
+SUM(ERN.EARNINGS_AMOUNT) as GrossAmount, 
+SUM(ERN.EARNINGS_AMOUNT /  isnull(VW_NAV_CURRENCY_ALL_DSR_T.Exchange_Rate_Amount,1)) as GrossAmountUsd
 from [SQLPRODA\SQLA].DW.dbo.ERN
 INNER JOIN [SQLPRODA\SQLA].DW.dbo.BWT ON BWT.MDIST = ERN.MDIST 
 	AND BWT.PV_DATE_DATE = ERN.PV_DATE_DATE 
+LEFT OUTER JOIN DW.dbo.DM_LOCATION_MANAGER lm ON lm.BACKOFFICE_MKTING_UNIT = ERN.MKTING_UNIT AND lm.COUNTRY_CODE = ERN.COUNTRY_CODE
+LEFT OUTER JOIN [SQLPRODA\SQLA].DW.dbo.VW_NAV_CURRENCY_ALL_DSR AS VW_NAV_CURRENCY_ALL_DSR_T ON VW_NAV_CURRENCY_ALL_DSR_T.to_currency = lm.CURRENCY_CODE AND ERN.PV_DATE_DATE
+				BETWEEN VW_NAV_CURRENCY_ALL_DSR_T.starting_date AND VW_NAV_CURRENCY_ALL_DSR_T.end_date AND VW_NAV_CURRENCY_ALL_DSR_T.from_currency = 'USD'
+
 where DATEDIFF(m,ERN.PV_DATE_DATE,GETDATE()) &lt; = 6 
 GROUP BY ERN.dist_id, 
 BWT.NM1, 
@@ -63,7 +68,25 @@ SELECT UnicityId
  + [DirectorLifestyleEarnings] 
  + [ManualAdjustmentEarnings] 
  + [ItalyEarnings] ) as TotalEarnings
+
+ , ([RetailEarnings] 
+ + [PersonalRebatesUnityEarnings] 
+ + [BusinessDevelopmentEarnings] 
+ + [FastStartUnityEarnings] 
+ + [Phase1Earnings] 
+ + [GenerationPayEarnings] 
+ + [CarBonusEarnings] 
+ + [LifestylePointsEarnings] 
+ + [PersonalRebatesGlobalEarnings] 
+ + [RoyaltiesEarnings] 
+ + [FastStartGlobalEarnings] 
+ + [DirectorLifestyleEarnings] 
+ + [ManualAdjustmentEarnings] 
+ + [ItalyEarnings] ) / isnull(VW_NAV_CURRENCY_ALL_DSR_T.Exchange_Rate_Amount,1) as TotalEarningsUSd
 FROM DW.dbo.UnityTBI cr
+LEFT OUTER JOIN DW.dbo.DM_LOCATION_MANAGER lm ON lm.BACKOFFICE_MKTING_UNIT = cr.SpokeId AND lm.COUNTRY_CODE = cr.CountryCode
+LEFT OUTER JOIN [SQLPRODA\SQLA].DW.dbo.VW_NAV_CURRENCY_ALL_DSR AS VW_NAV_CURRENCY_ALL_DSR_T ON VW_NAV_CURRENCY_ALL_DSR_T.to_currency = lm.CURRENCY_CODE AND CONVERT(DATE,RTRIM(cr.CommissionMonth) + '01')
+				BETWEEN VW_NAV_CURRENCY_ALL_DSR_T.starting_date AND VW_NAV_CURRENCY_ALL_DSR_T.end_date AND VW_NAV_CURRENCY_ALL_DSR_T.from_currency = 'USD'
 WHERE 1=1
 AND CONVERT(DATE,RTRIM(CommissionMonth) + '01') = @PvDate
 AND ([RetailEarnings] 
@@ -88,14 +111,6 @@ AND ([RetailEarnings]
           <DataField>DistId</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
         </Field>
-        <Field Name="CheckName">
-          <DataField>CheckName</DataField>
-          <rd:TypeName>System.String</rd:TypeName>
-        </Field>
-        <Field Name="COUNTRY_CODE">
-          <DataField>COUNTRY_CODE</DataField>
-          <rd:TypeName>System.String</rd:TypeName>
-        </Field>
         <Field Name="PvDate">
           <DataField>PvDate</DataField>
           <rd:TypeName>System.DateTime</rd:TypeName>
@@ -107,6 +122,18 @@ AND ([RetailEarnings]
         <Field Name="GrossAmount">
           <DataField>GrossAmount</DataField>
           <rd:TypeName>System.Decimal</rd:TypeName>
+        </Field>
+        <Field Name="GrossAmountUsd">
+          <DataField>GrossAmountUsd</DataField>
+          <rd:TypeName>System.Double</rd:TypeName>
+        </Field>
+        <Field Name="CheckName">
+          <DataField>CheckName</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="COUNTRY_CODE">
+          <DataField>COUNTRY_CODE</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
         </Field>
       </Fields>
     </DataSet>
@@ -289,6 +316,9 @@ AND ([RetailEarnings]
                   <Width>1in</Width>
                 </TablixColumn>
                 <TablixColumn>
+                  <Width>1.38542in</Width>
+                </TablixColumn>
+                <TablixColumn>
                   <Width>1in</Width>
                 </TablixColumn>
               </TablixColumns>
@@ -367,6 +397,58 @@ AND ([RetailEarnings]
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox14</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                            <LeftBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Color>Black</Color>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="GrossAmountUsd">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Sum(Fields!GrossAmountUsd.Value)</Value>
+                                  <Style>
+                                    <FontFamily>Arial</FontFamily>
+                                    <Format>#,0.00;(#,0.00)</Format>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>GrossAmountUsd</rd:DefaultName>
                           <Style>
                             <Border>
                               <Style>Solid</Style>
@@ -549,6 +631,78 @@ AND ([RetailEarnings]
                           </Paragraph>
                         </Paragraphs>
                         <rd:DefaultName>Textbox13</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <BottomBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </BottomBorder>
+                          <LeftBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Color>Black</Color>
+                            <Style>Solid</Style>
+                            <Width>1pt</Width>
+                          </RightBorder>
+                          <BackgroundColor>Khaki</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixHeader>
+                </TablixMember>
+                <TablixMember>
+                  <TablixHeader>
+                    <Size>0.375in</Size>
+                    <CellContents>
+                      <Textbox Name="Textbox1">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value> Total USD</Value>
+                                <Style>
+                                  <FontFamily>Arial</FontFamily>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value />
+                                <Style>
+                                  <FontFamily>Arial</FontFamily>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox1</rd:DefaultName>
                         <Style>
                           <Border>
                             <Style>Solid</Style>
@@ -830,7 +984,7 @@ AND ([RetailEarnings]
             <Top>0.14458in</Top>
             <Left>0.11333in</Left>
             <Height>0.625in</Height>
-            <Width>7.875in</Width>
+            <Width>9.26042in</Width>
             <Style>
               <Border>
                 <Style>None</Style>
